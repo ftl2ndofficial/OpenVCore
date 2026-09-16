@@ -1,11 +1,11 @@
 package vcore.injection;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.PostEffectPass;
-import net.minecraft.client.gl.PostEffectProcessor;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.client.renderer.PostPass;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -16,37 +16,37 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.injection.accesors.IPostProcessShader;
 import vcore.utility.interfaces.IShaderEffect;
 
-@Mixin(PostEffectProcessor.class)
+@Mixin(PostChain.class)
 public class MixinShaderEffect implements IShaderEffect {
    @Unique
    private final List<String> fakedBufferNames = new ArrayList<>();
    @Shadow
    @Final
-   private Map<String, Framebuffer> targetsByName;
+   private Map<String, RenderTarget> customRenderTargets;
    @Shadow
    @Final
-   private List<PostEffectPass> passes;
+   private List<PostPass> passes;
 
    @Override
-   public void addFakeTargetHook(String name, Framebuffer buffer) {
-      Framebuffer previousFramebuffer = this.targetsByName.get(name);
+   public void addFakeTargetHook(String name, RenderTarget buffer) {
+      RenderTarget previousFramebuffer = this.customRenderTargets.get(name);
       if (previousFramebuffer != buffer) {
          if (previousFramebuffer != null) {
-            for (PostEffectPass pass : this.passes) {
-               if (pass.input == previousFramebuffer) {
+            for (PostPass pass : this.passes) {
+               if (pass.inTarget == previousFramebuffer) {
                   ((IPostProcessShader)pass).setInput(buffer);
                }
 
-               if (pass.output == previousFramebuffer) {
+               if (pass.outTarget == previousFramebuffer) {
                   ((IPostProcessShader)pass).setOutput(buffer);
                }
             }
 
-            this.targetsByName.remove(name);
+            this.customRenderTargets.remove(name);
             this.fakedBufferNames.remove(name);
          }
 
-         this.targetsByName.put(name, buffer);
+         this.customRenderTargets.put(name, buffer);
          this.fakedBufferNames.add(name);
       }
    }
@@ -54,7 +54,7 @@ public class MixinShaderEffect implements IShaderEffect {
    @Inject(method = "close", at = @At("HEAD"))
    void deleteFakeBuffersHook(CallbackInfo ci) {
       for (String fakedBufferName : this.fakedBufferNames) {
-         this.targetsByName.remove(fakedBufferName);
+         this.customRenderTargets.remove(fakedBufferName);
       }
    }
 }

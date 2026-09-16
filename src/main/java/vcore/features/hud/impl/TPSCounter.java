@@ -1,13 +1,13 @@
 package vcore.features.hud.impl;
 
-import com.mojang.blaze3d.platform.GlStateManager.DstFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SrcFactor;
+import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
+import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
 import java.util.List;
 import java.util.function.Supplier;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphics;
 import vcore.core.Managers;
 import vcore.features.hud.HudElement;
 import vcore.features.modules.render.HudEditor;
@@ -22,18 +22,18 @@ public class TPSCounter extends HudElement {
    }
 
    @Override
-   public void render(DrawContext context) {
+   public void render(GuiGraphics context) {
       super.render(context);
-      String str = "TPS " + Formatting.WHITE + Managers.SERVER.getTPS();
+      String str = "TPS " + ChatFormatting.WHITE + Managers.SERVER.getTPS();
       float width = FontRenderers.getModulesRenderer().getStringWidth(str) + 21.0F;
-      float pX = this.getPosX() > mc.getWindow().getScaledWidth() / 2.0F ? this.getPosX() - width : this.getPosX();
-      Render2DEngine.drawHudBase(context.getMatrices(), pX, this.getPosY(), width, 13.0F, 3.0F);
-      Render2DEngine.drawRect(context.getMatrices(), pX + 14.0F, this.getPosY() + 2.0F, 0.5F, 8.0F, new Color(1157627903, true));
+      float pX = this.getPosX() > mc.getWindow().getGuiScaledWidth() / 2.0F ? this.getPosX() - width : this.getPosX();
+      Render2DEngine.drawHudBase(context.pose(), pX, this.getPosY(), width, 13.0F, 3.0F);
+      Render2DEngine.drawRect(context.pose(), pX + 14.0F, this.getPosY() + 2.0F, 0.5F, 8.0F, new Color(1157627903, true));
       Render2DEngine.setupRender();
-      RenderSystem.blendFunc(SrcFactor.SRC_ALPHA, DstFactor.ONE);
+      RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
       RenderSystem.setShaderTexture(0, TextureStorage.tpsIcon);
       Render2DEngine.renderGradientTexture(
-         context.getMatrices(),
+         context.pose(),
          pX + 2.0F,
          this.getPosY() + 1.0F,
          10.0,
@@ -50,7 +50,7 @@ public class TPSCounter extends HudElement {
          HudEditor.getColor(90)
       );
       Render2DEngine.endRender();
-      FontRenderers.getModulesRenderer().drawString(context.getMatrices(), str, pX + 18.0F, this.getPosY() + 5.0F, HudEditor.getColor(1).getRGB());
+      FontRenderers.getModulesRenderer().drawString(context.pose(), str, pX + 18.0F, this.getPosY() + 5.0F, HudEditor.getColor(1).getRGB());
       this.setBounds(pX, this.getPosY(), width, 13.0F);
    }
 }

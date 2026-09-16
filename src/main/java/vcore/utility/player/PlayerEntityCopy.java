@@ -2,29 +2,28 @@ package vcore.utility.player;
 
 import java.util.Objects;
 import java.util.UUID;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.entity.Entity.RemovalReason;
+import net.minecraft.client.player.RemotePlayer;
 import vcore.features.modules.Module;
 
-public class PlayerEntityCopy extends OtherClientPlayerEntity {
+public class PlayerEntityCopy extends RemotePlayer {
    public PlayerEntityCopy() {
-      super(Objects.requireNonNull(Module.mc.world), Objects.requireNonNull(Module.mc.player).getGameProfile());
-      this.copyFrom(Module.mc.player);
-      this.getPlayerListEntry();
-      this.dataTracker.set(PLAYER_MODEL_PARTS, (Byte)Module.mc.player.getDataTracker().get(PLAYER_MODEL_PARTS));
-      this.setUuid(UUID.randomUUID());
+      super(Objects.requireNonNull(Module.mc.level), Objects.requireNonNull(Module.mc.player).getGameProfile());
+      this.restoreFrom(Module.mc.player);
+      this.getPlayerInfo();
+      this.entityData.set(DATA_PLAYER_MODE_CUSTOMISATION, (Byte)Module.mc.player.getEntityData().get(DATA_PLAYER_MODE_CUSTOMISATION));
+      this.setUUID(UUID.randomUUID());
    }
 
    public void spawn() {
-      if (Module.mc.world != null) {
+      if (Module.mc.level != null) {
          this.unsetRemoved();
-         Module.mc.world.addEntity(this);
+         Module.mc.level.addEntity(this);
       }
    }
 
    public void deSpawn() {
-      if (Module.mc.world != null) {
-         Module.mc.world.removeEntity(this.getId(), RemovalReason.DISCARDED);
+      if (Module.mc.level != null) {
+         Module.mc.level.removeEntity(this.getId(), RemovalReason.DISCARDED);
       }
    }
 }

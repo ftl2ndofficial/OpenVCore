@@ -1,10 +1,10 @@
 package vcore.features.cmd.impl;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import net.minecraft.block.Block;
-import net.minecraft.command.CommandSource;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.cmd.Command;
@@ -16,11 +16,11 @@ public class BlockESPCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(literal("reset").executes(context -> {
          ModuleManager.blockESP.selectedBlocks.getValue().clear();
          sendMessage("BlockESP got reset.");
-         mc.worldRenderer.reload();
+         mc.levelRenderer.allChanged();
          return 1;
       }));
       builder.then(literal("add").then(arg("block", SearchArgumentType.create()).executes(context -> {
@@ -28,12 +28,12 @@ public class BlockESPCommand extends Command {
          Block result = getRegisteredBlock(blockName);
          if (result != null) {
             ModuleManager.blockESP.selectedBlocks.getValue().add(result);
-            sendMessage(Formatting.GREEN + blockName + " added to BlockESP");
+            sendMessage(ChatFormatting.GREEN + blockName + " added to BlockESP");
          } else {
-            sendMessage(Formatting.RED + "There is no such block!");
+            sendMessage(ChatFormatting.RED + "There is no such block!");
          }
 
-         mc.worldRenderer.reload();
+         mc.levelRenderer.allChanged();
          return 1;
       })));
       builder.then(literal("del").then(arg("block", SearchArgumentType.create()).executes(context -> {
@@ -41,12 +41,12 @@ public class BlockESPCommand extends Command {
          Block result = getRegisteredBlock(blockName);
          if (result != null) {
             ModuleManager.blockESP.selectedBlocks.getValue().remove(result);
-            sendMessage(Formatting.GREEN + blockName + " removed from BlockESP");
+            sendMessage(ChatFormatting.GREEN + blockName + " removed from BlockESP");
          } else {
-            sendMessage(Formatting.RED + "There is no such block!");
+            sendMessage(ChatFormatting.RED + "There is no such block!");
          }
 
-         mc.worldRenderer.reload();
+         mc.levelRenderer.allChanged();
          return 1;
       })));
       builder.executes(context -> {
@@ -70,8 +70,8 @@ public class BlockESPCommand extends Command {
    }
 
    public static Block getRegisteredBlock(String blockName) {
-      for (Block block : Registries.BLOCK) {
-         if (block.getTranslationKey().replace("block.minecraft.", "").equalsIgnoreCase(blockName.replace("block.minecraft.", ""))) {
+      for (Block block : BuiltInRegistries.BLOCK) {
+         if (block.getDescriptionId().replace("block.minecraft.", "").equalsIgnoreCase(blockName.replace("block.minecraft.", ""))) {
             return block;
          }
       }

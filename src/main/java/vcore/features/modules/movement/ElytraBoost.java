@@ -1,10 +1,10 @@
 package vcore.features.modules.movement;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventFireworkMotion;
 import vcore.events.impl.EventMove;
@@ -96,7 +96,7 @@ public final class ElytraBoost extends Module {
          speedXZ = Math.min(this.fireworkSpeedMaxGlobal.getValue().floatValue(), speedXZ);
       }
 
-      event.setVector(new Vec3d(speedXZ, speedY, speedXZ));
+      event.setVector(new Vec3(speedXZ, speedY, speedXZ));
       if (boosterWorking) {
          event.cancel();
       }
@@ -104,14 +104,14 @@ public final class ElytraBoost extends Module {
 
    private boolean shouldKeepBoosting() {
       if (Aura.target instanceof LivingEntity livingTarget && ModuleManager.elytraTarget.shouldTarget(livingTarget)) {
-         Vec3d targetVec = ModuleManager.elytraTarget.getTargetVec(livingTarget, true);
+         Vec3 targetVec = ModuleManager.elytraTarget.getTargetVec(livingTarget, true);
          if (targetVec == null) {
             return true;
          }
 
          double attackDistance = Math.max(0.0, ModuleManager.elytraTarget.getPrediction(livingTarget) - 0.5);
          double stopDistance = attackDistance * 0.7;
-         double currentDistance = mc.player.getPos().distanceTo(targetVec);
+         double currentDistance = mc.player.position().distanceTo(targetVec);
          return currentDistance > stopDistance && !mc.player.getBoundingBox().contains(targetVec);
       } else {
          return true;
@@ -119,16 +119,16 @@ public final class ElytraBoost extends Module {
    }
 
    private void handleControlMove(EventMove event) {
-      if (mc.player != null && mc.world != null && mc.player.isFallFlying()) {
+      if (mc.player != null && mc.level != null && mc.player.isFallFlying()) {
          if (Aura.target instanceof LivingEntity livingTarget) {
             if (!this.shouldRespectElytraMotionFreeze()) {
-               Vec3d safeMotionPoint = this.getSafeMotionPoint(livingTarget);
-               Vec3d delta = safeMotionPoint != null ? this.getDeltaToPoint(safeMotionPoint) : this.getControlDelta(livingTarget);
-               Vec3d velocity = this.getControlVelocity(livingTarget, delta);
+               Vec3 safeMotionPoint = this.getSafeMotionPoint(livingTarget);
+               Vec3 delta = safeMotionPoint != null ? this.getDeltaToPoint(safeMotionPoint) : this.getControlDelta(livingTarget);
+               Vec3 velocity = this.getControlVelocity(livingTarget, delta);
                event.setX(velocity.x);
                event.setY(velocity.y);
                event.setZ(velocity.z);
-               mc.player.setVelocity(velocity);
+               mc.player.setDeltaMovement(velocity);
                event.cancel();
             }
          }
@@ -143,44 +143,44 @@ public final class ElytraBoost extends Module {
          && !ModuleManager.elytraMotion.isElytraTargetPredictActive();
    }
 
-   private Vec3d getSafeMotionPoint(LivingEntity livingTarget) {
+   private Vec3 getSafeMotionPoint(LivingEntity livingTarget) {
       return ModuleManager.elytraMotion != null && ModuleManager.elytraMotion.isEnabled()
          ? ModuleManager.elytraMotion.getSafeMotionControlPoint(livingTarget)
          : null;
    }
 
-   private Vec3d getDeltaToPoint(Vec3d point) {
+   private Vec3 getDeltaToPoint(Vec3 point) {
       return point.subtract(mc.player.getBoundingBox().getCenter());
    }
 
-   private Vec3d getControlDelta(LivingEntity livingTarget) {
+   private Vec3 getControlDelta(LivingEntity livingTarget) {
       return ModuleManager.elytraTarget.shouldTarget(livingTarget) ? this.getDeltaToPredictedHitbox(livingTarget) : this.getDeltaToTargetHitbox(livingTarget);
    }
 
-   private Vec3d getDeltaToPredictedHitbox(LivingEntity livingTarget) {
-      Box playerBox = mc.player.getBoundingBox();
-      Box predictedBox = this.getPredictedHitbox(livingTarget);
+   private Vec3 getDeltaToPredictedHitbox(LivingEntity livingTarget) {
+      AABB playerBox = mc.player.getBoundingBox();
+      AABB predictedBox = this.getPredictedHitbox(livingTarget);
       return predictedBox.getCenter().subtract(playerBox.getCenter());
    }
 
-   private Vec3d getDeltaToTargetHitbox(LivingEntity livingTarget) {
-      Box playerBox = mc.player.getBoundingBox();
-      Box targetBox = livingTarget.getBoundingBox();
+   private Vec3 getDeltaToTargetHitbox(LivingEntity livingTarget) {
+      AABB playerBox = mc.player.getBoundingBox();
+      AABB targetBox = livingTarget.getBoundingBox();
       return targetBox.getCenter().subtract(playerBox.getCenter());
    }
 
-   private Box getPredictedHitbox(LivingEntity livingTarget) {
-      Vec3d predictionOffset = livingTarget.getVelocity().multiply(ModuleManager.elytraTarget.getPrediction(livingTarget));
-      return livingTarget.getBoundingBox().offset(predictionOffset);
+   private AABB getPredictedHitbox(LivingEntity livingTarget) {
+      Vec3 predictionOffset = livingTarget.getDeltaMovement().scale(ModuleManager.elytraTarget.getPrediction(livingTarget));
+      return livingTarget.getBoundingBox().move(predictionOffset);
    }
 
-   private Vec3d getControlVelocity(LivingEntity livingTarget, Vec3d delta) {
-      Vec3d followVelocity = livingTarget.getVelocity();
-      Vec3d desiredVelocity = followVelocity.add(delta);
+   private Vec3 getControlVelocity(LivingEntity livingTarget, Vec3 delta) {
+      Vec3 followVelocity = livingTarget.getDeltaMovement();
+      Vec3 desiredVelocity = followVelocity.add(delta);
       return this.limitControlVelocity(desiredVelocity);
    }
 
-   private Vec3d limitControlVelocity(Vec3d velocity) {
+   private Vec3 limitControlVelocity(Vec3 velocity) {
       double horizontalLimit = this.yawSpeed.getValue().floatValue() / 20.0;
       double verticalLimit = this.pitchSpeed.getValue().floatValue() / 20.0;
       double horizontalLength = Math.hypot(velocity.x, velocity.z);
@@ -192,14 +192,14 @@ public final class ElytraBoost extends Module {
          z *= ratio;
       }
 
-      double y = MathHelper.clamp(velocity.y, -verticalLimit, verticalLimit);
-      return new Vec3d(x, y, z);
+      double y = Mth.clamp(velocity.y, -verticalLimit, verticalLimit);
+      return new Vec3(x, y, z);
    }
 
    public double getBoostV2() {
       LivingEntity target = Aura.target instanceof LivingEntity living ? living : null;
-      float lastYaw = target != null ? ModuleManager.aura.rotationYaw : mc.player.getYaw();
-      float lastPitch = target != null ? ModuleManager.aura.rotationPitch : mc.player.getPitch();
+      float lastYaw = target != null ? ModuleManager.aura.rotationYaw : mc.player.getYRot();
+      float lastPitch = target != null ? ModuleManager.aura.rotationPitch : mc.player.getXRot();
       if (Math.abs(lastPitch) > 55.0F) {
          return 1.55;
       }
@@ -232,8 +232,8 @@ public final class ElytraBoost extends Module {
 
    public double getBoostV1() {
       LivingEntity target = Aura.target instanceof LivingEntity living ? living : null;
-      float lastYaw = target != null ? ModuleManager.aura.rotationYaw : mc.player.getYaw();
-      float lastPitch = target != null ? ModuleManager.aura.rotationPitch : mc.player.getPitch();
+      float lastYaw = target != null ? ModuleManager.aura.rotationYaw : mc.player.getYRot();
+      float lastPitch = target != null ? ModuleManager.aura.rotationPitch : mc.player.getXRot();
       if (Math.abs(lastPitch) > 55.0F) {
          return 1.55;
       }
@@ -251,7 +251,7 @@ public final class ElytraBoost extends Module {
          return 1.6F;
       }
 
-      float yawDistance = Math.abs(MathHelper.wrapDegrees(lastYaw) - YAW_VECTORS[closestYawIndex]);
+      float yawDistance = Math.abs(Mth.wrapDegrees(lastYaw) - YAW_VECTORS[closestYawIndex]);
       float maxBoost = 2.2F;
       float minBoostValue = 1.6F;
       float maxDistance = 12.0F;
@@ -286,8 +286,8 @@ public final class ElytraBoost extends Module {
       }
 
       int closestYawIndex1 = findClosestVector(lastYaw, YAW_VECTORS);
-      float yawDistance1 = Math.abs(MathHelper.wrapDegrees(lastYaw) - YAW_VECTORS[closestYawIndex1]);
-      float yawDistance = Math.abs(MathHelper.wrapDegrees(lastPitch) - PITCH_VECTORS[closestYawIndex]);
+      float yawDistance1 = Math.abs(Mth.wrapDegrees(lastYaw) - YAW_VECTORS[closestYawIndex1]);
+      float yawDistance = Math.abs(Mth.wrapDegrees(lastPitch) - PITCH_VECTORS[closestYawIndex]);
       float maxBoost = getVariableSpeed(yawDistance);
       float minBoostValue = 1.6F;
       float maxDistance = 45.0F;
@@ -305,7 +305,7 @@ public final class ElytraBoost extends Module {
       float minDist = Float.MAX_VALUE;
 
       for (int i = 0; i < vectors.length; i++) {
-         float dist = Math.abs(MathHelper.wrapDegrees(angle) - vectors[i]);
+         float dist = Math.abs(Mth.wrapDegrees(angle) - vectors[i]);
          if (dist < minDist) {
             minDist = dist;
             minDistIndex = i;

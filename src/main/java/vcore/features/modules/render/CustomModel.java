@@ -1,27 +1,27 @@
 package vcore.features.modules.render;
 
-import net.minecraft.client.model.Dilation;
-import net.minecraft.client.model.ModelData;
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.model.ModelPartBuilder;
-import net.minecraft.client.model.ModelPartData;
-import net.minecraft.client.model.ModelTransform;
-import net.minecraft.client.model.TexturedModelData;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.model.PlayerEntityModel;
-import net.minecraft.client.util.SkinTextures;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerModelPart;
-import net.minecraft.item.Items;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.PlayerModelPart;
+import net.minecraft.world.item.Items;
 import vcore.core.Managers;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -36,18 +36,18 @@ public class CustomModel extends Module {
    private static final float VANILLA_MODEL_HEIGHT = 16.0F;
    private static final float RABBIT_MODEL_HEIGHT = 12.666667F;
    private static final float RABBIT_VERTICAL_OFFSET = 0.7F;
-   private static final Identifier RABBIT_TEXTURE = Identifier.of("vcore", "textures/custommodel/rabbit.png");
-   private static final Identifier FREDDY_TEXTURE = Identifier.of("vcore", "textures/custommodel/freddy.png");
+   private static final ResourceLocation RABBIT_TEXTURE = ResourceLocation.fromNamespaceAndPath("vcore", "textures/custommodel/rabbit.png");
+   private static final ResourceLocation FREDDY_TEXTURE = ResourceLocation.fromNamespaceAndPath("vcore", "textures/custommodel/freddy.png");
    private final CustomModel.RabbitModel rabbitModel = new CustomModel.RabbitModel();
    private final CustomModel.FreddyModel freddyModel = new CustomModel.FreddyModel();
    private final ModelPart rabbitCape = this.createCapePart(12.666667F);
-   private AbstractClientPlayerEntity renderingPlayer;
+   private AbstractClientPlayer renderingPlayer;
 
    public CustomModel() {
       super("CustomModel", "Renders selected custom model variants.", Module.Category.RENDER);
    }
 
-   public Identifier getTexture(AbstractClientPlayerEntity player, Identifier fallback) {
+   public ResourceLocation getTexture(AbstractClientPlayer player, ResourceLocation fallback) {
       if (!this.shouldApply(player)) {
          return fallback;
       }
@@ -58,24 +58,24 @@ public class CustomModel extends Module {
       };
    }
 
-   public void beginPlayerRender(AbstractClientPlayerEntity player) {
+   public void beginPlayerRender(AbstractClientPlayer player) {
       this.renderingPlayer = player;
    }
 
-   public void endPlayerRender(AbstractClientPlayerEntity player) {
+   public void endPlayerRender(AbstractClientPlayer player) {
       if (this.renderingPlayer == player) {
          this.renderingPlayer = null;
       }
    }
 
-   public AbstractClientPlayerEntity getRenderingPlayer() {
+   public AbstractClientPlayer getRenderingPlayer() {
       return this.renderingPlayer;
    }
 
    public boolean renderCustomPlayerModel(
-      AbstractClientPlayerEntity player,
-      PlayerEntityModel<?> vanillaModel,
-      MatrixStack matrices,
+      AbstractClientPlayer player,
+      PlayerModel<?> vanillaModel,
+      PoseStack matrices,
       VertexConsumer vertexConsumer,
       int light,
       int overlay,
@@ -96,36 +96,36 @@ public class CustomModel extends Module {
       return true;
    }
 
-   public boolean renderCape(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, AbstractClientPlayerEntity player, float tickDelta) {
+   public boolean renderCape(PoseStack matrices, MultiBufferSource vertexConsumers, int light, AbstractClientPlayer player, float tickDelta) {
       if (!this.shouldRenderRabbitCape(player)) {
          return false;
       }
 
-      SkinTextures skinTextures = player.getSkinTextures();
-      Identifier capeTexture = skinTextures.capeTexture();
+      PlayerSkin skinTextures = player.getSkin();
+      ResourceLocation capeTexture = skinTextures.capeTexture();
       if (capeTexture == null) {
          return false;
       }
 
-      matrices.push();
+      matrices.pushPose();
       matrices.translate(0.0F, 0.0F, 0.125F);
       matrices.translate(0.0F, 0.7F, 0.0F);
       this.applyVanillaCapeRotation(matrices, player, tickDelta);
-      VertexConsumer vertexConsumer = vertexConsumers.getBuffer(RenderLayer.getEntityCutout(capeTexture));
-      this.rabbitCape.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
-      matrices.pop();
+      VertexConsumer vertexConsumer = vertexConsumers.getBuffer(RenderType.entityCutout(capeTexture));
+      this.rabbitCape.render(matrices, vertexConsumer, light, OverlayTexture.NO_OVERLAY);
+      matrices.popPose();
       return true;
    }
 
    public boolean shouldHideArmorSlotRender(LivingEntity entity) {
-      return entity instanceof AbstractClientPlayerEntity player && this.shouldApply(player);
+      return entity instanceof AbstractClientPlayer player && this.shouldApply(player);
    }
 
    public boolean shouldTransformHeldItem(LivingEntity entity) {
-      return entity instanceof AbstractClientPlayerEntity player && this.shouldApply(player);
+      return entity instanceof AbstractClientPlayer player && this.shouldApply(player);
    }
 
-   public void applyHeldItemRootTransform(MatrixStack matrices, LivingEntity entity) {
+   public void applyHeldItemRootTransform(PoseStack matrices, LivingEntity entity) {
       if (this.shouldTransformHeldItem(entity)) {
          switch ((CustomModel.Mode)this.mode.getValue()) {
             case Rabbit:
@@ -139,45 +139,45 @@ public class CustomModel extends Module {
       }
    }
 
-   private void renderRabbit(PlayerEntityModel<?> vanillaModel, MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, int color) {
+   private void renderRabbit(PlayerModel<?> vanillaModel, PoseStack matrices, VertexConsumer vertexConsumer, int light, int overlay, int color) {
       this.copyRotation(this.rabbitModel.head, vanillaModel.head);
       this.copyRotation(this.rabbitModel.leftArm, vanillaModel.leftArm);
       this.copyRotation(this.rabbitModel.rightArm, vanillaModel.rightArm);
       this.copyRotation(this.rabbitModel.leftLeg, vanillaModel.leftLeg);
       this.copyRotation(this.rabbitModel.rightLeg, vanillaModel.rightLeg);
-      matrices.push();
+      matrices.pushPose();
       this.rabbitModel.root.render(matrices, vertexConsumer, light, overlay, color);
-      matrices.pop();
+      matrices.popPose();
    }
 
-   private void renderFreddy(PlayerEntityModel<?> vanillaModel, MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, int color) {
+   private void renderFreddy(PlayerModel<?> vanillaModel, PoseStack matrices, VertexConsumer vertexConsumer, int light, int overlay, int color) {
       this.copyRotation(this.freddyModel.head, vanillaModel.head);
       this.copyRotation(this.freddyModel.leftArm, vanillaModel.leftArm);
       this.copyRotation(this.freddyModel.rightArm, vanillaModel.rightArm);
       this.copyRotation(this.freddyModel.leftLeg, vanillaModel.leftLeg);
       this.copyRotation(this.freddyModel.rightLeg, vanillaModel.rightLeg);
-      matrices.push();
+      matrices.pushPose();
       matrices.scale(0.75F, 0.65F, 0.75F);
       matrices.translate(0.0, 0.85F, 0.0);
       this.freddyModel.root.render(matrices, vertexConsumer, light, overlay, color);
-      matrices.pop();
+      matrices.popPose();
    }
 
    private void copyRotation(ModelPart target, ModelPart source) {
-      target.pitch = source.pitch;
-      target.yaw = source.yaw;
-      target.roll = source.roll;
+      target.xRot = source.xRot;
+      target.yRot = source.yRot;
+      target.zRot = source.zRot;
    }
 
-   private boolean shouldRenderRabbitCape(AbstractClientPlayerEntity player) {
+   private boolean shouldRenderRabbitCape(AbstractClientPlayer player) {
       if (this.mode.getValue() != CustomModel.Mode.Rabbit || !this.shouldApply(player)) {
          return false;
       } else {
-         return !player.isInvisible() && player.isPartVisible(PlayerModelPart.CAPE) ? !player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA) : false;
+         return !player.isInvisible() && player.isModelPartShown(PlayerModelPart.CAPE) ? !player.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA) : false;
       }
    }
 
-   private boolean shouldApply(AbstractClientPlayerEntity player) {
+   private boolean shouldApply(AbstractClientPlayer player) {
       if (fullNullCheck() || player == null || !this.isEnabled()) {
          return false;
       } else if (player == mc.player) {
@@ -187,41 +187,41 @@ public class CustomModel extends Module {
       }
    }
 
-   private void applyVanillaCapeRotation(MatrixStack matrices, AbstractClientPlayerEntity player, float tickDelta) {
-      double capeX = MathHelper.lerp(tickDelta, player.prevCapeX, player.capeX) - MathHelper.lerp(tickDelta, player.prevX, player.getX());
-      double capeY = MathHelper.lerp(tickDelta, player.prevCapeY, player.capeY) - MathHelper.lerp(tickDelta, player.prevY, player.getY());
-      double capeZ = MathHelper.lerp(tickDelta, player.prevCapeZ, player.capeZ) - MathHelper.lerp(tickDelta, player.prevZ, player.getZ());
-      float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, player.prevBodyYaw, player.bodyYaw);
-      double sinYaw = MathHelper.sin(bodyYaw * (float) (Math.PI / 180.0));
-      double negCosYaw = -MathHelper.cos(bodyYaw * (float) (Math.PI / 180.0));
+   private void applyVanillaCapeRotation(PoseStack matrices, AbstractClientPlayer player, float tickDelta) {
+      double capeX = Mth.lerp(tickDelta, player.xCloakO, player.xCloak) - Mth.lerp(tickDelta, player.xo, player.getX());
+      double capeY = Mth.lerp(tickDelta, player.yCloakO, player.yCloak) - Mth.lerp(tickDelta, player.yo, player.getY());
+      double capeZ = Mth.lerp(tickDelta, player.zCloakO, player.zCloak) - Mth.lerp(tickDelta, player.zo, player.getZ());
+      float bodyYaw = Mth.rotLerp(tickDelta, player.yBodyRotO, player.yBodyRot);
+      double sinYaw = Mth.sin(bodyYaw * (float) (Math.PI / 180.0));
+      double negCosYaw = -Mth.cos(bodyYaw * (float) (Math.PI / 180.0));
       float verticalSwing = (float)capeY * 10.0F;
-      verticalSwing = MathHelper.clamp(verticalSwing, -6.0F, 32.0F);
+      verticalSwing = Mth.clamp(verticalSwing, -6.0F, 32.0F);
       float backwardSwing = (float)(capeX * sinYaw + capeZ * negCosYaw) * 100.0F;
-      backwardSwing = MathHelper.clamp(backwardSwing, 0.0F, 150.0F);
+      backwardSwing = Mth.clamp(backwardSwing, 0.0F, 150.0F);
       float sideSwing = (float)(capeX * negCosYaw - capeZ * sinYaw) * 100.0F;
-      sideSwing = MathHelper.clamp(sideSwing, -20.0F, 20.0F);
+      sideSwing = Mth.clamp(sideSwing, -20.0F, 20.0F);
       if (backwardSwing < 0.0F) {
          backwardSwing = 0.0F;
       }
 
-      float stride = MathHelper.lerp(tickDelta, player.prevStrideDistance, player.strideDistance);
-      verticalSwing += MathHelper.sin(MathHelper.lerp(tickDelta, player.prevHorizontalSpeed, player.horizontalSpeed) * 6.0F) * 32.0F * stride;
-      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(6.0F + backwardSwing / 2.0F + verticalSwing));
-      matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(sideSwing / 2.0F));
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - sideSwing / 2.0F));
+      float stride = Mth.lerp(tickDelta, player.oBob, player.bob);
+      verticalSwing += Mth.sin(Mth.lerp(tickDelta, player.walkDistO, player.walkDist) * 6.0F) * 32.0F * stride;
+      matrices.mulPose(Axis.XP.rotationDegrees(6.0F + backwardSwing / 2.0F + verticalSwing));
+      matrices.mulPose(Axis.ZP.rotationDegrees(sideSwing / 2.0F));
+      matrices.mulPose(Axis.YP.rotationDegrees(180.0F - sideSwing / 2.0F));
    }
 
    private ModelPart createCapePart(float height) {
-      ModelData modelData = new ModelData();
+      MeshDefinition modelData = new MeshDefinition();
       modelData.getRoot()
-         .addChild(
-            "cape", ModelPartBuilder.create().uv(0, 0).cuboid(-5.0F, 0.0F, -1.0F, 10.0F, height, 1.0F, Dilation.NONE), ModelTransform.pivot(0.0F, 0.0F, 0.0F)
+         .addOrReplaceChild(
+            "cape", CubeListBuilder.create().texOffs(0, 0).addBox(-5.0F, 0.0F, -1.0F, 10.0F, height, 1.0F, CubeDeformation.NONE), PartPose.offset(0.0F, 0.0F, 0.0F)
          );
-      return TexturedModelData.of(modelData, 64, 32).createModel().getChild("cape");
+      return LayerDefinition.create(modelData, 64, 32).bakeRoot().getChild("cape");
    }
 
-   private static ModelPartBuilder box(int textureX, int textureY, float x, float y, float z, float width, float height, float depth) {
-      return ModelPartBuilder.create().uv(textureX, textureY).cuboid(x, y, z, width, height, depth, Dilation.NONE);
+   private static CubeListBuilder box(int textureX, int textureY, float x, float y, float z, float width, float height, float depth) {
+      return CubeListBuilder.create().texOffs(textureX, textureY).addBox(x, y, z, width, height, depth, CubeDeformation.NONE);
    }
 
    private static final class FreddyModel {
@@ -233,89 +233,89 @@ public class CustomModel extends Module {
       private final ModelPart rightLeg = this.root.getChild("legRight");
 
       private static ModelPart createRoot() {
-         ModelData modelData = new ModelData();
-         ModelPartData root = modelData.getRoot();
-         ModelPartData fredbody = root.addChild(
-            "fredbody", CustomModel.box(0, 0, -1.0F, -14.0F, -1.0F, 2.0F, 24.0F, 2.0F), ModelTransform.pivot(0.0F, -9.0F, 0.0F)
+         MeshDefinition modelData = new MeshDefinition();
+         PartDefinition root = modelData.getRoot();
+         PartDefinition fredbody = root.addOrReplaceChild(
+            "fredbody", CustomModel.box(0, 0, -1.0F, -14.0F, -1.0F, 2.0F, 24.0F, 2.0F), PartPose.offset(0.0F, -9.0F, 0.0F)
          );
-         fredbody.addChild(
-            "torso", CustomModel.box(8, 0, -6.0F, -9.0F, -4.0F, 12.0F, 18.0F, 8.0F), ModelTransform.of(0.0F, 0.0F, 0.0F, (float) (Math.PI / 180.0), 0.0F, 0.0F)
+         fredbody.addOrReplaceChild(
+            "torso", CustomModel.box(8, 0, -6.0F, -9.0F, -4.0F, 12.0F, 18.0F, 8.0F), PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, (float) (Math.PI / 180.0), 0.0F, 0.0F)
          );
-         fredbody.addChild("crotch", CustomModel.box(56, 0, -5.5F, 0.0F, -3.5F, 11.0F, 3.0F, 7.0F), ModelTransform.pivot(0.0F, 9.5F, 0.0F));
-         ModelPartData armRight = fredbody.addChild(
+         fredbody.addOrReplaceChild("crotch", CustomModel.box(56, 0, -5.5F, 0.0F, -3.5F, 11.0F, 3.0F, 7.0F), PartPose.offset(0.0F, 9.5F, 0.0F));
+         PartDefinition armRight = fredbody.addOrReplaceChild(
             "armRight",
             CustomModel.box(48, 0, -1.0F, 0.0F, -1.0F, 2.0F, 10.0F, 2.0F),
-            ModelTransform.of(-6.5F, -8.0F, 0.0F, 0.0F, 0.0F, (float) (Math.PI / 12))
+            PartPose.offsetAndRotation(-6.5F, -8.0F, 0.0F, 0.0F, 0.0F, (float) (Math.PI / 12))
          );
-         armRight.addChild("armRightpad", CustomModel.box(70, 10, -2.5F, 0.0F, -2.5F, 5.0F, 9.0F, 5.0F), ModelTransform.pivot(0.0F, 0.5F, 0.0F));
-         ModelPartData armRight2 = armRight.addChild(
+         armRight.addOrReplaceChild("armRightpad", CustomModel.box(70, 10, -2.5F, 0.0F, -2.5F, 5.0F, 9.0F, 5.0F), PartPose.offset(0.0F, 0.5F, 0.0F));
+         PartDefinition armRight2 = armRight.addOrReplaceChild(
             "armRight2",
             CustomModel.box(90, 20, -1.0F, 0.0F, -1.0F, 2.0F, 8.0F, 2.0F),
-            ModelTransform.of(0.0F, 9.6F, 0.0F, (float) (-Math.PI / 18), 0.0F, 0.0F)
+            PartPose.offsetAndRotation(0.0F, 9.6F, 0.0F, (float) (-Math.PI / 18), 0.0F, 0.0F)
          );
-         armRight2.addChild("armRightpad2", CustomModel.box(0, 26, -2.5F, 0.0F, -2.5F, 5.0F, 7.0F, 5.0F), ModelTransform.pivot(0.0F, 0.5F, 0.0F));
-         armRight2.addChild(
-            "handRight", CustomModel.box(20, 26, -2.0F, 0.0F, -2.5F, 4.0F, 4.0F, 5.0F), ModelTransform.of(0.0F, 8.0F, 0.0F, 0.0F, 0.0F, -0.05235988F)
+         armRight2.addOrReplaceChild("armRightpad2", CustomModel.box(0, 26, -2.5F, 0.0F, -2.5F, 5.0F, 7.0F, 5.0F), PartPose.offset(0.0F, 0.5F, 0.0F));
+         armRight2.addOrReplaceChild(
+            "handRight", CustomModel.box(20, 26, -2.0F, 0.0F, -2.5F, 4.0F, 4.0F, 5.0F), PartPose.offsetAndRotation(0.0F, 8.0F, 0.0F, 0.0F, 0.0F, -0.05235988F)
          );
-         ModelPartData armLeft = fredbody.addChild(
+         PartDefinition armLeft = fredbody.addOrReplaceChild(
             "armLeft",
             CustomModel.box(62, 10, -1.0F, 0.0F, -1.0F, 2.0F, 10.0F, 2.0F),
-            ModelTransform.of(6.5F, -8.0F, 0.0F, 0.0F, 0.0F, (float) (-Math.PI / 12))
+            PartPose.offsetAndRotation(6.5F, -8.0F, 0.0F, 0.0F, 0.0F, (float) (-Math.PI / 12))
          );
-         armLeft.addChild("armLeftpad", CustomModel.box(38, 54, -2.5F, 0.0F, -2.5F, 5.0F, 9.0F, 5.0F), ModelTransform.pivot(0.0F, 0.5F, 0.0F));
-         ModelPartData armLeft2 = armLeft.addChild(
-            "armLeft2", CustomModel.box(90, 48, -1.0F, 0.0F, -1.0F, 2.0F, 8.0F, 2.0F), ModelTransform.of(0.0F, 9.6F, 0.0F, (float) (-Math.PI / 18), 0.0F, 0.0F)
+         armLeft.addOrReplaceChild("armLeftpad", CustomModel.box(38, 54, -2.5F, 0.0F, -2.5F, 5.0F, 9.0F, 5.0F), PartPose.offset(0.0F, 0.5F, 0.0F));
+         PartDefinition armLeft2 = armLeft.addOrReplaceChild(
+            "armLeft2", CustomModel.box(90, 48, -1.0F, 0.0F, -1.0F, 2.0F, 8.0F, 2.0F), PartPose.offsetAndRotation(0.0F, 9.6F, 0.0F, (float) (-Math.PI / 18), 0.0F, 0.0F)
          );
-         armLeft2.addChild("armLeftpad2", CustomModel.box(0, 58, -2.5F, 0.0F, -2.5F, 5.0F, 7.0F, 5.0F), ModelTransform.pivot(0.0F, 0.5F, 0.0F));
-         armLeft2.addChild(
-            "handLeft", CustomModel.box(58, 56, -1.0F, 0.0F, -2.5F, 4.0F, 4.0F, 5.0F), ModelTransform.of(0.0F, 8.0F, 0.0F, 0.0F, 0.0F, 0.05235988F)
+         armLeft2.addOrReplaceChild("armLeftpad2", CustomModel.box(0, 58, -2.5F, 0.0F, -2.5F, 5.0F, 7.0F, 5.0F), PartPose.offset(0.0F, 0.5F, 0.0F));
+         armLeft2.addOrReplaceChild(
+            "handLeft", CustomModel.box(58, 56, -1.0F, 0.0F, -2.5F, 4.0F, 4.0F, 5.0F), PartPose.offsetAndRotation(0.0F, 8.0F, 0.0F, 0.0F, 0.0F, 0.05235988F)
          );
-         ModelPartData legRight = fredbody.addChild(
-            "legRight", CustomModel.box(90, 8, -1.0F, 0.0F, -1.0F, 2.0F, 10.0F, 2.0F), ModelTransform.pivot(-3.3F, 12.5F, 0.0F)
+         PartDefinition legRight = fredbody.addOrReplaceChild(
+            "legRight", CustomModel.box(90, 8, -1.0F, 0.0F, -1.0F, 2.0F, 10.0F, 2.0F), PartPose.offset(-3.3F, 12.5F, 0.0F)
          );
-         legRight.addChild("legRightpad", CustomModel.box(73, 33, -3.0F, 0.0F, -3.0F, 6.0F, 9.0F, 6.0F), ModelTransform.pivot(0.0F, 0.5F, 0.0F));
-         ModelPartData legRight2 = legRight.addChild(
-            "legRight2", CustomModel.box(20, 35, -1.0F, 0.0F, -1.0F, 2.0F, 8.0F, 2.0F), ModelTransform.of(0.0F, 9.6F, 0.0F, 0.034906585F, 0.0F, 0.0F)
+         legRight.addOrReplaceChild("legRightpad", CustomModel.box(73, 33, -3.0F, 0.0F, -3.0F, 6.0F, 9.0F, 6.0F), PartPose.offset(0.0F, 0.5F, 0.0F));
+         PartDefinition legRight2 = legRight.addOrReplaceChild(
+            "legRight2", CustomModel.box(20, 35, -1.0F, 0.0F, -1.0F, 2.0F, 8.0F, 2.0F), PartPose.offsetAndRotation(0.0F, 9.6F, 0.0F, 0.034906585F, 0.0F, 0.0F)
          );
-         legRight2.addChild("legRightpad2", CustomModel.box(0, 39, -2.5F, 0.0F, -3.0F, 5.0F, 7.0F, 6.0F), ModelTransform.pivot(0.0F, 0.5F, 0.0F));
-         legRight2.addChild(
-            "footRight", CustomModel.box(22, 39, -2.5F, 0.0F, -6.0F, 5.0F, 3.0F, 8.0F), ModelTransform.of(0.0F, 8.0F, 0.0F, -0.034906585F, 0.0F, 0.0F)
+         legRight2.addOrReplaceChild("legRightpad2", CustomModel.box(0, 39, -2.5F, 0.0F, -3.0F, 5.0F, 7.0F, 6.0F), PartPose.offset(0.0F, 0.5F, 0.0F));
+         legRight2.addOrReplaceChild(
+            "footRight", CustomModel.box(22, 39, -2.5F, 0.0F, -6.0F, 5.0F, 3.0F, 8.0F), PartPose.offsetAndRotation(0.0F, 8.0F, 0.0F, -0.034906585F, 0.0F, 0.0F)
          );
-         ModelPartData legLeft = fredbody.addChild(
-            "legLeft", CustomModel.box(54, 10, -1.0F, 0.0F, -1.0F, 2.0F, 10.0F, 2.0F), ModelTransform.pivot(3.3F, 12.5F, 0.0F)
+         PartDefinition legLeft = fredbody.addOrReplaceChild(
+            "legLeft", CustomModel.box(54, 10, -1.0F, 0.0F, -1.0F, 2.0F, 10.0F, 2.0F), PartPose.offset(3.3F, 12.5F, 0.0F)
          );
-         legLeft.addChild("legLeftpad", CustomModel.box(48, 39, -3.0F, 0.0F, -3.0F, 6.0F, 9.0F, 6.0F), ModelTransform.pivot(0.0F, 0.5F, 0.0F));
-         ModelPartData legLeft2 = legLeft.addChild(
-            "legLeft2", CustomModel.box(72, 48, -1.0F, 0.0F, -1.0F, 2.0F, 8.0F, 2.0F), ModelTransform.of(0.0F, 9.6F, 0.0F, 0.034906585F, 0.0F, 0.0F)
+         legLeft.addOrReplaceChild("legLeftpad", CustomModel.box(48, 39, -3.0F, 0.0F, -3.0F, 6.0F, 9.0F, 6.0F), PartPose.offset(0.0F, 0.5F, 0.0F));
+         PartDefinition legLeft2 = legLeft.addOrReplaceChild(
+            "legLeft2", CustomModel.box(72, 48, -1.0F, 0.0F, -1.0F, 2.0F, 8.0F, 2.0F), PartPose.offsetAndRotation(0.0F, 9.6F, 0.0F, 0.034906585F, 0.0F, 0.0F)
          );
-         legLeft2.addChild("legLeftpad2", CustomModel.box(16, 50, -2.5F, 0.0F, -3.0F, 5.0F, 7.0F, 6.0F), ModelTransform.pivot(0.0F, 0.5F, 0.0F));
-         legLeft2.addChild(
-            "footLeft", CustomModel.box(72, 50, -2.5F, 0.0F, -6.0F, 5.0F, 3.0F, 8.0F), ModelTransform.of(0.0F, 8.0F, 0.0F, -0.034906585F, 0.0F, 0.0F)
+         legLeft2.addOrReplaceChild("legLeftpad2", CustomModel.box(16, 50, -2.5F, 0.0F, -3.0F, 5.0F, 7.0F, 6.0F), PartPose.offset(0.0F, 0.5F, 0.0F));
+         legLeft2.addOrReplaceChild(
+            "footLeft", CustomModel.box(72, 50, -2.5F, 0.0F, -6.0F, 5.0F, 3.0F, 8.0F), PartPose.offsetAndRotation(0.0F, 8.0F, 0.0F, -0.034906585F, 0.0F, 0.0F)
          );
-         ModelPartData fredhead = fredbody.addChild(
-            "fredhead", CustomModel.box(39, 22, -5.5F, -8.0F, -4.5F, 11.0F, 8.0F, 9.0F), ModelTransform.pivot(0.0F, -13.0F, -0.5F)
+         PartDefinition fredhead = fredbody.addOrReplaceChild(
+            "fredhead", CustomModel.box(39, 22, -5.5F, -8.0F, -4.5F, 11.0F, 8.0F, 9.0F), PartPose.offset(0.0F, -13.0F, -0.5F)
          );
-         fredhead.addChild("frednose", CustomModel.box(17, 67, -4.0F, -2.0F, -3.0F, 8.0F, 4.0F, 3.0F), ModelTransform.pivot(0.0F, -2.0F, -4.5F));
-         fredhead.addChild("jaw", CustomModel.box(49, 65, -5.0F, 0.0F, -4.5F, 10.0F, 3.0F, 9.0F), ModelTransform.of(0.0F, 0.5F, 0.0F, 0.08726646F, 0.0F, 0.0F));
-         ModelPartData earRight = fredhead.addChild(
+         fredhead.addOrReplaceChild("frednose", CustomModel.box(17, 67, -4.0F, -2.0F, -3.0F, 8.0F, 4.0F, 3.0F), PartPose.offset(0.0F, -2.0F, -4.5F));
+         fredhead.addOrReplaceChild("jaw", CustomModel.box(49, 65, -5.0F, 0.0F, -4.5F, 10.0F, 3.0F, 9.0F), PartPose.offsetAndRotation(0.0F, 0.5F, 0.0F, 0.08726646F, 0.0F, 0.0F));
+         PartDefinition earRight = fredhead.addOrReplaceChild(
             "earRight",
             CustomModel.box(8, 0, -1.0F, -3.0F, -0.5F, 2.0F, 3.0F, 1.0F),
-            ModelTransform.of(-4.5F, -5.5F, 0.0F, 0.05235988F, 0.0F, (float) (-Math.PI / 3))
+            PartPose.offsetAndRotation(-4.5F, -5.5F, 0.0F, 0.05235988F, 0.0F, (float) (-Math.PI / 3))
          );
-         earRight.addChild("earRightpad", CustomModel.box(85, 0, -2.0F, -5.0F, -1.0F, 4.0F, 4.0F, 2.0F), ModelTransform.pivot(0.0F, -1.0F, 0.0F));
-         ModelPartData earLeft = fredhead.addChild(
+         earRight.addOrReplaceChild("earRightpad", CustomModel.box(85, 0, -2.0F, -5.0F, -1.0F, 4.0F, 4.0F, 2.0F), PartPose.offset(0.0F, -1.0F, 0.0F));
+         PartDefinition earLeft = fredhead.addOrReplaceChild(
             "earLeft",
             CustomModel.box(40, 0, -1.0F, -3.0F, -0.5F, 2.0F, 3.0F, 1.0F),
-            ModelTransform.of(4.5F, -5.5F, 0.0F, 0.05235988F, 0.0F, (float) (Math.PI / 3))
+            PartPose.offsetAndRotation(4.5F, -5.5F, 0.0F, 0.05235988F, 0.0F, (float) (Math.PI / 3))
          );
-         earLeft.addChild("earRightpad_1", CustomModel.box(40, 39, -2.0F, -5.0F, -1.0F, 4.0F, 4.0F, 2.0F), ModelTransform.pivot(0.0F, -1.0F, 0.0F));
-         ModelPartData hat = fredhead.addChild(
-            "hat", CustomModel.box(70, 24, -3.0F, -0.5F, -3.0F, 6.0F, 1.0F, 6.0F), ModelTransform.of(0.0F, -8.4F, 0.0F, (float) (-Math.PI / 180.0), 0.0F, 0.0F)
+         earLeft.addOrReplaceChild("earRightpad_1", CustomModel.box(40, 39, -2.0F, -5.0F, -1.0F, 4.0F, 4.0F, 2.0F), PartPose.offset(0.0F, -1.0F, 0.0F));
+         PartDefinition hat = fredhead.addOrReplaceChild(
+            "hat", CustomModel.box(70, 24, -3.0F, -0.5F, -3.0F, 6.0F, 1.0F, 6.0F), PartPose.offsetAndRotation(0.0F, -8.4F, 0.0F, (float) (-Math.PI / 180.0), 0.0F, 0.0F)
          );
-         hat.addChild(
-            "hat2", CustomModel.box(78, 61, -2.0F, -4.0F, -2.0F, 4.0F, 4.0F, 4.0F), ModelTransform.of(0.0F, 0.1F, 0.0F, (float) (-Math.PI / 180.0), 0.0F, 0.0F)
+         hat.addOrReplaceChild(
+            "hat2", CustomModel.box(78, 61, -2.0F, -4.0F, -2.0F, 4.0F, 4.0F, 4.0F), PartPose.offsetAndRotation(0.0F, 0.1F, 0.0F, (float) (-Math.PI / 180.0), 0.0F, 0.0F)
          );
-         return TexturedModelData.of(modelData, 100, 80).createModel().getChild("fredbody");
+         return LayerDefinition.create(modelData, 100, 80).bakeRoot().getChild("fredbody");
       }
    }
 
@@ -344,37 +344,37 @@ public class CustomModel extends Module {
       private final ModelPart rightLeg = this.root.getChild("rabbitRleg");
 
       private static ModelPart createRoot() {
-         ModelData modelData = new ModelData();
-         ModelPartData root = modelData.getRoot();
-         ModelPartData rabbitBone = root.addChild(
-            "rabbitBone", CustomModel.box(28, 45, -5.0F, -13.0F, -5.0F, 10.0F, 11.0F, 8.0F), ModelTransform.pivot(0.0F, 24.0F, 0.0F)
+         MeshDefinition modelData = new MeshDefinition();
+         PartDefinition root = modelData.getRoot();
+         PartDefinition rabbitBone = root.addOrReplaceChild(
+            "rabbitBone", CustomModel.box(28, 45, -5.0F, -13.0F, -5.0F, 10.0F, 11.0F, 8.0F), PartPose.offset(0.0F, 24.0F, 0.0F)
          );
-         rabbitBone.addChild("rabbitRleg", CustomModel.box(0, 0, -2.0F, 0.0F, -2.0F, 4.0F, 2.0F, 4.0F), ModelTransform.pivot(-3.0F, -2.0F, -1.0F));
-         rabbitBone.addChild(
-            "rabbitLarm", CustomModel.box(0, 0, 0.0F, 0.0F, -2.0F, 2.0F, 8.0F, 4.0F), ModelTransform.of(5.0F, -13.0F, -1.0F, 0.0F, 0.0F, -0.0873F)
+         rabbitBone.addOrReplaceChild("rabbitRleg", CustomModel.box(0, 0, -2.0F, 0.0F, -2.0F, 4.0F, 2.0F, 4.0F), PartPose.offset(-3.0F, -2.0F, -1.0F));
+         rabbitBone.addOrReplaceChild(
+            "rabbitLarm", CustomModel.box(0, 0, 0.0F, 0.0F, -2.0F, 2.0F, 8.0F, 4.0F), PartPose.offsetAndRotation(5.0F, -13.0F, -1.0F, 0.0F, 0.0F, -0.0873F)
          );
-         rabbitBone.addChild(
-            "rabbitRarm", CustomModel.box(0, 0, -2.0F, 0.0F, -2.0F, 2.0F, 8.0F, 4.0F), ModelTransform.of(-5.0F, -13.0F, -1.0F, 0.0F, 0.0F, 0.0873F)
+         rabbitBone.addOrReplaceChild(
+            "rabbitRarm", CustomModel.box(0, 0, -2.0F, 0.0F, -2.0F, 2.0F, 8.0F, 4.0F), PartPose.offsetAndRotation(-5.0F, -13.0F, -1.0F, 0.0F, 0.0F, 0.0873F)
          );
-         rabbitBone.addChild("rabbitLleg", CustomModel.box(0, 0, -2.0F, 0.0F, -2.0F, 4.0F, 2.0F, 4.0F), ModelTransform.pivot(3.0F, -2.0F, -1.0F));
-         rabbitBone.addChild(
+         rabbitBone.addOrReplaceChild("rabbitLleg", CustomModel.box(0, 0, -2.0F, 0.0F, -2.0F, 4.0F, 2.0F, 4.0F), PartPose.offset(3.0F, -2.0F, -1.0F));
+         rabbitBone.addOrReplaceChild(
             "rabbitHead",
-            ModelPartBuilder.create()
-               .uv(0, 0)
-               .cuboid(-3.0F, 0.0F, -4.0F, 6.0F, 1.0F, 6.0F, Dilation.NONE)
-               .uv(56, 0)
-               .cuboid(-5.0F, -9.0F, -5.0F, 2.0F, 3.0F, 2.0F, Dilation.NONE)
-               .uv(56, 0)
-               .cuboid(3.0F, -9.0F, -5.0F, 2.0F, 3.0F, 2.0F, Dilation.NONE)
-               .uv(0, 45)
-               .cuboid(-4.0F, -11.0F, -4.0F, 8.0F, 11.0F, 8.0F, Dilation.NONE)
-               .uv(46, 0)
-               .cuboid(1.0F, -20.0F, 0.0F, 3.0F, 9.0F, 1.0F, Dilation.NONE)
-               .uv(46, 0)
-               .cuboid(-4.0F, -20.0F, 0.0F, 3.0F, 9.0F, 1.0F, Dilation.NONE),
-            ModelTransform.pivot(0.0F, -14.0F, -1.0F)
+            CubeListBuilder.create()
+               .texOffs(0, 0)
+               .addBox(-3.0F, 0.0F, -4.0F, 6.0F, 1.0F, 6.0F, CubeDeformation.NONE)
+               .texOffs(56, 0)
+               .addBox(-5.0F, -9.0F, -5.0F, 2.0F, 3.0F, 2.0F, CubeDeformation.NONE)
+               .texOffs(56, 0)
+               .addBox(3.0F, -9.0F, -5.0F, 2.0F, 3.0F, 2.0F, CubeDeformation.NONE)
+               .texOffs(0, 45)
+               .addBox(-4.0F, -11.0F, -4.0F, 8.0F, 11.0F, 8.0F, CubeDeformation.NONE)
+               .texOffs(46, 0)
+               .addBox(1.0F, -20.0F, 0.0F, 3.0F, 9.0F, 1.0F, CubeDeformation.NONE)
+               .texOffs(46, 0)
+               .addBox(-4.0F, -20.0F, 0.0F, 3.0F, 9.0F, 1.0F, CubeDeformation.NONE),
+            PartPose.offset(0.0F, -14.0F, -1.0F)
          );
-         return TexturedModelData.of(modelData, 64, 64).createModel().getChild("rabbitBone");
+         return LayerDefinition.create(modelData, 64, 64).bakeRoot().getChild("rabbitBone");
       }
    }
 }

@@ -1,7 +1,7 @@
 package vcore.utility.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
-import net.minecraft.client.util.math.MatrixStack;
 
 public final class SettingControlRenderer {
    public static final float CHECKBOX_SIZE = 10.0F;
@@ -15,7 +15,7 @@ public final class SettingControlRenderer {
    private SettingControlRenderer() {
    }
 
-   public static void drawCheckbox(MatrixStack matrices, float x, float y, float progress) {
+   public static void drawCheckbox(PoseStack matrices, float x, float y, float progress) {
       float clampedProgress = clamp(progress);
       float alpha = 0.5F + 0.5F * clampedProgress;
       Render2DEngine.drawCheckbox(matrices, x, y, 10.0F, 10.0F, 2.2F, 0.58F, clampedProgress, withAlpha(CHECKBOX_COLOR, alpha));

@@ -1,9 +1,9 @@
 package vcore.injection;
 
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.BlockView;
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,29 +20,29 @@ import vcore.features.modules.movement.freelook.FreeLookState;
 @Mixin(Camera.class)
 public abstract class MixinCamera {
    @Shadow
-   private boolean thirdPerson;
+   private boolean detached;
 
    @Shadow
-   protected abstract float clipToSpace(float var1);
+   protected abstract float getMaxZoom(float var1);
 
    @ModifyArgs(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;moveBy(FFF)V", ordinal = 0))
    private void modifyCameraDistance(Args args) {
       if (ModuleManager.noCameraClip.isEnabled()) {
-         args.set(0, -this.clipToSpace(ModuleManager.noCameraClip.getDistance()));
+         args.set(0, -this.getMaxZoom(ModuleManager.noCameraClip.getDistance()));
       }
    }
 
-   @Inject(method = "clipToSpace", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "getMaxZoom", at = @At("HEAD"), cancellable = true)
    private void onClipToSpace(float f, CallbackInfoReturnable<Float> cir) {
       if (ModuleManager.noCameraClip.isEnabled()) {
          cir.setReturnValue(ModuleManager.noCameraClip.getDistance());
       }
    }
 
-   @Inject(method = "update", at = @At("TAIL"))
-   private void updateHook(BlockView area, Entity focusedEntity, boolean thirdPerson, boolean inverseView, float tickDelta, CallbackInfo ci) {
+   @Inject(method = "setup", at = @At("TAIL"))
+   private void updateHook(BlockGetter area, Entity focusedEntity, boolean thirdPerson, boolean inverseView, float tickDelta, CallbackInfo ci) {
       if (ModuleManager.freeCam.isEnabled()) {
-         this.thirdPerson = true;
+         this.detached = true;
       }
    }
 
@@ -63,7 +63,7 @@ public abstract class MixinCamera {
          args.setAll(new Object[]{ModuleManager.freeCam.getFakeX(), ModuleManager.freeCam.getFakeY(), ModuleManager.freeCam.getFakeZ()});
       } else {
          if (ModuleManager.smoothCamera.isEnabled()) {
-            Vec3d smoothPos = ModuleManager.smoothCamera.getSmoothedPosition((Double)args.get(0), (Double)args.get(1), (Double)args.get(2));
+            Vec3 smoothPos = ModuleManager.smoothCamera.getSmoothedPosition((Double)args.get(0), (Double)args.get(1), (Double)args.get(2));
             args.setAll(new Object[]{smoothPos.x, smoothPos.y, smoothPos.z});
          }
       }

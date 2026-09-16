@@ -1,19 +1,19 @@
 package vcore.features.modules.render.popeffect;
 
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.Camera;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleFactory;
-import net.minecraft.client.particle.ParticleTextureSheet;
-import net.minecraft.client.particle.SpriteBillboardParticle;
-import net.minecraft.client.particle.SpriteProvider;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.SimpleParticleType;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.particle.TextureSheetParticle;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
@@ -21,8 +21,8 @@ import org.joml.Vector3f;
 import vcore.core.manager.client.ModuleManager;
 
 @Environment(EnvType.CLIENT)
-public final class PopEffectReviveParticle extends SpriteBillboardParticle {
-   private final SpriteProvider spriteProvider;
+public final class PopEffectReviveParticle extends TextureSheetParticle {
+   private final SpriteSet spriteProvider;
    private final double scaler;
    private final double rotX;
    private final double rotZ;
@@ -31,25 +31,25 @@ public final class PopEffectReviveParticle extends SpriteBillboardParticle {
    private Quaternionf quaternion = new Quaternionf(0.0F, -0.7F, 0.7F, 0.0F);
 
    private PopEffectReviveParticle(
-      @NotNull ClientWorld clientWorld,
+      @NotNull ClientLevel clientWorld,
       double x,
       double y,
       double z,
-      @NotNull SpriteProvider spriteProvider,
+      @NotNull SpriteSet spriteProvider,
       double velocityX,
       double velocityY,
       double velocityZ
    ) {
       super(clientWorld, x, y, z, velocityX, velocityY, velocityZ);
-      this.maxAge = 20;
+      this.lifetime = 20;
       this.alpha = 0.0F;
-      this.scale = 0.2F;
+      this.quadSize = 0.2F;
       this.scaler = velocityX;
-      this.velocityMultiplier = 0.0F;
-      this.rotX = this.random.nextBetween(-180, 180);
-      this.rotY = this.random.nextBetween(-180, 180);
-      this.rotZ = this.random.nextBetween(-180, 180);
-      if (clientWorld.getEntityById((int)velocityY) instanceof LivingEntity livingEntity) {
+      this.friction = 0.0F;
+      this.rotX = this.random.nextIntBetweenInclusive(-180, 180);
+      this.rotY = this.random.nextIntBetweenInclusive(-180, 180);
+      this.rotZ = this.random.nextIntBetweenInclusive(-180, 180);
+      if (clientWorld.getEntity((int)velocityY) instanceof LivingEntity livingEntity) {
          this.target = livingEntity;
       }
 
@@ -60,21 +60,21 @@ public final class PopEffectReviveParticle extends SpriteBillboardParticle {
       }
 
       this.spriteProvider = spriteProvider;
-      this.setSprite(this.spriteProvider.getSprite(this.age, this.maxAge));
+      this.setSprite(this.spriteProvider.get(this.age, this.lifetime));
    }
 
-   public void buildGeometry(@NotNull VertexConsumer vertexConsumer, @NotNull Camera camera, float tickDelta) {
-      Vec3d cameraPos = camera.getPos();
-      float x = (float)(MathHelper.lerp(tickDelta, this.prevPosX, this.x) - cameraPos.x);
-      float y = (float)(MathHelper.lerp(tickDelta, this.prevPosY, this.y) - cameraPos.y);
-      float z = (float)(MathHelper.lerp(tickDelta, this.prevPosZ, this.z) - cameraPos.z);
+   public void render(@NotNull VertexConsumer vertexConsumer, @NotNull Camera camera, float tickDelta) {
+      Vec3 cameraPos = camera.getPosition();
+      float x = (float)(Mth.lerp(tickDelta, this.xo, this.x) - cameraPos.x);
+      float y = (float)(Mth.lerp(tickDelta, this.yo, this.y) - cameraPos.y);
+      float z = (float)(Mth.lerp(tickDelta, this.zo, this.z) - cameraPos.z);
       Vector3f[] vertices = new Vector3f[]{
          new Vector3f(-1.0F, -1.0F, 0.0F), new Vector3f(-1.0F, 1.0F, 0.0F), new Vector3f(1.0F, 1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F)
       };
       Vector3f[] bottomVertices = new Vector3f[]{
          new Vector3f(-1.0F, -1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F), new Vector3f(-1.0F, -1.0F, 0.0F)
       };
-      float size = this.getSize(tickDelta);
+      float size = this.getQuadSize(tickDelta);
 
       for (int i = 0; i < 4; i++) {
          Vector3f vertex = vertices[i];
@@ -87,11 +87,11 @@ public final class PopEffectReviveParticle extends SpriteBillboardParticle {
          bottomVertex.add(x, y - 0.1F, z);
       }
 
-      float minU = this.getMinU();
-      float maxU = this.getMaxU();
-      float minV = this.getMinV();
-      float maxV = this.getMaxV();
-      int light = this.getBrightness(tickDelta);
+      float minU = this.getU0();
+      float maxU = this.getU1();
+      float minV = this.getV0();
+      float maxV = this.getV1();
+      int light = this.getLightColor(tickDelta);
       this.putVertex(vertexConsumer, vertices[0], maxU, maxV, light);
       this.putVertex(vertexConsumer, vertices[1], maxU, minV, light);
       this.putVertex(vertexConsumer, vertices[2], minU, minV, light);
@@ -104,7 +104,7 @@ public final class PopEffectReviveParticle extends SpriteBillboardParticle {
 
    public void tick() {
       super.tick();
-      this.setSprite(this.spriteProvider.getSprite(this.age, this.maxAge));
+      this.setSprite(this.spriteProvider.get(this.age, this.lifetime));
       if (this.target != null) {
          this.setPos(this.target.getX(), this.target.getY() + this.target.getDimensions(this.target.getPose()).height() / 2.0F, this.target.getZ());
       }
@@ -114,18 +114,18 @@ public final class PopEffectReviveParticle extends SpriteBillboardParticle {
          this.rotY += 20.0;
          this.quaternion = euler(0.0F, 0.0F, (float)this.rotY);
          this.quaternion = euler((float)this.rotZ, (float)this.rotX, (float)(-this.rotZ)).mul(this.quaternion);
-         this.scale = this.alpha / opacity * (float)this.scaler;
-         this.alpha = MathHelper.clamp((float)Math.sqrt(Math.sin((double)this.age / this.maxAge * Math.PI)) / 1.2F, 0.0F, 1.0F) * opacity;
+         this.quadSize = this.alpha / opacity * (float)this.scaler;
+         this.alpha = Mth.clamp((float)Math.sqrt(Math.sin((double)this.age / this.lifetime * Math.PI)) / 1.2F, 0.0F, 1.0F) * opacity;
       }
    }
 
    @NotNull
-   public ParticleTextureSheet getType() {
-      return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
    }
 
    private void putVertex(@NotNull VertexConsumer buffer, @NotNull Vector3f vertex, float u, float v, int light) {
-      buffer.vertex(vertex.x(), vertex.y(), vertex.z()).texture(u, v).color(this.red, this.green, this.blue, this.alpha).light(light);
+      buffer.addVertex(vertex.x(), vertex.y(), vertex.z()).setUv(u, v).setColor(this.rCol, this.gCol, this.bCol, this.alpha).setLight(light);
    }
 
    @NotNull
@@ -141,16 +141,16 @@ public final class PopEffectReviveParticle extends SpriteBillboardParticle {
    }
 
    @Environment(EnvType.CLIENT)
-   public static final class Factory implements ParticleFactory<SimpleParticleType> {
-      private final SpriteProvider spriteProvider;
+   public static final class Factory implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet spriteProvider;
 
-      public Factory(@NotNull SpriteProvider spriteProvider) {
+      public Factory(@NotNull SpriteSet spriteProvider) {
          this.spriteProvider = spriteProvider;
       }
 
       @Nullable
       public Particle createParticle(
-         SimpleParticleType parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ
+         SimpleParticleType parameters, ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ
       ) {
          return new PopEffectReviveParticle(world, x, y, z, this.spriteProvider, velocityX, velocityY, velocityZ);
       }

@@ -1,38 +1,37 @@
 package vcore.features.modules.movement;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import java.util.List;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.FluidBlock;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.VertexFormat.DrawMode;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.data.DataTracker.SerializedEntry;
-import net.minecraft.item.ElytraItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.network.packet.s2c.common.CommonPingS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityTrackerUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.common.ClientboundPingPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.network.syncher.SynchedEntityData.DataValue;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ElytraItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.phys.Vec3;
 import vcore.Vcore;
 import vcore.core.Managers;
 import vcore.events.impl.EventMove;
@@ -155,7 +154,7 @@ public class ElytraPlus extends Module {
    private ItemStack getStackInSlotCopy;
    private Item prevArmorItem = Items.AIR;
    private Item prevItemInHand = Items.AIR;
-   private Vec3d flightZonePos;
+   private Vec3 flightZonePos;
    private int prevElytraSlot = -1;
    private int disablerTicks;
    private int slotWithFireWorks = -1;
@@ -169,9 +168,9 @@ public class ElytraPlus extends Module {
    public void onEnable() {
       if (mc.player.getY() < this.infiniteMaxHeight.getValue().intValue() && this.mode.getValue() == ElytraPlus.Mode.Pitch40Infinite) {
          this.disable("Elytra's about to break!");
-         mc.world
-            .playSound(
-               mc.player, mc.player.getX(), mc.player.getY(), mc.player.getZ(), SoundEvents.ENTITY_GENERIC_EXPLODE, SoundCategory.AMBIENT, 10.0F, 1.0F, 0L
+         mc.level
+            .playSeededSound(
+               mc.player, mc.player.getX(), mc.player.getY(), mc.player.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.AMBIENT, 10.0F, 1.0F, 0L
             );
       }
    }
@@ -183,13 +182,13 @@ public class ElytraPlus extends Module {
 
       int elytra = InventoryUtility.getElytra();
       if (elytra != -1) {
-         if (mc.player.isOnGround()) {
-            mc.player.jump();
+         if (mc.player.onGround()) {
+            mc.player.jumpFromGround();
             this.acceleration = 0.0F;
          } else if (!(mc.player.fallDistance <= 0.0F)) {
-            if (!mc.options.jumpKey.isPressed() && !mc.options.sneakKey.isPressed()) {
+            if (!mc.options.keyJump.isDown() && !mc.options.keyShift.isDown()) {
                this.takeOnChestPlate();
-               if (mc.player.age % 8 == 0) {
+               if (mc.player.tickCount % 8 == 0) {
                   this.matrixDisabler(elytra);
                }
 
@@ -198,7 +197,7 @@ public class ElytraPlus extends Module {
                   this.acceleration = 0.0F;
                }
 
-               mc.player.setVelocity(mc.player.getVelocity().getX(), -0.005F, mc.player.getVelocity().getZ());
+               mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), -0.005F, mc.player.getDeltaMovement().z());
             } else {
                this.acceleration = 0.0F;
                this.takeOnElytra();
@@ -216,8 +215,8 @@ public class ElytraPlus extends Module {
             clickSlot(6);
             clickSlot(elytra);
             mc.player
-               .networkHandler
-               .sendPacket(new ClientCommandC2SPacket(mc.player, net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+               .connection
+               .send(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
          }
       }
    }
@@ -260,7 +259,7 @@ public class ElytraPlus extends Module {
    public void onDisable() {
       Vcore.TICK_TIMER = 1.0F;
       mc.player.getAbilities().flying = false;
-      mc.player.getAbilities().setFlySpeed(0.05F);
+      mc.player.getAbilities().setFlyingSpeed(0.05F);
       if (this.mode.is(ElytraPlus.Mode.FireWork)) {
          this.fireworkOnDisable();
       }
@@ -290,35 +289,35 @@ public class ElytraPlus extends Module {
    @EventHandler
    public void onPacketSend(PacketEvent.SendPost event) {
       if (!fullNullCheck()) {
-         if (event.getPacket() instanceof ClientCommandC2SPacket command
+         if (event.getPacket() instanceof ServerboundPlayerCommandPacket command
             && this.mode.is(ElytraPlus.Mode.FireWork)
-            && command.getMode() == net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.START_FALL_FLYING) {
+            && command.getAction() == net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING) {
             this.doFireWork(false);
          }
 
-         if (event.getPacket() instanceof PlayerInteractEntityC2SPacket p
+         if (event.getPacket() instanceof ServerboundInteractPacket p
             && this.mode.is(ElytraPlus.Mode.FireWork)
             && this.grim.getValue().isEnabled()
             && this.fireWorkExtender.getValue()
             && this.flying
             && this.flightZonePos != null
-            && Criticals.getEntity(p).age < (float)this.pingTimer.getPassedTimeMs() / 50.0F) {
-            this.sendMessage(Formatting.RED + "In this mode, you cannot hit entities that spawned after the module was turned on!");
+            && Criticals.getEntity(p).tickCount < (float)this.pingTimer.getPassedTimeMs() / 50.0F) {
+            this.sendMessage(ChatFormatting.RED + "In this mode, you cannot hit entities that spawned after the module was turned on!");
          }
       }
    }
 
    @EventHandler
    public void onPacketReceive(PacketEvent.Receive e) {
-      if (e.getPacket() instanceof EntityTrackerUpdateS2CPacket pac
+      if (e.getPacket() instanceof ClientboundSetEntityDataPacket pac
          && pac.id() == mc.player.getId()
          && (this.mode.is(ElytraPlus.Mode.Packet) || this.mode.is(ElytraPlus.Mode.SunriseOld))) {
-         List<SerializedEntry<?>> values = pac.trackedValues();
+         List<DataValue<?>> values = pac.packedItems();
          if (values.isEmpty()) {
             return;
          }
 
-         for (SerializedEntry<?> value : values) {
+         for (DataValue<?> value : values) {
             if (value.value().toString().equals("FALL_FLYING")
                || value.id() == 0
                   && (value.value().toString().equals("-120") || value.value().toString().equals("-128") || value.value().toString().equals("-126"))) {
@@ -327,7 +326,7 @@ public class ElytraPlus extends Module {
          }
       }
 
-      if (e.getPacket() instanceof PlayerPositionLookS2CPacket) {
+      if (e.getPacket() instanceof ClientboundPlayerPositionPacket) {
          this.acceleration = 0.0F;
          this.accelerationY = 0.0F;
          this.pingTimer.reset();
@@ -336,7 +335,7 @@ public class ElytraPlus extends Module {
          }
       }
 
-      if (e.getPacket() instanceof CommonPingS2CPacket
+      if (e.getPacket() instanceof ClientboundPingPacket
          && this.mode.is(ElytraPlus.Mode.FireWork)
          && this.grim.getValue().isEnabled()
          && this.fireWorkExtender.getValue()
@@ -364,12 +363,12 @@ public class ElytraPlus extends Module {
 
    private void doMotionPacket(EventMove e) {
       mc.player.getAbilities().flying = false;
-      mc.player.getAbilities().setFlySpeed(0.05F);
-      if ((!this.isBoxCollidingGround() || !this.stopOnGround.getValue()) && mc.player.getInventory().getStack(38).getItem() == Items.ELYTRA) {
+      mc.player.getAbilities().setFlyingSpeed(0.05F);
+      if ((!this.isBoxCollidingGround() || !this.stopOnGround.getValue()) && mc.player.getInventory().getItem(38).getItem() == Items.ELYTRA) {
          mc.player.getAbilities().flying = true;
          mc.player
             .getAbilities()
-            .setFlySpeed(
+            .setFlyingSpeed(
                this.xzSpeed.getValue()
                   / 15.0F
                   * (
@@ -379,7 +378,7 @@ public class ElytraPlus extends Module {
                   )
             );
          e.cancel();
-         if (mc.player.age % 3 == 0 && this.ncpStrict.is(ElytraPlus.NCPStrict.Motion)) {
+         if (mc.player.tickCount % 3 == 0 && this.ncpStrict.is(ElytraPlus.NCPStrict.Motion)) {
             e.setY(0.0);
             e.setX(0.0);
             e.setZ(0.0);
@@ -394,12 +393,12 @@ public class ElytraPlus extends Module {
 
             e.setY(
                this.vertical.getValue()
-                  ? (mc.options.jumpKey.isPressed() ? this.ySpeed.getValue().floatValue() : (mc.options.sneakKey.isPressed() ? -this.ySpeed.getValue() : 0.0))
+                  ? (mc.options.keyJump.isDown() ? this.ySpeed.getValue().floatValue() : (mc.options.keyShift.isDown() ? -this.ySpeed.getValue() : 0.0))
                   : 0.0
             );
             switch ((ElytraPlus.NCPStrict)this.ncpStrict.getValue()) {
                case Old:
-                  e.setY(2.0E-4 - (mc.player.age % 2 == 0 ? 0.0 : 1.0E-6) + MathUtility.random(0.0, 9.0E-7));
+                  e.setY(2.0E-4 - (mc.player.tickCount % 2 == 0 ? 0.0 : 1.0E-6) + MathUtility.random(0.0, 9.0E-7));
                   break;
                case New:
                   e.setY(-1.0000889E-12F);
@@ -410,12 +409,12 @@ public class ElytraPlus extends Module {
 
             if (mc.player.horizontalCollision
                && (this.ncpStrict.is(ElytraPlus.NCPStrict.New) || this.ncpStrict.is(ElytraPlus.NCPStrict.Motion))
-               && mc.player.age % 2 == 0) {
+               && mc.player.tickCount % 2 == 0) {
                e.setY(-0.07840000152587923);
             }
 
             if ((this.infDurability.getValue() || this.ncpStrict.is(ElytraPlus.NCPStrict.Motion)) && !MovementUtility.isMoving() && Math.abs(e.getX()) < 0.121) {
-               float angleToRad = (float)Math.toRadians(4.5 * (mc.player.age % 80));
+               float angleToRad = (float)Math.toRadians(4.5 * (mc.player.tickCount % 80));
                e.setX(Math.sin(angleToRad) * 0.12);
                e.setZ(Math.cos(angleToRad) * 0.12);
             }
@@ -425,7 +424,7 @@ public class ElytraPlus extends Module {
 
    private void doPreLegacy() {
       if (!this.twoBee.getValue() || !this.mode.is(ElytraPlus.Mode.Boost)) {
-         if (mc.player.isOnGround()) {
+         if (mc.player.onGround()) {
             this.hasTouchedGround = true;
          }
 
@@ -438,17 +437,17 @@ public class ElytraPlus extends Module {
          }
 
          if (!mc.player.isFallFlying()) {
-            if (this.hasTouchedGround && !mc.player.isOnGround() && mc.player.fallDistance > 0.0F && this.instantFly.getValue()) {
+            if (this.hasTouchedGround && !mc.player.onGround() && mc.player.fallDistance > 0.0F && this.instantFly.getValue()) {
                Vcore.TICK_TIMER = 0.3F;
             }
 
-            if (!mc.player.isOnGround() && this.instantFly.getValue() && mc.player.getVelocity().getY() < 0.0) {
+            if (!mc.player.onGround() && this.instantFly.getValue() && mc.player.getDeltaMovement().y() < 0.0) {
                if (!this.startTimer.passedMs((long)(1000.0F * this.redeployDelay.getValue()))) {
                   return;
                }
 
                this.startTimer.reset();
-               this.sendPacket(new ClientCommandC2SPacket(mc.player, net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+               this.sendPacket(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                this.hasTouchedGround = false;
                this.strictTimer.reset();
             }
@@ -457,37 +456,37 @@ public class ElytraPlus extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       if (this.mode.is(ElytraPlus.Mode.FireWork)
          && this.grim.getValue().isEnabled()
          && this.fireWorkExtender.getValue()
          && this.flying
          && this.flightZonePos != null) {
-         stack.push();
+         stack.pushPose();
          Render3DEngine.setupRender();
          RenderSystem.disableCull();
-         Tessellator tessellator = Tessellator.getInstance();
-         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-         BufferBuilder bufferBuilder = Tessellator.getInstance().begin(DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
+         Tesselator tessellator = Tesselator.getInstance();
+         RenderSystem.setShader(GameRenderer::getPositionColorShader);
+         BufferBuilder bufferBuilder = Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
 
          for (int i = 0; i <= 30; i++) {
-            float cos = (float)(this.flightZonePos.getX() - mc.getEntityRenderDispatcher().camera.getPos().getX() + Math.cos(i * (Math.PI * 2) / 30.0) * 95.0);
-            float sin = (float)(this.flightZonePos.getZ() - mc.getEntityRenderDispatcher().camera.getPos().getZ() + Math.sin(i * (Math.PI * 2) / 30.0) * 95.0);
-            bufferBuilder.vertex(stack.peek().getPositionMatrix(), cos, (float)(-mc.getEntityRenderDispatcher().camera.getPos().getY()), sin)
-               .color(Render2DEngine.injectAlpha(HudEditor.getColor(i), 255).getRGB());
-            bufferBuilder.vertex(stack.peek().getPositionMatrix(), cos, (float)(128.0 - mc.getEntityRenderDispatcher().camera.getPos().getY()), sin)
-               .color(Render2DEngine.injectAlpha(HudEditor.getColor(i), 0).getRGB());
+            float cos = (float)(this.flightZonePos.x() - mc.getEntityRenderDispatcher().camera.getPosition().x() + Math.cos(i * (Math.PI * 2) / 30.0) * 95.0);
+            float sin = (float)(this.flightZonePos.z() - mc.getEntityRenderDispatcher().camera.getPosition().z() + Math.sin(i * (Math.PI * 2) / 30.0) * 95.0);
+            bufferBuilder.addVertex(stack.last().pose(), cos, (float)(-mc.getEntityRenderDispatcher().camera.getPosition().y()), sin)
+               .setColor(Render2DEngine.injectAlpha(HudEditor.getColor(i), 255).getRGB());
+            bufferBuilder.addVertex(stack.last().pose(), cos, (float)(128.0 - mc.getEntityRenderDispatcher().camera.getPosition().y()), sin)
+               .setColor(Render2DEngine.injectAlpha(HudEditor.getColor(i), 0).getRGB());
          }
 
          Render2DEngine.endBuilding(bufferBuilder);
          RenderSystem.enableCull();
          Render3DEngine.endRender();
-         stack.pop();
+         stack.popPose();
       }
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       if (this.mode.is(ElytraPlus.Mode.FireWork)
          && this.grim.getValue().isEnabled()
          && this.fireWorkExtender.getValue()
@@ -498,10 +497,10 @@ public class ElytraPlus extends Module {
          int dist = (int)(83.0 - Math.sqrt(PlayerUtility.getSquaredDistance2D(this.flightZonePos)));
          FontRenderers.sf_bold
             .drawCenteredString(
-               context.getMatrices(),
+               context.pose(),
                timeS + " seconds and " + dist + " meters left",
-               mc.getWindow().getScaledWidth() / 2.0F,
-               mc.getWindow().getScaledHeight() / 2.0F + 30.0F,
+               mc.getWindow().getGuiScaledWidth() / 2.0F,
+               mc.getWindow().getGuiScaledHeight() / 2.0F + 30.0F,
                -1
             );
       }
@@ -514,13 +513,13 @@ public class ElytraPlus extends Module {
 
       if (mc.player.verticalCollision) {
          this.acceleration = 0.0F;
-         mc.player.setVelocity(mc.player.getVelocity().getX(), 0.42F, mc.player.getVelocity().getZ());
+         mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), 0.42F, mc.player.getDeltaMovement().z());
       }
 
       int elytra = InventoryUtility.getElytra();
       if (elytra != -1) {
-         if (mc.player.isOnGround()) {
-            mc.player.jump();
+         if (mc.player.onGround()) {
+            mc.player.jumpFromGround();
          }
 
          if (this.disablerTicks-- <= 0) {
@@ -533,46 +532,46 @@ public class ElytraPlus extends Module {
                this.acceleration = 0.0F;
             }
 
-            if (InputUtil.isKeyPressed(mc.getWindow().getHandle(), this.bombKey.getValue().getKey())) {
+            if (InputConstants.isKeyDown(mc.getWindow().getWindow(), this.bombKey.getValue().getKey())) {
                MovementUtility.setMotion(0.8F);
-               mc.player.setVelocity(mc.player.getVelocity().getX(), mc.player.age % 2 == 0 ? 0.42F : -0.42F, mc.player.getVelocity().getZ());
+               mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), mc.player.tickCount % 2 == 0 ? 0.42F : -0.42F, mc.player.getDeltaMovement().z());
                this.acceleration = 70.0F;
             } else {
                switch ((ElytraPlus.AntiKick)this.antiKick.getValue()) {
                   case Off:
-                     mc.player.setVelocity(mc.player.getVelocity().getX(), 0.0, mc.player.getVelocity().getZ());
+                     mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), 0.0, mc.player.getDeltaMovement().z());
                      break;
                   case Jitter:
-                     mc.player.setVelocity(mc.player.getVelocity().getX(), mc.player.age % 2 == 0 ? 0.08 : -0.08, mc.player.getVelocity().getZ());
+                     mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), mc.player.tickCount % 2 == 0 ? 0.08 : -0.08, mc.player.getDeltaMovement().z());
                      break;
                   case Glide:
                      mc.player
-                        .setVelocity(mc.player.getVelocity().getX(), -0.01F - (mc.player.age % 2 == 0 ? 1.0E-4F : 0.006F), mc.player.getVelocity().getZ());
+                        .setDeltaMovement(mc.player.getDeltaMovement().x(), -0.01F - (mc.player.tickCount % 2 == 0 ? 1.0E-4F : 0.006F), mc.player.getDeltaMovement().z());
                }
             }
 
-            if (!mc.player.isSneaking() && mc.options.jumpKey.isPressed()) {
-               mc.player.setVelocity(mc.player.getVelocity().getX(), this.ySpeed.getValue().floatValue(), mc.player.getVelocity().getZ());
+            if (!mc.player.isShiftKeyDown() && mc.options.keyJump.isDown()) {
+               mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), this.ySpeed.getValue().floatValue(), mc.player.getDeltaMovement().z());
             }
 
-            if (mc.options.sneakKey.isPressed()) {
-               mc.player.setVelocity(mc.player.getVelocity().getX(), -this.ySpeed.getValue(), mc.player.getVelocity().getZ());
+            if (mc.options.keyShift.isDown()) {
+               mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), -this.ySpeed.getValue(), mc.player.getDeltaMovement().z());
             }
          }
       }
    }
 
    private void doBoost(EventMove e) {
-      if (mc.player.getInventory().getStack(38).getItem() == Items.ELYTRA
+      if (mc.player.getInventory().getItem(38).getItem() == Items.ELYTRA
          && mc.player.isFallFlying()
-         && !mc.player.isTouchingWater()
+         && !mc.player.isInWater()
          && !mc.player.isInLava()
          && mc.player.isFallFlying()) {
-         float moveForward = mc.player.input.movementForward;
+         float moveForward = mc.player.input.forwardImpulse;
          if (this.cruiseControl.getValue()) {
-            if (mc.options.jumpKey.isPressed()) {
+            if (mc.options.keyJump.isDown()) {
                this.height++;
-            } else if (mc.options.sneakKey.isPressed()) {
+            } else if (mc.options.keyShift.isDown()) {
                this.height--;
             }
 
@@ -583,38 +582,38 @@ public class ElytraPlus extends Module {
             if (this.twoBee.getValue()) {
                if (Managers.PLAYER.currentPlayerSpeed >= this.minUpSpeed.getValue()) {
                   mc.player
-                     .setPitch(
-                        (float)MathHelper.clamp(MathHelper.wrapDegrees(Math.toDegrees(Math.atan2((this.height - mc.player.getY()) * -1.0, 10.0))), -50.0, 50.0)
+                     .setXRot(
+                        (float)Mth.clamp(Mth.wrapDegrees(Math.toDegrees(Math.atan2((this.height - mc.player.getY()) * -1.0, 10.0))), -50.0, 50.0)
                      );
                } else {
-                  mc.player.setPitch(0.25F);
+                  mc.player.setXRot(0.25F);
                }
             } else {
-               double heightPct = 1.0 - Math.sqrt(MathHelper.clamp(Managers.PLAYER.currentPlayerSpeed / 1.7, 0.0, 1.0));
+               double heightPct = 1.0 - Math.sqrt(Mth.clamp(Managers.PLAYER.currentPlayerSpeed / 1.7, 0.0, 1.0));
                if (Managers.PLAYER.currentPlayerSpeed >= this.minUpSpeed.getValue()
                   && this.startTimer.passedMs((long)(2000.0F * this.redeployInterval.getValue()))) {
                   double pitch = -(44.4 * heightPct + 0.6);
                   double diff = (this.height + 1.0F - mc.player.getY()) * 2.0;
                   double pDist = -Math.toDegrees(Math.atan2(Math.abs(diff), Managers.PLAYER.currentPlayerSpeed * 30.0)) * Math.signum(diff);
-                  mc.player.setPitch((float)(pitch + (pDist - pitch) * MathHelper.clamp(Math.abs(diff), 0.0, 1.0)));
+                  mc.player.setXRot((float)(pitch + (pDist - pitch) * Mth.clamp(Math.abs(diff), 0.0, 1.0)));
                } else {
-                  mc.player.setPitch(0.25F);
+                  mc.player.setXRot(0.25F);
                   moveForward = 1.0F;
                }
             }
          }
 
          if (this.twoBee.getValue()) {
-            if (mc.options.jumpKey.isPressed() || !this.onlySpace.getValue() || this.cruiseControl.getValue()) {
+            if (mc.options.keyJump.isDown() || !this.onlySpace.getValue() || this.cruiseControl.getValue()) {
                double[] m = MovementUtility.forwardWithoutStrafe(this.factor.getValue() / 10.0F);
                e.setX(e.getX() + m[0]);
                e.setZ(e.getZ() + m[1]);
             }
          } else {
-            Vec3d rotationVec = mc.player.getRotationVec(Render3DEngine.getTickDelta());
+            Vec3 rotationVec = mc.player.getViewVector(Render3DEngine.getTickDelta());
             double d6 = Math.hypot(rotationVec.x, rotationVec.z);
             double currentSpeed = Math.hypot(e.getX(), e.getZ());
-            float f4 = (float)(Math.pow(Math.cos(Math.toRadians(mc.player.getPitch())), 2.0) * Math.min(1.0, rotationVec.length() / 0.4));
+            float f4 = (float)(Math.pow(Math.cos(Math.toRadians(mc.player.getXRot())), 2.0) * Math.min(1.0, rotationVec.length() / 0.4));
             e.setY(e.getY() + (-0.08 + f4 * 0.06));
             if (e.getY() < 0.0 && d6 > 0.0) {
                double ySpeed = e.getY() * -0.1 * f4;
@@ -623,8 +622,8 @@ public class ElytraPlus extends Module {
                e.setZ(e.getZ() + rotationVec.z * ySpeed / d6);
             }
 
-            if (mc.player.getPitch() < 0.0F) {
-               double ySpeed = currentSpeed * -Math.sin(Math.toRadians(mc.player.getPitch())) * 0.04;
+            if (mc.player.getXRot() < 0.0F) {
+               double ySpeed = currentSpeed * -Math.sin(Math.toRadians(mc.player.getXRot())) * 0.04;
                e.setY(e.getY() + ySpeed * 3.2);
                e.setX(e.getX() - rotationVec.x * ySpeed / d6);
                e.setZ(e.getZ() - rotationVec.z * ySpeed / d6);
@@ -635,7 +634,7 @@ public class ElytraPlus extends Module {
                e.setZ(e.getZ() + (rotationVec.z / d6 * currentSpeed - e.getZ()) * 0.1);
             }
 
-            if (mc.player.getPitch() > 0.0F && e.getY() < 0.0) {
+            if (mc.player.getXRot() > 0.0F && e.getY() < 0.0) {
                if (moveForward != 0.0F
                   && this.startTimer.passedMs((long)(2000.0F * this.redeployInterval.getValue()))
                   && this.redeployTimer.passedMs((long)(1000.0F * this.redeployTimeOut.getValue()))) {
@@ -645,10 +644,10 @@ public class ElytraPlus extends Module {
                   }
 
                   this.startTimer.reset();
-                  this.sendPacket(new ClientCommandC2SPacket(mc.player, net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                  this.sendPacket(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                } else if (!this.startTimer.passedMs((long)(2000.0F * this.redeployInterval.getValue()))) {
-                  e.setX(e.getX() - moveForward * Math.sin(Math.toRadians(mc.player.getYaw())) * this.factor.getValue().floatValue() / 20.0);
-                  e.setZ(e.getZ() + moveForward * Math.cos(Math.toRadians(mc.player.getYaw())) * this.factor.getValue().floatValue() / 20.0);
+                  e.setX(e.getX() - moveForward * Math.sin(Math.toRadians(mc.player.getYRot())) * this.factor.getValue().floatValue() / 20.0);
+                  e.setZ(e.getZ() + moveForward * Math.cos(Math.toRadians(mc.player.getYRot())) * this.factor.getValue().floatValue() / 20.0);
                   this.redeployTimer.reset();
                }
             }
@@ -660,13 +659,13 @@ public class ElytraPlus extends Module {
             e.setZ(e.getZ() * this.maxSpeed.getValue().floatValue() / speed);
          }
 
-         mc.player.setVelocity(e.getX(), e.getY(), e.getZ());
+         mc.player.setDeltaMovement(e.getX(), e.getY(), e.getZ());
          e.cancel();
       }
    }
 
    private void doControl(EventMove e) {
-      if (mc.player.getInventory().getStack(38).getItem() == Items.ELYTRA && mc.player.isFallFlying()) {
+      if (mc.player.getInventory().getItem(38).getItem() == Items.ELYTRA && mc.player.isFallFlying()) {
          double[] dir = MovementUtility.forward(
             this.xzSpeed.getValue()
                * (
@@ -677,16 +676,16 @@ public class ElytraPlus extends Module {
          );
          e.setX(dir[0]);
          e.setY(
-            mc.options.jumpKey.isPressed()
+            mc.options.keyJump.isDown()
                ? this.upSpeed.getValue().floatValue()
-               : (mc.options.sneakKey.isPressed() ? -this.sneakDownSpeed.getValue() : -0.08 * this.downFactor.getValue().floatValue())
+               : (mc.options.keyShift.isDown() ? -this.sneakDownSpeed.getValue() : -0.08 * this.downFactor.getValue().floatValue())
          );
          e.setZ(dir[1]);
          if (!MovementUtility.isMoving()) {
             this.acceleration = 0.0F;
          }
 
-         mc.player.setVelocity(e.getX(), e.getY(), e.getZ());
+         mc.player.setDeltaMovement(e.getX(), e.getY(), e.getZ());
          e.cancel();
       }
    }
@@ -694,16 +693,16 @@ public class ElytraPlus extends Module {
    public void matrixDisabler(int elytra) {
       elytra = elytra >= 0 && elytra < 9 ? elytra + 36 : elytra;
       if (elytra != -2) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, elytra, 1, SlotActionType.PICKUP, mc.player);
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, 6, 1, SlotActionType.PICKUP, mc.player);
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, elytra, 1, ClickType.PICKUP, mc.player);
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, 6, 1, ClickType.PICKUP, mc.player);
       }
 
       mc.player
-         .networkHandler
-         .sendPacket(new ClientCommandC2SPacket(mc.player, net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+         .connection
+         .send(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
       if (elytra != -2) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, 6, 1, SlotActionType.PICKUP, mc.player);
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, elytra, 1, SlotActionType.PICKUP, mc.player);
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, 6, 1, ClickType.PICKUP, mc.player);
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, elytra, 1, ClickType.PICKUP, mc.player);
       }
 
       this.disablerTicks = this.disablerDelay.getValue();
@@ -757,8 +756,8 @@ public class ElytraPlus extends Module {
       }
 
       for (int i2 = 0; i2 < 45; i2++) {
-         ItemStack is = mc.player.getInventory().getStack(i2);
-         if (ItemStack.areItemsEqual(is, stack) && is.getItem() == item) {
+         ItemStack is = mc.player.getInventory().getItem(i2);
+         if (ItemStack.isSameItem(is, stack) && is.getItem() == item) {
             return i2;
          }
       }
@@ -767,7 +766,7 @@ public class ElytraPlus extends Module {
    }
 
    private int getFireworks() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          return -2;
       }
 
@@ -796,8 +795,8 @@ public class ElytraPlus extends Module {
    }
 
    private boolean shouldSwapToElytra() {
-      ItemStack is = mc.player.getEquippedStack(EquipmentSlot.CHEST);
-      return is.getItem() != Items.ELYTRA || !ElytraItem.isUsable(is);
+      ItemStack is = mc.player.getItemBySlot(EquipmentSlot.CHEST);
+      return is.getItem() != Items.ELYTRA || !ElytraItem.isFlyEnabled(is);
    }
 
    private void doFireWork(boolean started) {
@@ -815,23 +814,23 @@ public class ElytraPlus extends Module {
                      this.slotWithFireWorks = -1;
                   } else {
                      this.slotWithFireWorks = slot;
-                     boolean inOffhand = mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET;
-                     int prevSlot = mc.player.getInventory().selectedSlot;
+                     boolean inOffhand = mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET;
+                     int prevSlot = mc.player.getInventory().selected;
                      if (!inOffhand && prevSlot != slot) {
-                        this.sendPacket(new UpdateSelectedSlotC2SPacket(slot));
+                        this.sendPacket(new ServerboundSetCarriedItemPacket(slot));
                      }
 
                      this.sendSequencedPacket(
-                        id -> new PlayerInteractItemC2SPacket(inOffhand ? Hand.OFF_HAND : Hand.MAIN_HAND, id, mc.player.getYaw(), mc.player.getPitch())
+                        id -> new ServerboundUseItemPacket(inOffhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, id, mc.player.getYRot(), mc.player.getXRot())
                      );
-                     if (!inOffhand && prevSlot != mc.player.getInventory().selectedSlot) {
-                        this.sendPacket(new UpdateSelectedSlotC2SPacket(prevSlot));
+                     if (!inOffhand && prevSlot != mc.player.getInventory().selected) {
+                        this.sendPacket(new ServerboundSetCarriedItemPacket(prevSlot));
                      }
 
                      this.flying = true;
                      this.lastFireworkTime = System.currentTimeMillis();
                      this.pingTimer.reset();
-                     this.flightZonePos = mc.player.getPos();
+                     this.flightZonePos = mc.player.position();
                   }
                }
             }
@@ -841,11 +840,11 @@ public class ElytraPlus extends Module {
 
    private void equipElytra() {
       int elytraSlot = InventoryUtility.getElytra();
-      if (elytraSlot == -1 && mc.player.currentScreenHandler.getCursorStack().getItem() != Items.ELYTRA) {
+      if (elytraSlot == -1 && mc.player.containerMenu.getCarried().getItem() != Items.ELYTRA) {
          this.noElytra();
       } else if (this.shouldSwapToElytra()) {
          if (this.prevElytraSlot == -1) {
-            ItemStack is = mc.player.getEquippedStack(EquipmentSlot.CHEST);
+            ItemStack is = mc.player.getItemBySlot(EquipmentSlot.CHEST);
             this.prevElytraSlot = elytraSlot;
             this.prevArmorItem = is.getItem();
             this.prevArmorItemCopy = is.copy();
@@ -867,11 +866,11 @@ public class ElytraPlus extends Module {
             return;
          }
 
-         ItemStack is = mc.player.getInventory().getStack(this.prevElytraSlot);
-         boolean bl2 = is != ItemStack.EMPTY && !ItemStack.areItemsEqual(is, this.prevArmorItemCopy);
+         ItemStack is = mc.player.getInventory().getItem(this.prevElytraSlot);
+         boolean bl2 = is != ItemStack.EMPTY && !ItemStack.isSameItem(is, this.prevArmorItemCopy);
          int n2 = findInInventory(this.prevArmorItemCopy, this.prevArmorItem);
          n2 = n2 < 9 && n2 != -1 ? n2 + 36 : n2;
-         if (mc.player.currentScreenHandler.getCursorStack().getItem() != Items.AIR) {
+         if (mc.player.containerMenu.getCarried().getItem() != Items.AIR) {
             clickSlot(6);
             if (this.prevElytraSlot != -1) {
                clickSlot(this.prevElytraSlot);
@@ -901,7 +900,7 @@ public class ElytraPlus extends Module {
 
    public static int findEmpty(boolean hotbar) {
       for (int i2 = hotbar ? 0 : 9; i2 < (hotbar ? 9 : 45); i2++) {
-         if (mc.player.getInventory().getStack(i2).isEmpty()) {
+         if (mc.player.getInventory().getItem(i2).isEmpty()) {
             return i2;
          }
       }
@@ -910,10 +909,10 @@ public class ElytraPlus extends Module {
    }
 
    public void fireWorkOnPlayerUpdate() {
-      boolean inAir = mc.world.isAir(BlockPos.ofFloored(mc.player.getPos()));
-      boolean aboveLiquid = isAboveLiquid(0.1F) && inAir && mc.player.getVelocity().getY() < 0.0;
+      boolean inAir = mc.level.isEmptyBlock(BlockPos.containing(mc.player.position()));
+      boolean aboveLiquid = isAboveLiquid(0.1F) && inAir && mc.player.getDeltaMovement().y() < 0.0;
       if ((!(mc.player.fallDistance > 0.0F) || !inAir) && !aboveLiquid) {
-         if (mc.player.isOnGround()) {
+         if (mc.player.onGround()) {
             this.started = false;
             return;
          }
@@ -926,13 +925,13 @@ public class ElytraPlus extends Module {
       }
 
       if (this.canFly()) {
-         if (!mc.player.isFallFlying() && !this.started && mc.player.getVelocity().getY() < 0.0) {
-            this.sendPacket(new ClientCommandC2SPacket(mc.player, net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+         if (!mc.player.isFallFlying() && !this.started && mc.player.getDeltaMovement().y() < 0.0) {
+            this.sendPacket(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
             this.started = true;
          }
 
          if (Managers.PLAYER.ticksElytraFlying < 4) {
-            mc.options.jumpKey.setPressed(false);
+            mc.options.keyJump.setDown(false);
          }
 
          this.doFireWork(true);
@@ -941,23 +940,23 @@ public class ElytraPlus extends Module {
 
    public void fireworkOnSync() {
       if (this.grim.getValue().isEnabled() && this.rotate.getValue()) {
-         if (mc.options.jumpKey.isPressed() && mc.player.isFallFlying() && this.flying) {
-            mc.player.setPitch(-45.0F);
+         if (mc.options.keyJump.isDown() && mc.player.isFallFlying() && this.flying) {
+            mc.player.setXRot(-45.0F);
          }
 
-         if (mc.options.sneakKey.isPressed() && mc.player.isFallFlying() && this.flying) {
-            mc.player.setPitch(45.0F);
+         if (mc.options.keyShift.isDown() && mc.player.isFallFlying() && this.flying) {
+            mc.player.setXRot(45.0F);
          }
 
-         mc.player.setYaw(MovementUtility.getMoveDirection());
+         mc.player.setYRot(MovementUtility.getMoveDirection());
       }
 
-      if (!MovementUtility.isMoving() && mc.options.jumpKey.isPressed() && mc.player.isFallFlying() && this.flying) {
-         mc.player.setPitch(-90.0F);
+      if (!MovementUtility.isMoving() && mc.options.keyJump.isDown() && mc.player.isFallFlying() && this.flying) {
+         mc.player.setXRot(-90.0F);
       }
 
-      if (Managers.PLAYER.ticksElytraFlying < 5 && !mc.player.isOnGround()) {
-         mc.player.setPitch(-45.0F);
+      if (Managers.PLAYER.ticksElytraFlying < 5 && !mc.player.onGround()) {
+         mc.player.setXRot(-45.0F);
       }
    }
 
@@ -974,19 +973,19 @@ public class ElytraPlus extends Module {
             return;
          }
 
-         if (mc.options.jumpKey.isPressed()) {
+         if (mc.options.keyJump.isDown()) {
             e.setY(this.ySpeed.getValue() * Math.min((this.accelerationY += 9.0F) / 100.0F, 1.0F));
-         } else if (mc.options.sneakKey.isPressed()) {
+         } else if (mc.options.keyShift.isDown()) {
             e.setY(-this.ySpeed.getValue() * Math.min((this.accelerationY += 9.0F) / 100.0F, 1.0F));
          } else if (this.bowBomb.getValue() && checkGround(2.0F)) {
-            e.setY(mc.player.age % 2 == 0 ? 0.42F : -0.42F);
+            e.setY(mc.player.tickCount % 2 == 0 ? 0.42F : -0.42F);
          } else {
             switch ((ElytraPlus.AntiKick)this.antiKick.getValue()) {
                case Off:
                   e.setY(0.0);
                   break;
                case Jitter:
-                  e.setY(mc.player.age % 2 == 0 ? 0.08F : -0.08F);
+                  e.setY(mc.player.tickCount % 2 == 0 ? 0.08F : -0.08F);
                   break;
                case Glide:
                   e.setY(-0.08F);
@@ -997,10 +996,10 @@ public class ElytraPlus extends Module {
             this.acceleration = 0.0F;
          }
 
-         if (mc.player.input.movementSideways > 0.0F) {
-            mc.player.input.movementSideways = 1.0F;
-         } else if (mc.player.input.movementSideways < 0.0F) {
-            mc.player.input.movementSideways = -1.0F;
+         if (mc.player.input.leftImpulse > 0.0F) {
+            mc.player.input.leftImpulse = 1.0F;
+         } else if (mc.player.input.leftImpulse < 0.0F) {
+            mc.player.input.leftImpulse = -1.0F;
          }
 
          MovementUtility.modifyEventSpeed(e, this.xzSpeed.getValue() * Math.min((this.acceleration += 9.0F) / 100.0F, 1.0F));
@@ -1013,34 +1012,34 @@ public class ElytraPlus extends Module {
    }
 
    public static boolean checkGround(float f2) {
-      return mc.player.getY() < 0.0 ? false : !mc.world.getBlockCollisions(mc.player, mc.player.getBoundingBox().offset(0.0, -f2, 0.0)).iterator().hasNext();
+      return mc.player.getY() < 0.0 ? false : !mc.level.getBlockCollisions(mc.player, mc.player.getBoundingBox().move(0.0, -f2, 0.0)).iterator().hasNext();
    }
 
    public static boolean isAboveLiquid(float offset) {
       return mc.player == null
          ? false
-         : mc.world.getBlockState(BlockPos.ofFloored(mc.player.getX(), mc.player.getY() - offset, mc.player.getZ())).getBlock() instanceof FluidBlock;
+         : mc.level.getBlockState(BlockPos.containing(mc.player.getX(), mc.player.getY() - offset, mc.player.getZ())).getBlock() instanceof LiquidBlock;
    }
 
    public void fireworkOnEnable() {
-      if (mc.player.getEquippedStack(EquipmentSlot.CHEST).getItem() != Items.ELYTRA
-         && mc.player.currentScreenHandler.getCursorStack().getItem() != Items.ELYTRA
+      if (mc.player.getItemBySlot(EquipmentSlot.CHEST).getItem() != Items.ELYTRA
+         && mc.player.containerMenu.getCarried().getItem() != Items.ELYTRA
          && InventoryUtility.getElytra() == -1) {
          this.noElytra();
       } else if (this.getFireWorks(false) == -1) {
          this.noFireworks();
       } else if (this.getFireWorks(true) == -1) {
-         this.getStackInSlotCopy = mc.player.getInventory().getStack(this.fireSlot.getValue() - 1).copy();
-         this.prevItemInHand = mc.player.getInventory().getStack(this.fireSlot.getValue() - 1).getItem();
+         this.getStackInSlotCopy = mc.player.getInventory().getItem(this.fireSlot.getValue() - 1).copy();
+         this.prevItemInHand = mc.player.getInventory().getItem(this.fireSlot.getValue() - 1).getItem();
       }
    }
 
    public void fireworkOnDisable() {
       this.started = false;
       if (!this.keepFlying.getValue()) {
-         mc.player.setVelocity(0.0, mc.player.getVelocity().getY(), 0.0);
+         mc.player.setDeltaMovement(0.0, mc.player.getDeltaMovement().y(), 0.0);
          new Thread(() -> {
-            this.sendPacket(new ClientCommandC2SPacket(mc.player, net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+            this.sendPacket(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
             Vcore.TICK_TIMER = 0.1F;
             this.returnItem();
             this.reset();
@@ -1060,7 +1059,7 @@ public class ElytraPlus extends Module {
    }
 
    private boolean isBoxCollidingGround() {
-      return mc.world.getBlockCollisions(mc.player, mc.player.getBoundingBox().expand(-0.25, 0.0, -0.25).offset(0.0, -0.3, 0.0)).iterator().hasNext();
+      return mc.level.getBlockCollisions(mc.player, mc.player.getBoundingBox().inflate(-0.25, 0.0, -0.25).move(0.0, -0.3, 0.0)).iterator().hasNext();
    }
 
    public enum AntiKick {

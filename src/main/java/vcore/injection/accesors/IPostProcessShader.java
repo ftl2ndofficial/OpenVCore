@@ -1,18 +1,18 @@
 package vcore.injection.accesors;
 
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.PostEffectPass;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import net.minecraft.client.renderer.PostPass;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(PostEffectPass.class)
+@Mixin(PostPass.class)
 public interface IPostProcessShader {
    @Mutable
-   @Accessor("input")
-   void setInput(Framebuffer var1);
+   @Accessor("inTarget")
+   void setInput(RenderTarget var1);
 
    @Mutable
-   @Accessor("output")
-   void setOutput(Framebuffer var1);
+   @Accessor("outTarget")
+   void setOutput(RenderTarget var1);
 }

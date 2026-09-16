@@ -6,30 +6,29 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.network.PendingUpdateManager;
-import net.minecraft.client.network.SequencedPacketCreator;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ExperienceOrbEntity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.Full;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.LookAndOnGround;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler;
+import net.minecraft.client.multiplayer.prediction.PredictiveAction;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Rot;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import vcore.features.modules.Module;
@@ -71,44 +70,44 @@ public final class InteractionUtility {
    );
    public static Map<BlockPos, Long> awaiting = new HashMap<>();
 
-   public static boolean canSee(Vec3d vec) {
+   public static boolean canSee(Vec3 vec) {
       return canSee(vec, vec);
    }
 
    public static boolean canSee(Entity entity) {
-      Vec3d entityEyes = getEyesPos(entity);
-      Vec3d entityPos = entity.getPos();
+      Vec3 entityEyes = getEyesPos(entity);
+      Vec3 entityPos = entity.position();
       return canSee(entityEyes, entityPos);
    }
 
-   public static boolean canSee(Vec3d entityEyes, Vec3d entityPos) {
-      if (Module.mc.player != null && Module.mc.world != null) {
-         Vec3d playerEyes = getEyesPos(Module.mc.player);
+   public static boolean canSee(Vec3 entityEyes, Vec3 entityPos) {
+      if (Module.mc.player != null && Module.mc.level != null) {
+         Vec3 playerEyes = getEyesPos(Module.mc.player);
          if (ExplosionUtility.raycast(playerEyes, entityEyes, false) == Type.MISS) {
             return true;
          } else {
-            return playerEyes.getY() > entityPos.getY() ? ExplosionUtility.raycast(playerEyes, entityEyes, false) == Type.MISS : false;
+            return playerEyes.y() > entityPos.y() ? ExplosionUtility.raycast(playerEyes, entityEyes, false) == Type.MISS : false;
          }
       } else {
          return false;
       }
    }
 
-   public static Vec3d getEyesPos(@NotNull Entity entity) {
-      return entity.getPos().add(0.0, entity.getEyeHeight(entity.getPose()), 0.0);
+   public static Vec3 getEyesPos(@NotNull Entity entity) {
+      return entity.position().add(0.0, entity.getEyeHeight(entity.getPose()), 0.0);
    }
 
-   public static float @NotNull [] calculateAngle(Vec3d to) {
+   public static float @NotNull [] calculateAngle(Vec3 to) {
       return calculateAngle(getEyesPos(Module.mc.player), to);
    }
 
-   public static float @NotNull [] calculateAngle(@NotNull Vec3d from, @NotNull Vec3d to) {
+   public static float @NotNull [] calculateAngle(@NotNull Vec3 from, @NotNull Vec3 to) {
       double difX = to.x - from.x;
       double difY = (to.y - from.y) * -1.0;
       double difZ = to.z - from.z;
-      double dist = MathHelper.sqrt((float)(difX * difX + difZ * difZ));
-      float yD = (float)MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(difZ, difX)) - 90.0);
-      float pD = (float)MathHelper.clamp(MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(difY, dist))), -90.0, 90.0);
+      double dist = Mth.sqrt((float)(difX * difX + difZ * difZ));
+      float yD = (float)Mth.wrapDegrees(Math.toDegrees(Math.atan2(difZ, difX)) - 90.0);
+      float pD = (float)Mth.clamp(Mth.wrapDegrees(Math.toDegrees(Math.atan2(difY, dist))), -90.0, 90.0);
       return new float[]{yD, pD};
    }
 
@@ -121,7 +120,7 @@ public final class InteractionUtility {
       boolean returnSlot,
       boolean ignoreEntities
    ) {
-      int prevItem = Module.mc.player.getInventory().selectedSlot;
+      int prevItem = Module.mc.player.getInventory().selected;
       if (slot != -1) {
          InventoryUtility.switchTo(slot);
          boolean result = placeBlock(bp, rotate, interact, mode, ignoreEntities);
@@ -144,7 +143,7 @@ public final class InteractionUtility {
       boolean returnSlot,
       boolean ignoreEntities
    ) {
-      int prevItem = Module.mc.player.getInventory().selectedSlot;
+      int prevItem = Module.mc.player.getInventory().selected;
       invResult.switchTo();
       boolean result = placeBlock(bp, rotate, interact, mode, ignoreEntities);
       if (returnSlot) {
@@ -158,68 +157,68 @@ public final class InteractionUtility {
       BlockPos bp, InteractionUtility.Rotate rotate, InteractionUtility.Interact interact, InteractionUtility.PlaceMode mode, boolean ignoreEntities
    ) {
       BlockHitResult result = getPlaceResult(bp, interact, ignoreEntities);
-      if (result != null && Module.mc.world != null && Module.mc.interactionManager != null && Module.mc.player != null) {
+      if (result != null && Module.mc.level != null && Module.mc.gameMode != null && Module.mc.player != null) {
          boolean sprint = Module.mc.player.isSprinting();
-         boolean sneak = needSneak(Module.mc.world.getBlockState(result.getBlockPos()).getBlock()) && !Module.mc.player.isSneaking();
+         boolean sneak = needSneak(Module.mc.level.getBlockState(result.getBlockPos()).getBlock()) && !Module.mc.player.isShiftKeyDown();
          if (sprint) {
-            Module.mc.player.networkHandler.sendPacket(new ClientCommandC2SPacket(Module.mc.player, Mode.STOP_SPRINTING));
+            Module.mc.player.connection.send(new ServerboundPlayerCommandPacket(Module.mc.player, Action.STOP_SPRINTING));
          }
 
          if (sneak) {
-            Module.mc.player.networkHandler.sendPacket(new ClientCommandC2SPacket(Module.mc.player, Mode.PRESS_SHIFT_KEY));
+            Module.mc.player.connection.send(new ServerboundPlayerCommandPacket(Module.mc.player, Action.PRESS_SHIFT_KEY));
          }
 
-         float[] angle = calculateAngle(result.getPos());
+         float[] angle = calculateAngle(result.getLocation());
          switch (rotate) {
             case None:
             default:
                break;
             case Default:
-               Module.mc.player.networkHandler.sendPacket(new LookAndOnGround(angle[0], angle[1], Module.mc.player.isOnGround()));
+               Module.mc.player.connection.send(new Rot(angle[0], angle[1], Module.mc.player.onGround()));
                break;
             case Grim:
                Module.mc
                   .player
-                  .networkHandler
-                  .sendPacket(
-                     new Full(Module.mc.player.getX(), Module.mc.player.getY(), Module.mc.player.getZ(), angle[0], angle[1], Module.mc.player.isOnGround())
+                  .connection
+                  .send(
+                     new PosRot(Module.mc.player.getX(), Module.mc.player.getY(), Module.mc.player.getZ(), angle[0], angle[1], Module.mc.player.onGround())
                   );
          }
 
          if (mode == InteractionUtility.PlaceMode.Normal) {
-            Module.mc.interactionManager.interactBlock(Module.mc.player, Hand.MAIN_HAND, result);
+            Module.mc.gameMode.useItemOn(Module.mc.player, InteractionHand.MAIN_HAND, result);
          }
 
          if (mode == InteractionUtility.PlaceMode.Packet) {
-            sendSequencedPacket(id -> new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, result, id));
+            sendSequencedPacket(id -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, id));
          }
 
          awaiting.put(bp, System.currentTimeMillis());
          if (rotate == InteractionUtility.Rotate.Grim) {
             Module.mc
                .player
-               .networkHandler
-               .sendPacket(
-                  new Full(
+               .connection
+               .send(
+                  new PosRot(
                      Module.mc.player.getX(),
                      Module.mc.player.getY(),
                      Module.mc.player.getZ(),
-                     Module.mc.player.getYaw(),
-                     Module.mc.player.getPitch(),
-                     Module.mc.player.isOnGround()
+                     Module.mc.player.getYRot(),
+                     Module.mc.player.getXRot(),
+                     Module.mc.player.onGround()
                   )
                );
          }
 
          if (sneak) {
-            Module.mc.player.networkHandler.sendPacket(new ClientCommandC2SPacket(Module.mc.player, Mode.RELEASE_SHIFT_KEY));
+            Module.mc.player.connection.send(new ServerboundPlayerCommandPacket(Module.mc.player, Action.RELEASE_SHIFT_KEY));
          }
 
          if (sprint) {
-            Module.mc.player.networkHandler.sendPacket(new ClientCommandC2SPacket(Module.mc.player, Mode.START_SPRINTING));
+            Module.mc.player.connection.send(new ServerboundPlayerCommandPacket(Module.mc.player, Action.START_SPRINTING));
          }
 
-         Module.mc.player.networkHandler.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+         Module.mc.player.connection.send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
          return true;
       } else {
          return false;
@@ -232,16 +231,16 @@ public final class InteractionUtility {
 
    public static float @Nullable [] getPlaceAngle(@NotNull BlockPos bp, InteractionUtility.Interact interact, boolean ignoreEntities) {
       BlockHitResult result = getPlaceResult(bp, interact, ignoreEntities);
-      return result != null ? calculateAngle(result.getPos()) : null;
+      return result != null ? calculateAngle(result.getLocation()) : null;
    }
 
-   public static void sendSequencedPacket(SequencedPacketCreator packetCreator) {
-      if (Module.mc.getNetworkHandler() != null && Module.mc.world != null) {
-         PendingUpdateManager pendingUpdateManager = ((IClientWorldMixin)Module.mc.world).getPendingUpdateManager().incrementSequence();
+   public static void sendSequencedPacket(PredictiveAction packetCreator) {
+      if (Module.mc.getConnection() != null && Module.mc.level != null) {
+         BlockStatePredictionHandler pendingUpdateManager = ((IClientWorldMixin)Module.mc.level).getPendingUpdateManager().startPredicting();
 
          try {
-            int i = pendingUpdateManager.getSequence();
-            Module.mc.getNetworkHandler().sendPacket(packetCreator.predict(i));
+            int i = pendingUpdateManager.currentSequence();
+            Module.mc.getConnection().send(packetCreator.predict(i));
          } catch (Throwable var5) {
             if (pendingUpdateManager != null) {
                try {
@@ -263,20 +262,20 @@ public final class InteractionUtility {
    @Nullable
    public static BlockHitResult getPlaceResult(@NotNull BlockPos bp, InteractionUtility.Interact interact, boolean ignoreEntities) {
       if (!ignoreEntities) {
-         for (Entity entity : Module.mc.world.getNonSpectatingEntities(Entity.class, new Box(bp))) {
-            if (!(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrbEntity)) {
+         for (Entity entity : Module.mc.level.getEntitiesOfClass(Entity.class, new AABB(bp))) {
+            if (!(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrb)) {
                return null;
             }
          }
       }
 
-      if (!Module.mc.world.getBlockState(bp).isReplaceable()) {
+      if (!Module.mc.level.getBlockState(bp).canBeReplaced()) {
          return null;
       }
 
       if (interact == InteractionUtility.Interact.AirPlace) {
          return ExplosionUtility.rayCastBlock(
-            new RaycastContext(getEyesPos(Module.mc.player), bp.toCenterPos(), ShapeType.COLLIDER, FluidHandling.NONE, Module.mc.player), bp
+            new ClipContext(getEyesPos(Module.mc.player), bp.getCenter(), net.minecraft.world.level.ClipContext.Block.COLLIDER, Fluid.NONE, Module.mc.player), bp
          );
       }
 
@@ -303,15 +302,15 @@ public final class InteractionUtility {
 
       BlockHitResult result = null;
       if (interact == InteractionUtility.Interact.Legit) {
-         Vec3d p = getVisibleDirectionPoint(support.facing, support.position, 0.0F, 6.0F);
+         Vec3 p = getVisibleDirectionPoint(support.facing, support.position, 0.0F, 6.0F);
          if (p != null) {
             return new BlockHitResult(p, support.facing, support.position, false);
          }
       } else {
-         Vec3d directionVec = new Vec3d(
-            support.position.getX() + 0.5 + support.facing.getVector().getX() * 0.5,
-            support.position.getY() + 0.5 + support.facing.getVector().getY() * 0.5,
-            support.position.getZ() + 0.5 + support.facing.getVector().getZ() * 0.5
+         Vec3 directionVec = new Vec3(
+            support.position.getX() + 0.5 + support.facing.getNormal().getX() * 0.5,
+            support.position.getY() + 0.5 + support.facing.getNormal().getY() * 0.5,
+            support.position.getZ() + 0.5 + support.facing.getNormal().getZ() * 0.5
          );
          result = new BlockHitResult(directionVec, support.facing, support.position, false);
       }
@@ -322,28 +321,28 @@ public final class InteractionUtility {
    @NotNull
    public static ArrayList<InteractionUtility.BlockPosWithFacing> getSupportBlocks(@NotNull BlockPos bp) {
       ArrayList<InteractionUtility.BlockPosWithFacing> list = new ArrayList<>();
-      if (Module.mc.world.getBlockState(bp.add(0, -1, 0)).isSolid() || awaiting.containsKey(bp.add(0, -1, 0))) {
-         list.add(new InteractionUtility.BlockPosWithFacing(bp.add(0, -1, 0), Direction.UP));
+      if (Module.mc.level.getBlockState(bp.offset(0, -1, 0)).isSolid() || awaiting.containsKey(bp.offset(0, -1, 0))) {
+         list.add(new InteractionUtility.BlockPosWithFacing(bp.offset(0, -1, 0), Direction.UP));
       }
 
-      if (Module.mc.world.getBlockState(bp.add(0, 1, 0)).isSolid() || awaiting.containsKey(bp.add(0, 1, 0))) {
-         list.add(new InteractionUtility.BlockPosWithFacing(bp.add(0, 1, 0), Direction.DOWN));
+      if (Module.mc.level.getBlockState(bp.offset(0, 1, 0)).isSolid() || awaiting.containsKey(bp.offset(0, 1, 0))) {
+         list.add(new InteractionUtility.BlockPosWithFacing(bp.offset(0, 1, 0), Direction.DOWN));
       }
 
-      if (Module.mc.world.getBlockState(bp.add(-1, 0, 0)).isSolid() || awaiting.containsKey(bp.add(-1, 0, 0))) {
-         list.add(new InteractionUtility.BlockPosWithFacing(bp.add(-1, 0, 0), Direction.EAST));
+      if (Module.mc.level.getBlockState(bp.offset(-1, 0, 0)).isSolid() || awaiting.containsKey(bp.offset(-1, 0, 0))) {
+         list.add(new InteractionUtility.BlockPosWithFacing(bp.offset(-1, 0, 0), Direction.EAST));
       }
 
-      if (Module.mc.world.getBlockState(bp.add(1, 0, 0)).isSolid() || awaiting.containsKey(bp.add(1, 0, 0))) {
-         list.add(new InteractionUtility.BlockPosWithFacing(bp.add(1, 0, 0), Direction.WEST));
+      if (Module.mc.level.getBlockState(bp.offset(1, 0, 0)).isSolid() || awaiting.containsKey(bp.offset(1, 0, 0))) {
+         list.add(new InteractionUtility.BlockPosWithFacing(bp.offset(1, 0, 0), Direction.WEST));
       }
 
-      if (Module.mc.world.getBlockState(bp.add(0, 0, 1)).isSolid() || awaiting.containsKey(bp.add(0, 0, 1))) {
-         list.add(new InteractionUtility.BlockPosWithFacing(bp.add(0, 0, 1), Direction.NORTH));
+      if (Module.mc.level.getBlockState(bp.offset(0, 0, 1)).isSolid() || awaiting.containsKey(bp.offset(0, 0, 1))) {
+         list.add(new InteractionUtility.BlockPosWithFacing(bp.offset(0, 0, 1), Direction.NORTH));
       }
 
-      if (Module.mc.world.getBlockState(bp.add(0, 0, -1)).isSolid() || awaiting.containsKey(bp.add(0, 0, -1))) {
-         list.add(new InteractionUtility.BlockPosWithFacing(bp.add(0, 0, -1), Direction.SOUTH));
+      if (Module.mc.level.getBlockState(bp.offset(0, 0, -1)).isSolid() || awaiting.containsKey(bp.offset(0, 0, -1))) {
+         list.add(new InteractionUtility.BlockPosWithFacing(bp.offset(0, 0, -1), Direction.SOUTH));
       }
 
       return list;
@@ -351,29 +350,29 @@ public final class InteractionUtility {
 
    @Nullable
    public static InteractionUtility.BlockPosWithFacing checkNearBlocks(@NotNull BlockPos blockPos) {
-      if (Module.mc.world.getBlockState(blockPos.add(0, -1, 0)).isSolid()) {
-         return new InteractionUtility.BlockPosWithFacing(blockPos.add(0, -1, 0), Direction.UP);
-      } else if (Module.mc.world.getBlockState(blockPos.add(-1, 0, 0)).isSolid()) {
-         return new InteractionUtility.BlockPosWithFacing(blockPos.add(-1, 0, 0), Direction.EAST);
-      } else if (Module.mc.world.getBlockState(blockPos.add(1, 0, 0)).isSolid()) {
-         return new InteractionUtility.BlockPosWithFacing(blockPos.add(1, 0, 0), Direction.WEST);
-      } else if (Module.mc.world.getBlockState(blockPos.add(0, 0, 1)).isSolid()) {
-         return new InteractionUtility.BlockPosWithFacing(blockPos.add(0, 0, 1), Direction.NORTH);
+      if (Module.mc.level.getBlockState(blockPos.offset(0, -1, 0)).isSolid()) {
+         return new InteractionUtility.BlockPosWithFacing(blockPos.offset(0, -1, 0), Direction.UP);
+      } else if (Module.mc.level.getBlockState(blockPos.offset(-1, 0, 0)).isSolid()) {
+         return new InteractionUtility.BlockPosWithFacing(blockPos.offset(-1, 0, 0), Direction.EAST);
+      } else if (Module.mc.level.getBlockState(blockPos.offset(1, 0, 0)).isSolid()) {
+         return new InteractionUtility.BlockPosWithFacing(blockPos.offset(1, 0, 0), Direction.WEST);
+      } else if (Module.mc.level.getBlockState(blockPos.offset(0, 0, 1)).isSolid()) {
+         return new InteractionUtility.BlockPosWithFacing(blockPos.offset(0, 0, 1), Direction.NORTH);
       } else {
-         return Module.mc.world.getBlockState(blockPos.add(0, 0, -1)).isSolid()
-            ? new InteractionUtility.BlockPosWithFacing(blockPos.add(0, 0, -1), Direction.SOUTH)
+         return Module.mc.level.getBlockState(blockPos.offset(0, 0, -1)).isSolid()
+            ? new InteractionUtility.BlockPosWithFacing(blockPos.offset(0, 0, -1), Direction.SOUTH)
             : null;
       }
    }
 
-   public static float squaredDistanceFromEyes(@NotNull Vec3d vec) {
+   public static float squaredDistanceFromEyes(@NotNull Vec3 vec) {
       double d0 = vec.x - Module.mc.player.getX();
       double d1 = vec.z - Module.mc.player.getZ();
       double d2 = vec.y - (Module.mc.player.getY() + Module.mc.player.getEyeHeight(Module.mc.player.getPose()));
       return (float)(d0 * d0 + d1 * d1 + d2 * d2);
    }
 
-   public static float squaredDistanceFromEyes2d(@NotNull Vec3d vec) {
+   public static float squaredDistanceFromEyes2d(@NotNull Vec3 vec) {
       double d0 = vec.x - Module.mc.player.getX();
       double d1 = vec.z - Module.mc.player.getZ();
       return (float)(d0 * d0 + d1 * d1);
@@ -382,7 +381,7 @@ public final class InteractionUtility {
    @NotNull
    public static List<Direction> getStrictDirections(@NotNull BlockPos bp) {
       List<Direction> visibleSides = new ArrayList<>();
-      Vec3d positionVector = bp.toCenterPos();
+      Vec3 positionVector = bp.getCenter();
       double westDelta = getEyesPos(Module.mc.player).x - positionVector.add(0.5, 0.0, 0.0).x;
       double eastDelta = getEyesPos(Module.mc.player).x - positionVector.add(-0.5, 0.0, 0.0).x;
       double northDelta = getEyesPos(Module.mc.player).z - positionVector.add(0.0, 0.0, 0.5).z;
@@ -421,19 +420,19 @@ public final class InteractionUtility {
          visibleSides.add(Direction.SOUTH);
       }
 
-      if (upDelta > 0.0 && isSolid(bp.down())) {
+      if (upDelta > 0.0 && isSolid(bp.below())) {
          visibleSides.add(Direction.UP);
       }
 
-      if (upDelta < 0.0 && isSolid(bp.up())) {
+      if (upDelta < 0.0 && isSolid(bp.above())) {
          visibleSides.add(Direction.DOWN);
       }
 
-      if (downDelta < 0.0 && isSolid(bp.up())) {
+      if (downDelta < 0.0 && isSolid(bp.above())) {
          visibleSides.add(Direction.DOWN);
       }
 
-      if (downDelta > 0.0 && isSolid(bp.down())) {
+      if (downDelta > 0.0 && isSolid(bp.below())) {
          visibleSides.add(Direction.UP);
       }
 
@@ -441,40 +440,40 @@ public final class InteractionUtility {
    }
 
    public static boolean isSolid(BlockPos bp) {
-      return Module.mc.world.getBlockState(bp).isSolid() || awaiting.containsKey(bp);
+      return Module.mc.level.getBlockState(bp).isSolid() || awaiting.containsKey(bp);
    }
 
    @NotNull
    public static List<Direction> getStrictBlockDirections(@NotNull BlockPos bp) {
       List<Direction> visibleSides = new ArrayList<>();
-      Vec3d pV = bp.toCenterPos();
+      Vec3 pV = bp.getCenter();
       double westDelta = getEyesPos(Module.mc.player).x - pV.add(0.5, 0.0, 0.0).x;
       double eastDelta = getEyesPos(Module.mc.player).x - pV.add(-0.5, 0.0, 0.0).x;
       double northDelta = getEyesPos(Module.mc.player).z - pV.add(0.0, 0.0, 0.5).z;
       double southDelta = getEyesPos(Module.mc.player).z - pV.add(0.0, 0.0, -0.5).z;
       double upDelta = getEyesPos(Module.mc.player).y - pV.add(0.0, 0.5, 0.0).y;
       double downDelta = getEyesPos(Module.mc.player).y - pV.add(0.0, -0.5, 0.0).y;
-      if (westDelta > 0.0 && Module.mc.world.getBlockState(bp.east()).isReplaceable()) {
+      if (westDelta > 0.0 && Module.mc.level.getBlockState(bp.east()).canBeReplaced()) {
          visibleSides.add(Direction.EAST);
       }
 
-      if (eastDelta < 0.0 && Module.mc.world.getBlockState(bp.west()).isReplaceable()) {
+      if (eastDelta < 0.0 && Module.mc.level.getBlockState(bp.west()).canBeReplaced()) {
          visibleSides.add(Direction.WEST);
       }
 
-      if (northDelta > 0.0 && Module.mc.world.getBlockState(bp.south()).isReplaceable()) {
+      if (northDelta > 0.0 && Module.mc.level.getBlockState(bp.south()).canBeReplaced()) {
          visibleSides.add(Direction.SOUTH);
       }
 
-      if (southDelta < 0.0 && Module.mc.world.getBlockState(bp.north()).isReplaceable()) {
+      if (southDelta < 0.0 && Module.mc.level.getBlockState(bp.north()).canBeReplaced()) {
          visibleSides.add(Direction.NORTH);
       }
 
-      if (upDelta > 0.0 && Module.mc.world.getBlockState(bp.up()).isReplaceable()) {
+      if (upDelta > 0.0 && Module.mc.level.getBlockState(bp.above()).canBeReplaced()) {
          visibleSides.add(Direction.UP);
       }
 
-      if (downDelta < 0.0 && Module.mc.world.getBlockState(bp.down()).isReplaceable()) {
+      if (downDelta < 0.0 && Module.mc.level.getBlockState(bp.below()).canBeReplaced()) {
          visibleSides.add(Direction.DOWN);
       }
 
@@ -484,17 +483,17 @@ public final class InteractionUtility {
    @Nullable
    public static InteractionUtility.BreakData getBreakData(BlockPos bp, InteractionUtility.Interact interact) {
       if (interact == InteractionUtility.Interact.Vanilla) {
-         return new InteractionUtility.BreakData(Direction.UP, bp.toCenterPos().add(0.0, 0.5, 0.0));
+         return new InteractionUtility.BreakData(Direction.UP, bp.getCenter().add(0.0, 0.5, 0.0));
       }
 
       if (interact == InteractionUtility.Interact.Strict) {
          float bestDistance = 999.0F;
          Direction bestDirection = Direction.UP;
-         Vec3d bestVector = null;
+         Vec3 bestVector = null;
 
          for (Direction dir : Direction.values()) {
-            Vec3d directionVec = new Vec3d(
-               bp.getX() + 0.5 + dir.getVector().getX() * 0.5, bp.getY() + 0.5 + dir.getVector().getY() * 0.5, bp.getZ() + 0.5 + dir.getVector().getZ() * 0.5
+            Vec3 directionVec = new Vec3(
+               bp.getX() + 0.5 + dir.getNormal().getX() * 0.5, bp.getY() + 0.5 + dir.getNormal().getY() * 0.5, bp.getZ() + 0.5 + dir.getNormal().getZ() * 0.5
             );
             float distance = squaredDistanceFromEyes(directionVec);
             if (bestDistance > distance) {
@@ -516,16 +515,16 @@ public final class InteractionUtility {
          for (float x = 0.0F; x <= 1.0F; x += 0.2F) {
             for (float y = 0.0F; y <= 1.0F; y += 0.2F) {
                for (float z = 0.0F; z <= 1.0F; z += 0.2F) {
-                  Vec3d point = new Vec3d(bp.getX() + x, bp.getY() + y, bp.getZ() + z);
+                  Vec3 point = new Vec3(bp.getX() + x, bp.getY() + y, bp.getZ() + z);
                   BlockHitResult wallCheck = Module.mc
-                     .world
-                     .raycast(new RaycastContext(getEyesPos(Module.mc.player), point, ShapeType.COLLIDER, FluidHandling.NONE, Module.mc.player));
+                     .level
+                     .clip(new ClipContext(getEyesPos(Module.mc.player), point, net.minecraft.world.level.ClipContext.Block.COLLIDER, Fluid.NONE, Module.mc.player));
                   if (wallCheck == null || wallCheck.getType() != Type.BLOCK || wallCheck.getBlockPos().equals(bp)) {
                      BlockHitResult result = ExplosionUtility.rayCastBlock(
-                        new RaycastContext(getEyesPos(Module.mc.player), point, ShapeType.COLLIDER, FluidHandling.NONE, Module.mc.player), bp
+                        new ClipContext(getEyesPos(Module.mc.player), point, net.minecraft.world.level.ClipContext.Block.COLLIDER, Fluid.NONE, Module.mc.player), bp
                      );
                      if (squaredDistanceFromEyes(point) < bestDistance && result != null && result.getType() == Type.BLOCK) {
-                        bestData = new InteractionUtility.BreakData(result.getSide(), result.getPos());
+                        bestData = new InteractionUtility.BreakData(result.getDirection(), result.getLocation());
                      }
                   }
                }
@@ -541,12 +540,12 @@ public final class InteractionUtility {
    }
 
    @Nullable
-   public static Vec3d getVisibleDirectionPoint(@NotNull Direction dir, @NotNull BlockPos bp, float wallRange, float range) {
-      Box brutBox = getDirectionBox(dir);
+   public static Vec3 getVisibleDirectionPoint(@NotNull Direction dir, @NotNull BlockPos bp, float wallRange, float range) {
+      AABB brutBox = getDirectionBox(dir);
       if (brutBox.maxX - brutBox.minX == 0.0) {
          for (double y = brutBox.minY; y < brutBox.maxY; y += 0.1F) {
             for (double z = brutBox.minZ; z < brutBox.maxZ; z += 0.1F) {
-               Vec3d point = new Vec3d(bp.getX() + brutBox.minX, bp.getY() + y, bp.getZ() + z);
+               Vec3 point = new Vec3(bp.getX() + brutBox.minX, bp.getY() + y, bp.getZ() + z);
                if (!shouldSkipPoint(point, bp, dir, wallRange, range)) {
                   return point;
                }
@@ -557,7 +556,7 @@ public final class InteractionUtility {
       if (brutBox.maxY - brutBox.minY == 0.0) {
          for (double x = brutBox.minX; x < brutBox.maxX; x += 0.1F) {
             for (double z = brutBox.minZ; z < brutBox.maxZ; z += 0.1F) {
-               Vec3d point = new Vec3d(bp.getX() + x, bp.getY() + brutBox.minY, bp.getZ() + z);
+               Vec3 point = new Vec3(bp.getX() + x, bp.getY() + brutBox.minY, bp.getZ() + z);
                if (!shouldSkipPoint(point, bp, dir, wallRange, range)) {
                   return point;
                }
@@ -568,7 +567,7 @@ public final class InteractionUtility {
       if (brutBox.maxZ - brutBox.minZ == 0.0) {
          for (double x = brutBox.minX; x < brutBox.maxX; x += 0.1F) {
             for (double y = brutBox.minY; y < brutBox.maxY; y += 0.1F) {
-               Vec3d point = new Vec3d(bp.getX() + x, bp.getY() + y, bp.getZ() + brutBox.minZ);
+               Vec3 point = new Vec3(bp.getX() + x, bp.getY() + y, bp.getZ() + brutBox.minZ);
                if (!shouldSkipPoint(point, bp, dir, wallRange, range)) {
                   return point;
                }
@@ -580,21 +579,21 @@ public final class InteractionUtility {
    }
 
    @NotNull
-   private static Box getDirectionBox(Direction dir) {
+   private static AABB getDirectionBox(Direction dir) {
       return switch (dir) {
-         case UP -> new Box(0.15F, 1.0, 0.15F, 0.85F, 1.0, 0.85F);
-         case DOWN -> new Box(0.15F, 0.0, 0.15F, 0.85F, 0.0, 0.85F);
-         case EAST -> new Box(1.0, 0.15F, 0.15F, 1.0, 0.85F, 0.85F);
-         case WEST -> new Box(0.0, 0.15F, 0.15F, 0.0, 0.85F, 0.85F);
-         case NORTH -> new Box(0.15F, 0.15F, 0.0, 0.85F, 0.85F, 0.0);
-         case SOUTH -> new Box(0.15F, 0.15F, 1.0, 0.85F, 0.85F, 1.0);
+         case UP -> new AABB(0.15F, 1.0, 0.15F, 0.85F, 1.0, 0.85F);
+         case DOWN -> new AABB(0.15F, 0.0, 0.15F, 0.85F, 0.0, 0.85F);
+         case EAST -> new AABB(1.0, 0.15F, 0.15F, 1.0, 0.85F, 0.85F);
+         case WEST -> new AABB(0.0, 0.15F, 0.15F, 0.0, 0.85F, 0.85F);
+         case NORTH -> new AABB(0.15F, 0.15F, 0.0, 0.85F, 0.85F, 0.0);
+         case SOUTH -> new AABB(0.15F, 0.15F, 1.0, 0.85F, 0.85F, 1.0);
          default -> throw new MatchException(null, null);
       };
    }
 
-   private static boolean shouldSkipPoint(Vec3d point, BlockPos bp, Direction dir, float wallRange, float range) {
-      RaycastContext context = new RaycastContext(getEyesPos(Module.mc.player), point, ShapeType.COLLIDER, FluidHandling.NONE, Module.mc.player);
-      BlockHitResult result = Module.mc.world.raycast(context);
+   private static boolean shouldSkipPoint(Vec3 point, BlockPos bp, Direction dir, float wallRange, float range) {
+      ClipContext context = new ClipContext(getEyesPos(Module.mc.player), point, net.minecraft.world.level.ClipContext.Block.COLLIDER, Fluid.NONE, Module.mc.player);
+      BlockHitResult result = Module.mc.level.clip(context);
       float dst = squaredDistanceFromEyes(point);
       return result != null && result.getType() == Type.BLOCK && !result.getBlockPos().equals(bp) && dst > wallRange * wallRange ? true : dst > range * range;
    }
@@ -605,17 +604,17 @@ public final class InteractionUtility {
 
    public static void lookAt(BlockPos bp) {
       if (bp != null) {
-         float[] angle = calculateAngle(bp.toCenterPos());
-         Module.mc.player.setYaw(angle[0]);
-         Module.mc.player.setPitch(angle[1]);
+         float[] angle = calculateAngle(bp.getCenter());
+         Module.mc.player.setYRot(angle[0]);
+         Module.mc.player.setXRot(angle[1]);
       }
    }
 
-   public static boolean isVecInFOV(Vec3d pos, Integer fov) {
-      double deltaX = pos.getX() - Module.mc.player.getX();
-      double deltaZ = pos.getZ() - Module.mc.player.getZ();
-      float yawDelta = MathHelper.wrapDegrees(
-         (float)MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(deltaZ, deltaX)) - 90.0) - MathHelper.wrapDegrees(Module.mc.player.getYaw())
+   public static boolean isVecInFOV(Vec3 pos, Integer fov) {
+      double deltaX = pos.x() - Module.mc.player.getX();
+      double deltaZ = pos.z() - Module.mc.player.getZ();
+      float yawDelta = Mth.wrapDegrees(
+         (float)Mth.wrapDegrees(Math.toDegrees(Math.atan2(deltaZ, deltaX)) - 90.0) - Mth.wrapDegrees(Module.mc.player.getYRot())
       );
       return Math.abs(yawDelta) <= fov.intValue();
    }
@@ -623,7 +622,7 @@ public final class InteractionUtility {
    public record BlockPosWithFacing(BlockPos position, Direction facing) {
    }
 
-   public record BreakData(Direction dir, Vec3d vector) {
+   public record BreakData(Direction dir, Vec3 vector) {
    }
 
    public enum Interact {

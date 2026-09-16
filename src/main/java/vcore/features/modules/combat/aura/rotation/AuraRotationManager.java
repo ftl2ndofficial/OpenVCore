@@ -1,10 +1,10 @@
 package vcore.features.modules.combat.aura.rotation;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
 import vcore.core.manager.player.PlayerManager;
@@ -58,8 +58,8 @@ public final class AuraRotationManager {
             && (
                this.aura.snapTicks.getValue() <= 1
                   || Aura.mc
-                     .world
-                     .getBlockCollisions(Aura.mc.player, Aura.mc.player.getBoundingBox().expand(-0.25, 0.0, -0.25).offset(0.0, 1.0, 0.0))
+                     .level
+                     .getBlockCollisions(Aura.mc.player, Aura.mc.player.getBoundingBox().inflate(-0.25, 0.0, -0.25).move(0.0, 1.0, 0.0))
                      .iterator()
                      .hasNext()
             );
@@ -71,10 +71,10 @@ public final class AuraRotationManager {
 
    public void onRender3D() {
       if (this.aura.clientLook.getValue() && (this.aura.rotationMode.getValue() != Aura.Mode.None || this.shouldUseElytraRotation())) {
-         Aura.mc.player.setYaw((float)Render2DEngine.interpolate(Aura.mc.player.prevYaw, this.aura.getRenderRotationYaw(), Render3DEngine.getTickDelta()));
+         Aura.mc.player.setYRot((float)Render2DEngine.interpolate(Aura.mc.player.yRotO, this.aura.getRenderRotationYaw(), Render3DEngine.getTickDelta()));
          Aura.mc
             .player
-            .setPitch((float)Render2DEngine.interpolate(Aura.mc.player.prevPitch, this.aura.getRenderRotationPitch(), Render3DEngine.getTickDelta()));
+            .setXRot((float)Render2DEngine.interpolate(Aura.mc.player.xRotO, this.aura.getRenderRotationPitch(), Render3DEngine.getTickDelta()));
       }
    }
 
@@ -84,35 +84,35 @@ public final class AuraRotationManager {
       }
 
       if (!ModuleManager.elytraTarget.shouldTarget(livingTarget)) {
-         Vec3d eyePos = Aura.mc.player.getEyePos();
+         Vec3 eyePos = Aura.mc.player.getEyePosition();
          double rangeSq = this.aura.getRange() * this.aura.getRange();
          return this.isBoxInAttackRange(eyePos, livingTarget.getBoundingBox(), rangeSq);
       }
 
-      Vec3d targetVec = this.getElytraAttackVec(livingTarget);
+      Vec3 targetVec = this.getElytraAttackVec(livingTarget);
       if (targetVec == null) {
          return false;
       }
 
       double maxDistance = ModuleManager.elytraTarget.getPrediction(livingTarget) - 0.5;
-      return Aura.mc.player.getPos().distanceTo(targetVec) <= maxDistance || Aura.mc.player.getBoundingBox().contains(targetVec);
+      return Aura.mc.player.position().distanceTo(targetVec) <= maxDistance || Aura.mc.player.getBoundingBox().contains(targetVec);
    }
 
    private boolean shouldUseElytraRotation() {
       return Aura.target instanceof LivingEntity livingTarget ? ModuleManager.elytraTarget.shouldUseElytraTargetRotation(livingTarget) : false;
    }
 
-   private Vec3d getElytraAttackVec(LivingEntity livingTarget) {
+   private Vec3 getElytraAttackVec(LivingEntity livingTarget) {
       return ModuleManager.elytraTarget.getTargetVec(livingTarget, true);
    }
 
-   private boolean isBoxInAttackRange(Vec3d eyePos, Box box, double rangeSq) {
-      return eyePos.squaredDistanceTo(this.getClosestPoint(eyePos, box)) <= rangeSq;
+   private boolean isBoxInAttackRange(Vec3 eyePos, AABB box, double rangeSq) {
+      return eyePos.distanceToSqr(this.getClosestPoint(eyePos, box)) <= rangeSq;
    }
 
-   private Vec3d getClosestPoint(Vec3d eyePos, Box box) {
-      return new Vec3d(
-         MathHelper.clamp(eyePos.x, box.minX, box.maxX), MathHelper.clamp(eyePos.y, box.minY, box.maxY), MathHelper.clamp(eyePos.z, box.minZ, box.maxZ)
+   private Vec3 getClosestPoint(Vec3 eyePos, AABB box) {
+      return new Vec3(
+         Mth.clamp(eyePos.x, box.minX, box.maxX), Mth.clamp(eyePos.y, box.minY, box.maxY), Mth.clamp(eyePos.z, box.minZ, box.maxZ)
       );
    }
 
@@ -146,15 +146,15 @@ public final class AuraRotationManager {
 
    public boolean isInRange(Entity target) {
       if (target instanceof LivingEntity livingTarget && ModuleManager.elytraTarget.shouldTarget(livingTarget)) {
-         Vec3d targetVec = ModuleManager.elytraTarget.getTargetVec(livingTarget, true);
+         Vec3 targetVec = ModuleManager.elytraTarget.getTargetVec(livingTarget, true);
          return targetVec != null && PlayerUtility.squaredDistanceFromEyes(targetVec) <= this.getSquaredRotateDistance();
       } else {
          float sqRotate = this.getSquaredRotateDistance();
-         Box bb = target.getBoundingBox();
-         Vec3d eye = Aura.mc.player.getEyePos();
-         double cx = MathHelper.clamp(eye.x, bb.minX, bb.maxX);
-         double cy = MathHelper.clamp(eye.y, bb.minY, bb.maxY);
-         double cz = MathHelper.clamp(eye.z, bb.minZ, bb.maxZ);
+         AABB bb = target.getBoundingBox();
+         Vec3 eye = Aura.mc.player.getEyePosition();
+         double cx = Mth.clamp(eye.x, bb.minX, bb.maxX);
+         double cy = Mth.clamp(eye.y, bb.minY, bb.maxY);
+         double cz = Mth.clamp(eye.z, bb.minZ, bb.maxZ);
          double dx = cx - eye.x;
          double dy = cy - eye.y;
          double dz = cz - eye.z;
@@ -162,12 +162,12 @@ public final class AuraRotationManager {
             return false;
          }
 
-         if (PlayerUtility.squaredDistanceFromEyes(target.getPos().add(0.0, target.getEyeHeight(target.getPose()), 0.0)) > sqRotate + 4.0F) {
+         if (PlayerUtility.squaredDistanceFromEyes(target.position().add(0.0, target.getEyeHeight(target.getPose()), 0.0)) > sqRotate + 4.0F) {
             return false;
          }
 
-         float halfBox = (float)(bb.getLengthX() / 2.0);
-         float lenY = (float)bb.getLengthY();
+         float halfBox = (float)(bb.getXsize() / 2.0);
+         float lenY = (float)bb.getYsize();
          double tx = target.getX();
          double ty = target.getY();
          double tz = target.getZ();
@@ -178,7 +178,7 @@ public final class AuraRotationManager {
          for (float x1 = -halfBox; x1 <= halfBox; x1 += 0.15F) {
             for (float z1 = -halfBox; z1 <= halfBox; z1 += 0.15F) {
                for (float y1 = 0.05F; y1 <= lenY; y1 += 0.25F) {
-                  Vec3d point = new Vec3d(tx + x1, ty + y1, tz + z1);
+                  Vec3 point = new Vec3(tx + x1, ty + y1, tz + z1);
                   if (!(PlayerUtility.squaredDistanceFromEyes(point) > sqRotate)) {
                      float[] rotation = PlayerManager.calcAngle(point);
                      if (Managers.PLAYER.checkRtx(rotation[0], rotation[1], rangeDist, wallRange, useRayTrace)) {

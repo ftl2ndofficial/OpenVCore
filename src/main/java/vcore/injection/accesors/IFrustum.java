@@ -1,6 +1,6 @@
 package vcore.injection.accesors;
 
-import net.minecraft.client.render.Frustum;
+import net.minecraft.client.renderer.culling.Frustum;
 import org.joml.FrustumIntersection;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -8,23 +8,23 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(Frustum.class)
 public interface IFrustum {
    @Accessor
-   FrustumIntersection getFrustumIntersection();
+   FrustumIntersection getIntersection();
 
-   @Accessor("x")
+   @Accessor("camX")
    double getX();
 
-   @Accessor("x")
+   @Accessor("camX")
    void setX(double var1);
 
-   @Accessor("y")
+   @Accessor("camY")
    double getY();
 
-   @Accessor("y")
+   @Accessor("camY")
    void setY(double var1);
 
-   @Accessor("z")
+   @Accessor("camZ")
    double getZ();
 
-   @Accessor("z")
+   @Accessor("camZ")
    void setZ(double var1);
 }

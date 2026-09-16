@@ -1,9 +1,9 @@
 package vcore.features.modules.misc;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import vcore.events.impl.EventScreen;
 import vcore.events.impl.PacketEvent;
 import vcore.events.impl.PlayerUpdateEvent;
@@ -56,7 +56,7 @@ public class CombatLeave extends Module {
    @EventHandler
    public void onPacketReceive(PacketEvent.Receive event) {
       Packet<?> packet = event.getPacket();
-      if (packet instanceof PlayerPositionLookS2CPacket) {
+      if (packet instanceof ClientboundPlayerPositionPacket) {
          this.disableAfterTeleport();
       } else {
          if (this.isDisconnectPacket(packet)) {

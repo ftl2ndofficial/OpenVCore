@@ -1,11 +1,11 @@
 package vcore.features.modules.misc;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.ZombifiedPiglinEntity;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.ZombifiedPiglin;
+import net.minecraft.world.entity.npc.Villager;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.events.impl.PacketEvent;
@@ -26,7 +26,7 @@ public final class AntiAttack extends Module {
 
    @EventHandler
    private void onPacketSend(PacketEvent.@NotNull Send e) {
-      if (e.getPacket() instanceof PlayerInteractEntityC2SPacket pac) {
+      if (e.getPacket() instanceof ServerboundInteractPacket pac) {
          Entity entity = Criticals.getEntity(pac);
          if (entity == null) {
             return;
@@ -36,11 +36,11 @@ public final class AntiAttack extends Module {
             e.cancel();
          }
 
-         if (entity instanceof ZombifiedPiglinEntity && this.zoglin.getValue()) {
+         if (entity instanceof ZombifiedPiglin && this.zoglin.getValue()) {
             e.cancel();
          }
 
-         if (entity instanceof VillagerEntity && this.villager.getValue()) {
+         if (entity instanceof Villager && this.villager.getValue()) {
             e.cancel();
          } else if (this.oneHp.getValue() && entity instanceof LivingEntity lent && lent.getHealth() <= this.hp.getValue()) {
             e.cancel();

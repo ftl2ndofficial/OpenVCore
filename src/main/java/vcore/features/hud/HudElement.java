@@ -4,9 +4,9 @@ import java.awt.Color;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ChatScreen;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import vcore.events.impl.EventMouse;
@@ -15,7 +15,7 @@ import vcore.utility.render.Render2DEngine;
 import vcore.utility.render.Render3DEngine;
 
 public class HudElement {
-   protected static final MinecraftClient mc = MinecraftClient.getInstance();
+   protected static final Minecraft mc = Minecraft.getInstance();
    protected static final float SCREEN_PADDING = 5.0F;
    private static final float MIN_ELEMENT_SPACING = 4.0F;
    private static final float SNAP_DISTANCE = 10.0F;
@@ -49,9 +49,9 @@ public class HudElement {
       return this.name;
    }
 
-   public void render(DrawContext context) {
-      int screenWidth = mc.getWindow().getScaledWidth();
-      int screenHeight = mc.getWindow().getScaledHeight();
+   public void render(GuiGraphics context) {
+      int screenWidth = mc.getWindow().getGuiScaledWidth();
+      int screenHeight = mc.getWindow().getGuiScaledHeight();
       this.boundsValid = false;
       float minX = 5.0F / screenWidth;
       float maxX = (screenWidth - this.width - 5.0F) / screenWidth;
@@ -63,7 +63,7 @@ public class HudElement {
       float elementCenterY = this.getPosY() + this.getHeight() / 2.0F;
       float screenCenterX = screenWidth / 2.0F;
       float screenCenterY = screenHeight / 2.0F;
-      if (this.isDraggable() && mc.currentScreen instanceof ChatScreen && this.mouseButton && this.mouseState) {
+      if (this.isDraggable() && mc.screen instanceof ChatScreen && this.mouseButton && this.mouseState) {
          float newX = Render2DEngine.scrollAnimate((this.normaliseX() - this.dragX) / screenWidth, this.pos.getX(), 0.1F);
          float newY = Render2DEngine.scrollAnimate((this.normaliseY() - this.dragY) / screenHeight, this.pos.getY(), 0.1F);
          float desiredPosX = Math.clamp(newX, minX, maxX) * screenWidth;
@@ -111,7 +111,7 @@ public class HudElement {
          Render2DEngine.drawLine(0.0F, screenHeight / 2.0F, screenWidth, screenHeight / 2.0F, Color.WHITE.getRGB());
          if (finalX != 0.0F || finalY != 0.0F) {
             Render2DEngine.drawRound(
-               context.getMatrices(),
+               context.pose(),
                finalX == 0.0F ? this.getHitX() : finalX,
                finalY == 0.0F ? this.getHitY() : finalY,
                this.width,
@@ -138,9 +138,9 @@ public class HudElement {
          this.mouseState = true;
       }
 
-      if (this.isDraggable() && this.isHovering() && mc.currentScreen instanceof ChatScreen) {
+      if (this.isDraggable() && this.isHovering() && mc.screen instanceof ChatScreen) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(mc.getWindow().getHandle(), this.mouseState ? GLFW.glfwCreateStandardCursor(221187) : GLFW.glfwCreateStandardCursor(221188));
+            GLFW.glfwSetCursor(mc.getWindow().getWindow(), this.mouseState ? GLFW.glfwCreateStandardCursor(221187) : GLFW.glfwCreateStandardCursor(221188));
          }
 
          anyHovered = true;
@@ -154,46 +154,46 @@ public class HudElement {
          if (currentlyDragging == this) {
             currentlyDragging = null;
          }
-      } else if (!(mc.currentScreen instanceof ChatScreen)) {
+      } else if (!(mc.screen instanceof ChatScreen)) {
          if (event.getAction() == 0) {
             this.mouseButton = false;
             currentlyDragging = null;
          }
       } else {
          if (event.getAction() == 0) {
-            float screenCenterX = mc.getWindow().getScaledWidth() / 2.0F;
-            float screenCenterY = mc.getWindow().getScaledHeight() / 2.0F;
+            float screenCenterX = mc.getWindow().getGuiScaledWidth() / 2.0F;
+            float screenCenterY = mc.getWindow().getGuiScaledHeight() / 2.0F;
             float elementCenterX = this.getPosX() + this.getWidth() / 2.0F;
             float elementCenterY = this.getPosY() + this.getHeight() / 2.0F;
             if (this.mouseButton && this.mouseState) {
                if (Math.abs(elementCenterX - screenCenterX) <= 10.0F) {
-                  this.pos.setX((screenCenterX - this.getWidth() / 2.0F) / mc.getWindow().getScaledWidth());
+                  this.pos.setX((screenCenterX - this.getWidth() / 2.0F) / mc.getWindow().getGuiScaledWidth());
                }
 
                if (Math.abs(elementCenterY - screenCenterY) <= 10.0F) {
-                  this.pos.setY((screenCenterY - this.getHeight() / 2.0F) / mc.getWindow().getScaledHeight());
+                  this.pos.setY((screenCenterY - this.getHeight() / 2.0F) / mc.getWindow().getGuiScaledHeight());
                }
 
                for (HudElement hudElement : this.getActiveElements()) {
                   if (hudElement != this && (hudElement.getHitX() != 0.0F || hudElement.getHitY() != 0.0F)) {
                      float hitDifX = this.getPosX() - this.getHitX();
                      float hitDifY = this.getPosY() - this.getHitY();
-                     if (this.getPosX() > mc.getWindow().getScaledWidth() / 2.0F) {
+                     if (this.getPosX() > mc.getWindow().getGuiScaledWidth() / 2.0F) {
                         float snappedX = hudElement.getHitX() + hudElement.getWidth() - this.getWidth();
                         if (this.isNear(hudElement.getHitX() + hudElement.getWidth(), this.getHitX() + this.getWidth())
                            && this.canPlaceAt(snappedX, this.getHitY())) {
-                           this.pos.setX((snappedX + hitDifX) / mc.getWindow().getScaledWidth());
+                           this.pos.setX((snappedX + hitDifX) / mc.getWindow().getGuiScaledWidth());
                         }
                      } else {
                         float snappedX = hudElement.getHitX();
                         if (this.isNear(hudElement.getHitX(), this.getHitX()) && this.canPlaceAt(snappedX, this.getHitY())) {
-                           this.pos.setX((snappedX + hitDifX) / mc.getWindow().getScaledWidth());
+                           this.pos.setX((snappedX + hitDifX) / mc.getWindow().getGuiScaledWidth());
                         }
                      }
 
                      float snappedY = hudElement.getHitY();
                      if (this.isNear(hudElement.getHitY(), this.getHitY()) && this.canPlaceAt(this.getHitX(), snappedY)) {
-                        this.pos.setY((snappedY + hitDifY) / mc.getWindow().getScaledHeight());
+                        this.pos.setY((snappedY + hitDifY) / mc.getWindow().getGuiScaledHeight());
                      }
                   }
                }
@@ -218,16 +218,16 @@ public class HudElement {
    }
 
    protected void setPositionPixels(float x, float y) {
-      this.pos.setX(x / mc.getWindow().getScaledWidth());
-      this.pos.setY(y / mc.getWindow().getScaledHeight());
+      this.pos.setX(x / mc.getWindow().getGuiScaledWidth());
+      this.pos.setY(y / mc.getWindow().getGuiScaledHeight());
    }
 
    public int normaliseX() {
-      return (int)(mc.mouse.getX() / Render3DEngine.getScaleFactor());
+      return (int)(mc.mouseHandler.xpos() / Render3DEngine.getScaleFactor());
    }
 
    public int normaliseY() {
-      return (int)(mc.mouse.getY() / Render3DEngine.getScaleFactor());
+      return (int)(mc.mouseHandler.ypos() / Render3DEngine.getScaleFactor());
    }
 
    public boolean isHovering() {
@@ -353,18 +353,18 @@ public class HudElement {
       this.y = resolvedHitY + anchorOffsetY;
       this.hitX = resolvedHitX;
       this.hitY = resolvedHitY;
-      this.pos.setX(this.x / mc.getWindow().getScaledWidth());
-      this.pos.setY(this.y / mc.getWindow().getScaledHeight());
+      this.pos.setX(this.x / mc.getWindow().getGuiScaledWidth());
+      this.pos.setY(this.y / mc.getWindow().getGuiScaledHeight());
       this.boundsValid = true;
    }
 
    private float clampHitX(float targetHitX) {
-      float maxHitX = mc.getWindow().getScaledWidth() - this.width - 5.0F;
+      float maxHitX = mc.getWindow().getGuiScaledWidth() - this.width - 5.0F;
       return Math.clamp(targetHitX, 5.0F, Math.max(5.0F, maxHitX));
    }
 
    private float clampHitY(float targetHitY) {
-      float maxHitY = mc.getWindow().getScaledHeight() - this.height - 5.0F;
+      float maxHitY = mc.getWindow().getGuiScaledHeight() - this.height - 5.0F;
       return Math.clamp(targetHitY, 5.0F, Math.max(5.0F, maxHitY));
    }
 

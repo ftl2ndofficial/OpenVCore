@@ -1,7 +1,7 @@
 package vcore.events.impl;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import vcore.events.Event;
 
 public class EventAttackBlock extends Event {

@@ -4,13 +4,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.Entity.RemovalReason;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ArmorItem;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Entity.RemovalReason;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventEntityRemoved;
 import vcore.events.impl.EventSync;
@@ -42,7 +42,7 @@ public final class AntiBot extends Module {
 
    @EventHandler
    public void onSync(EventSync event) {
-      if (mc.world != null && this.mode.is(AntiBot.Mode.Matrix)) {
+      if (mc.level != null && this.mode.is(AntiBot.Mode.Matrix)) {
          if (!this.onlyAura.getValue() || ModuleManager.aura.isEnabled()) {
             this.scanMatrixPlayers();
             if (this.enabledRemove.getValue() && !botEntityIds.isEmpty()) {
@@ -55,14 +55,14 @@ public final class AntiBot extends Module {
    @EventHandler
    public void onEntityRemoved(EventEntityRemoved event) {
       if (event != null && event.getEntity() != null) {
-         if (event.getEntity() instanceof PlayerEntity player) {
+         if (event.getEntity() instanceof Player player) {
             botEntityIds.remove(player.getId());
          }
       }
    }
 
    private void scanMatrixPlayers() {
-      for (PlayerEntity player : List.copyOf(mc.world.getPlayers())) {
+      for (Player player : List.copyOf(mc.level.players())) {
          if (this.canCheckPlayer(player)) {
             if (isConfirmedMatrixBot(player)) {
                this.addBot(player);
@@ -73,33 +73,33 @@ public final class AntiBot extends Module {
       }
    }
 
-   private boolean canCheckPlayer(PlayerEntity player) {
+   private boolean canCheckPlayer(Player player) {
       return player != null
          && player != mc.player
-         && player instanceof OtherClientPlayerEntity
+         && player instanceof RemotePlayer
          && player.isAlive()
          && (FakePlayer.fakePlayer == null || player != FakePlayer.fakePlayer);
    }
 
-   private static boolean isConfirmedMatrixBot(PlayerEntity player) {
+   private static boolean isConfirmedMatrixBot(Player player) {
       return hasMatrixArmorFingerprint(player);
    }
 
-   private static boolean hasMatrixArmorFingerprint(PlayerEntity player) {
-      return hasRenderedArmorItem(player) && player.getArmor() == 0;
+   private static boolean hasMatrixArmorFingerprint(Player player) {
+      return hasRenderedArmorItem(player) && player.getArmorValue() == 0;
    }
 
-   private static boolean hasRenderedArmorItem(PlayerEntity player) {
+   private static boolean hasRenderedArmorItem(Player player) {
       for (ItemStack stack : player.getInventory().armor) {
          if (isArmorItem(stack)) {
             return true;
          }
       }
 
-      return isArmorItem(player.getEquippedStack(EquipmentSlot.HEAD))
-         || isArmorItem(player.getEquippedStack(EquipmentSlot.CHEST))
-         || isArmorItem(player.getEquippedStack(EquipmentSlot.LEGS))
-         || isArmorItem(player.getEquippedStack(EquipmentSlot.FEET));
+      return isArmorItem(player.getItemBySlot(EquipmentSlot.HEAD))
+         || isArmorItem(player.getItemBySlot(EquipmentSlot.CHEST))
+         || isArmorItem(player.getItemBySlot(EquipmentSlot.LEGS))
+         || isArmorItem(player.getItemBySlot(EquipmentSlot.FEET));
    }
 
    private static boolean isArmorItem(ItemStack stack) {
@@ -107,29 +107,29 @@ public final class AntiBot extends Module {
    }
 
    private void removeDetectedBots() {
-      for (PlayerEntity player : List.copyOf(mc.world.getPlayers())) {
+      for (Player player : List.copyOf(mc.level.players())) {
          if (botEntityIds.contains(player.getId()) && (FakePlayer.fakePlayer == null || player != FakePlayer.fakePlayer)) {
             if (!isConfirmedMatrixBot(player)) {
                this.clearBot(player);
             } else {
-               mc.world.removeEntity(player.getId(), RemovalReason.KILLED);
+               mc.level.removeEntity(player.getId(), RemovalReason.KILLED);
             }
          }
       }
    }
 
-   private void addBot(PlayerEntity player) {
+   private void addBot(Player player) {
       if (botEntityIds.add(player.getId())) {
          this.sendMessage(player.getName().getString() + " is a bot (Matrix)!");
       }
    }
 
-   private void clearBot(PlayerEntity player) {
+   private void clearBot(Player player) {
       botEntityIds.remove(player.getId());
    }
 
    public static boolean isBot(Entity entity) {
-      if (entity instanceof PlayerEntity player) {
+      if (entity instanceof Player player) {
          return FakePlayer.fakePlayer != null && entity == FakePlayer.fakePlayer ? false : botEntityIds.contains(player.getId());
       } else {
          return false;

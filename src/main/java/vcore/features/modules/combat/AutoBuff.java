@@ -1,17 +1,17 @@
 package vcore.features.modules.combat;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.SplashPotionItem;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Hand;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SplashPotionItem;
+import net.minecraft.world.item.alchemy.PotionContents;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventAfterRotate;
 import vcore.events.impl.EventPostSync;
@@ -40,7 +40,7 @@ public final class AutoBuff extends Module {
 
    public static int getPotionSlot(AutoBuff.Potions potion) {
       for (int i = 0; i < 9; i++) {
-         if (isStackPotion(mc.player.getInventory().getStack(i), potion)) {
+         if (isStackPotion(mc.player.getInventory().getItem(i), potion)) {
             return i;
          }
       }
@@ -58,29 +58,29 @@ public final class AutoBuff extends Module {
       }
 
       if (stack.getItem() instanceof SplashPotionItem) {
-         PotionContentsComponent potionContentsComponent = (PotionContentsComponent)stack.getOrDefault(
-            DataComponentTypes.POTION_CONTENTS, PotionContentsComponent.DEFAULT
+         PotionContents potionContentsComponent = (PotionContents)stack.getOrDefault(
+            DataComponents.POTION_CONTENTS, PotionContents.EMPTY
          );
-         RegistryEntry<StatusEffect> id = null;
+         Holder<MobEffect> id = null;
          switch (potion) {
             case STRENGTH:
-               id = StatusEffects.STRENGTH;
+               id = MobEffects.DAMAGE_BOOST;
                break;
             case SPEED:
-               id = StatusEffects.SPEED;
+               id = MobEffects.MOVEMENT_SPEED;
                break;
             case FIRERES:
-               id = StatusEffects.FIRE_RESISTANCE;
+               id = MobEffects.FIRE_RESISTANCE;
                break;
             case HEAL:
-               id = StatusEffects.INSTANT_HEALTH;
+               id = MobEffects.HEAL;
                break;
             case REGEN:
-               id = StatusEffects.REGENERATION;
+               id = MobEffects.REGENERATION;
          }
 
-         for (StatusEffectInstance effect : potionContentsComponent.getEffects()) {
-            if (effect.getEffectType() == id) {
+         for (MobEffectInstance effect : potionContentsComponent.getAllEffects()) {
+            if (effect.getEffect() == id) {
                return true;
             }
          }
@@ -91,22 +91,22 @@ public final class AutoBuff extends Module {
 
    @EventHandler
    public void onPostRotationSet(EventAfterRotate event) {
-      if (Aura.target == null || !(mc.player.getAttackCooldownProgress(1.0F) > 0.5F)) {
-         if (mc.player.age > 80 && this.shouldThrow()) {
-            mc.player.setPitch(90.0F);
+      if (Aura.target == null || !(mc.player.getAttackStrengthScale(1.0F) > 0.5F)) {
+         if (mc.player.tickCount > 80 && this.shouldThrow()) {
+            mc.player.setXRot(90.0F);
             this.spoofed = true;
          }
       }
    }
 
    private boolean shouldThrow() {
-      return !mc.player.hasStatusEffect(StatusEffects.SPEED) && isPotionOnHotBar(AutoBuff.Potions.SPEED) && this.speed.getValue()
-         || !mc.player.hasStatusEffect(StatusEffects.STRENGTH) && isPotionOnHotBar(AutoBuff.Potions.STRENGTH) && this.strength.getValue()
-         || !mc.player.hasStatusEffect(StatusEffects.FIRE_RESISTANCE) && isPotionOnHotBar(AutoBuff.Potions.FIRERES) && this.fire.getValue()
+      return !mc.player.hasEffect(MobEffects.MOVEMENT_SPEED) && isPotionOnHotBar(AutoBuff.Potions.SPEED) && this.speed.getValue()
+         || !mc.player.hasEffect(MobEffects.DAMAGE_BOOST) && isPotionOnHotBar(AutoBuff.Potions.STRENGTH) && this.strength.getValue()
+         || !mc.player.hasEffect(MobEffects.FIRE_RESISTANCE) && isPotionOnHotBar(AutoBuff.Potions.FIRERES) && this.fire.getValue()
          || mc.player.getHealth() + mc.player.getAbsorptionAmount() < this.healthH.getValue().intValue()
             && isPotionOnHotBar(AutoBuff.Potions.HEAL)
             && this.heal.getValue().isEnabled()
-         || !mc.player.hasStatusEffect(StatusEffects.REGENERATION)
+         || !mc.player.hasEffect(MobEffects.REGENERATION)
             && this.triggerOn.is(AutoBuff.TriggerOn.LackOfRegen)
             && isPotionOnHotBar(AutoBuff.Potions.REGEN)
             && this.regen.getValue().isEnabled()
@@ -118,18 +118,18 @@ public final class AutoBuff extends Module {
 
    @EventHandler
    public void onPostSync(EventPostSync e) {
-      if (Aura.target == null || !(mc.player.getAttackCooldownProgress(1.0F) > 0.5F)) {
-         if (!this.onDaGround.getValue() || mc.player.isOnGround()) {
-            if (mc.player.age > 80 && this.shouldThrow() && this.timer.passedMs(1000L) && this.spoofed) {
-               if (!mc.player.hasStatusEffect(StatusEffects.SPEED) && isPotionOnHotBar(AutoBuff.Potions.SPEED) && this.speed.getValue()) {
+      if (Aura.target == null || !(mc.player.getAttackStrengthScale(1.0F) > 0.5F)) {
+         if (!this.onDaGround.getValue() || mc.player.onGround()) {
+            if (mc.player.tickCount > 80 && this.shouldThrow() && this.timer.passedMs(1000L) && this.spoofed) {
+               if (!mc.player.hasEffect(MobEffects.MOVEMENT_SPEED) && isPotionOnHotBar(AutoBuff.Potions.SPEED) && this.speed.getValue()) {
                   this.throwPotion(AutoBuff.Potions.SPEED);
                }
 
-               if (!mc.player.hasStatusEffect(StatusEffects.STRENGTH) && isPotionOnHotBar(AutoBuff.Potions.STRENGTH) && this.strength.getValue()) {
+               if (!mc.player.hasEffect(MobEffects.DAMAGE_BOOST) && isPotionOnHotBar(AutoBuff.Potions.STRENGTH) && this.strength.getValue()) {
                   this.throwPotion(AutoBuff.Potions.STRENGTH);
                }
 
-               if (!mc.player.hasStatusEffect(StatusEffects.FIRE_RESISTANCE) && isPotionOnHotBar(AutoBuff.Potions.FIRERES) && this.fire.getValue()) {
+               if (!mc.player.hasEffect(MobEffects.FIRE_RESISTANCE) && isPotionOnHotBar(AutoBuff.Potions.FIRERES) && this.fire.getValue()) {
                   this.throwPotion(AutoBuff.Potions.FIRERES);
                }
 
@@ -140,7 +140,7 @@ public final class AutoBuff extends Module {
                }
 
                if ((
-                     !mc.player.hasStatusEffect(StatusEffects.REGENERATION) && this.triggerOn.is(AutoBuff.TriggerOn.LackOfRegen)
+                     !mc.player.hasEffect(MobEffects.REGENERATION) && this.triggerOn.is(AutoBuff.TriggerOn.LackOfRegen)
                         || mc.player.getHealth() + mc.player.getAbsorptionAmount() < this.healthR.getValue().intValue()
                            && this.triggerOn.is(AutoBuff.TriggerOn.Health)
                   )
@@ -149,7 +149,7 @@ public final class AutoBuff extends Module {
                   this.throwPotion(AutoBuff.Potions.REGEN);
                }
 
-               this.sendPacket(new UpdateSelectedSlotC2SPacket(mc.player.getInventory().selectedSlot));
+               this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected));
                this.timer.reset();
                this.spoofed = false;
             }
@@ -162,8 +162,8 @@ public final class AutoBuff extends Module {
          ModuleManager.aura.pause();
       }
 
-      this.sendPacket(new UpdateSelectedSlotC2SPacket(getPotionSlot(potion)));
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, mc.player.getYaw(), mc.player.getPitch()));
+      this.sendPacket(new ServerboundSetCarriedItemPacket(getPotionSlot(potion)));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, mc.player.getYRot(), mc.player.getXRot()));
    }
 
    public enum Potions {

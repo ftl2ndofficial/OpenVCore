@@ -3,24 +3,24 @@ package vcore.features.modules.player;
 import java.util.Comparator;
 import java.util.HashMap;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.ArrowEntity;
-import net.minecraft.entity.projectile.thrown.EnderPearlEntity;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.entity.projectile.ThrownEnderpearl;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventEntitySpawn;
@@ -46,7 +46,7 @@ public class PearlChaser extends Module {
    private BlockPos targetBlock;
    private int lastPearlId;
    private int lastOurPearlId;
-   private HashMap<PlayerEntity, Long> targets = new HashMap<>();
+   private HashMap<Player, Long> targets = new HashMap<>();
 
    public PearlChaser() {
       super("PearlChaser", "Auto pursuit with pearls.", Module.Category.PLAYER);
@@ -54,8 +54,8 @@ public class PearlChaser extends Module {
 
    @EventHandler
    public void onEntitySpawn(EventEntitySpawn e) {
-      if (e.getEntity() instanceof EnderPearlEntity) {
-         mc.world.getPlayers().stream().min(Comparator.comparingDouble(p -> p.squaredDistanceTo(e.getEntity().getPos()))).ifPresent(player -> {
+      if (e.getEntity() instanceof ThrownEnderpearl) {
+         mc.level.players().stream().min(Comparator.comparingDouble(p -> p.distanceToSqr(e.getEntity().position()))).ifPresent(player -> {
             if (player.equals(mc.player)) {
                this.lastOurPearlId = e.getEntity().getId();
             }
@@ -68,20 +68,20 @@ public class PearlChaser extends Module {
       if (this.onlyTarget.getValue()
          && Aura.target != null
          && ModuleManager.aura.isEnabled()
-         && Aura.target instanceof PlayerEntity pl
+         && Aura.target instanceof Player pl
          && !this.targets.containsKey(pl)) {
          this.targets.put(pl, System.currentTimeMillis());
       }
 
       if (!(mc.player.getHealth() < 5.0F)) {
          if (this.delayTimer.passedMs(1000L)) {
-            for (Entity ent : mc.world.getEntities()) {
-               if (ent instanceof EnderPearlEntity && ent.getId() != this.lastPearlId && ent.getId() != this.lastOurPearlId) {
-                  mc.world
-                     .getPlayers()
+            for (Entity ent : mc.level.entitiesForRendering()) {
+               if (ent instanceof ThrownEnderpearl && ent.getId() != this.lastPearlId && ent.getId() != this.lastOurPearlId) {
+                  mc.level
+                     .players()
                      .stream()
                      .filter(e -> this.targets.containsKey(e) || !this.onlyTarget.getValue())
-                     .min(Comparator.comparingDouble(p -> p.squaredDistanceTo(ent.getPos())))
+                     .min(Comparator.comparingDouble(p -> p.distanceToSqr(ent.position())))
                      .ifPresent(player -> {
                         if (!player.equals(mc.player)) {
                            this.targetBlock = this.calcTrajectory(ent);
@@ -92,31 +92,31 @@ public class PearlChaser extends Module {
             }
 
             if (this.targetBlock != null) {
-               if (!(mc.player.squaredDistanceTo(this.targetBlock.toCenterPos()) < 49.0)) {
+               if (!(mc.player.distanceToSqr(this.targetBlock.getCenter()) < 49.0)) {
                   float rotationPitch = (float)(-Math.toDegrees(this.calcTrajectory(this.targetBlock)));
                   float rotationYaw = (float)Math.toDegrees(
                         Math.atan2(this.targetBlock.getZ() + 0.5F - mc.player.getZ(), this.targetBlock.getX() + 0.5F - mc.player.getX())
                      )
                      - 90.0F;
                   BlockPos tracedBP = this.checkTrajectory(rotationYaw, rotationPitch);
-                  if (tracedBP != null && !(this.targetBlock.getSquaredDistance(tracedBP.toCenterPos()) > 36.0)) {
+                  if (tracedBP != null && !(this.targetBlock.distToCenterSqr(tracedBP.getCenter()) > 36.0)) {
                      if (this.pauseAura.getValue() && ModuleManager.aura.isEnabled()) {
                         ModuleManager.aura.pause();
                      }
 
-                     if (!this.onlyOnGround.getValue() || mc.player.isOnGround()) {
+                     if (!this.onlyOnGround.getValue() || mc.player.onGround()) {
                         if (!this.noMove.getValue() || !MovementUtility.isMoving()) {
                            if (this.stopMotion.getValue().isEnabled()) {
                               if (!this.legitStop.getValue()) {
-                                 mc.player.setVelocity(0.0, 0.0, 0.0);
+                                 mc.player.setDeltaMovement(0.0, 0.0, 0.0);
                               }
 
-                              mc.options.forwardKey.setPressed(false);
-                              mc.options.backKey.setPressed(false);
-                              mc.options.leftKey.setPressed(false);
-                              mc.options.rightKey.setPressed(false);
-                              mc.player.input.movementForward = 0.0F;
-                              mc.player.input.movementSideways = 0.0F;
+                              mc.options.keyUp.setDown(false);
+                              mc.options.keyDown.setDown(false);
+                              mc.options.keyLeft.setDown(false);
+                              mc.options.keyRight.setDown(false);
+                              mc.player.input.forwardImpulse = 0.0F;
+                              mc.player.input.leftImpulse = 0.0F;
                            } else {
                               this.sendMessage(
                                  "Chasing pearl on X:"
@@ -130,20 +130,20 @@ public class PearlChaser extends Module {
                                     + " P:"
                                     + rotationPitch
                               );
-                              mc.player.setYaw(rotationYaw);
-                              mc.player.setPitch(MathUtility.clamp(rotationPitch, -89.0F, 89.0F));
-                              float yaw = mc.player.getYaw();
-                              float pitch = mc.player.getPitch();
+                              mc.player.setYRot(rotationYaw);
+                              mc.player.setXRot(MathUtility.clamp(rotationPitch, -89.0F, 89.0F));
+                              float yaw = mc.player.getYRot();
+                              float pitch = mc.player.getXRot();
                               this.postSyncAction = () -> {
                                  int epSlot = this.findEPSlot();
-                                 int originalSlot = mc.player.getInventory().selectedSlot;
+                                 int originalSlot = mc.player.getInventory().selected;
                                  if (epSlot != -1) {
-                                    mc.player.getInventory().selectedSlot = epSlot;
-                                    this.sendPacket(new UpdateSelectedSlotC2SPacket(epSlot));
-                                    this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, yaw, pitch));
-                                    this.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
-                                    mc.player.getInventory().selectedSlot = originalSlot;
-                                    this.sendPacket(new UpdateSelectedSlotC2SPacket(originalSlot));
+                                    mc.player.getInventory().selected = epSlot;
+                                    this.sendPacket(new ServerboundSetCarriedItemPacket(epSlot));
+                                    this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, yaw, pitch));
+                                    this.sendPacket(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                                    mc.player.getInventory().selected = originalSlot;
+                                    this.sendPacket(new ServerboundSetCarriedItemPacket(originalSlot));
                                  }
                               };
                               this.targetBlock = null;
@@ -168,13 +168,13 @@ public class PearlChaser extends Module {
 
    private int findEPSlot() {
       int epSlot = -1;
-      if (mc.player.getMainHandStack().getItem() == Items.ENDER_PEARL) {
-         epSlot = mc.player.getInventory().selectedSlot;
+      if (mc.player.getMainHandItem().getItem() == Items.ENDER_PEARL) {
+         epSlot = mc.player.getInventory().selected;
       }
 
       if (epSlot == -1) {
          for (int l = 0; l < 9; l++) {
-            if (mc.player.getInventory().getStack(l).getItem() == Items.ENDER_PEARL) {
+            if (mc.player.getInventory().getItem(l).getItem() == Items.ENDER_PEARL) {
                epSlot = l;
                break;
             }
@@ -196,7 +196,7 @@ public class PearlChaser extends Module {
    }
 
    private BlockPos calcTrajectory(Entity e) {
-      return this.traceTrajectory(e.getX(), e.getY(), e.getZ(), e.getVelocity().x, e.getVelocity().y, e.getVelocity().z);
+      return this.traceTrajectory(e.getX(), e.getY(), e.getZ(), e.getDeltaMovement().x, e.getDeltaMovement().y, e.getDeltaMovement().z);
    }
 
    private BlockPos checkTrajectory(float yaw, float pitch) {
@@ -206,21 +206,21 @@ public class PearlChaser extends Module {
 
       float yawRad = yaw / 180.0F * (float) Math.PI;
       float pitchRad = pitch / 180.0F * (float) Math.PI;
-      double x = mc.player.getX() - MathHelper.cos(yawRad) * 0.16F;
+      double x = mc.player.getX() - Mth.cos(yawRad) * 0.16F;
       double y = mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()) - 0.1000000014901161;
-      double z = mc.player.getZ() - MathHelper.sin(yawRad) * 0.16F;
-      double motionX = -MathHelper.sin(yawRad) * MathHelper.cos(pitchRad) * 0.4F;
-      double motionY = -MathHelper.sin(pitchRad) * 0.4F;
-      double motionZ = MathHelper.cos(yawRad) * MathHelper.cos(pitchRad) * 0.4F;
-      float distance = MathHelper.sqrt((float)(motionX * motionX + motionY * motionY + motionZ * motionZ));
+      double z = mc.player.getZ() - Mth.sin(yawRad) * 0.16F;
+      double motionX = -Mth.sin(yawRad) * Mth.cos(pitchRad) * 0.4F;
+      double motionY = -Mth.sin(pitchRad) * 0.4F;
+      double motionZ = Mth.cos(yawRad) * Mth.cos(pitchRad) * 0.4F;
+      float distance = Mth.sqrt((float)(motionX * motionX + motionY * motionY + motionZ * motionZ));
       motionX /= distance;
       motionY /= distance;
       motionZ /= distance;
       motionX *= 1.5;
       motionY *= 1.5;
       motionZ *= 1.5;
-      if (!mc.player.isOnGround()) {
-         motionY += mc.player.getVelocity().getY();
+      if (!mc.player.onGround()) {
+         motionY += mc.player.getDeltaMovement().y();
       }
 
       return this.traceTrajectory(x, y, z, motionX, motionY, motionZ);
@@ -228,7 +228,7 @@ public class PearlChaser extends Module {
 
    private BlockPos traceTrajectory(double x, double y, double z, double mx, double my, double mz) {
       for (int i = 0; i < 300; i++) {
-         Vec3d lastPos = new Vec3d(x, y, z);
+         Vec3 lastPos = new Vec3(x, y, z);
          x += mx;
          y += my;
          z += mz;
@@ -236,17 +236,17 @@ public class PearlChaser extends Module {
          my *= 0.99;
          mz *= 0.99;
          my -= 0.03F;
-         Vec3d pos = new Vec3d(x, y, z);
-         BlockHitResult bhr = mc.world.raycast(new RaycastContext(lastPos, pos, ShapeType.OUTLINE, FluidHandling.NONE, mc.player));
+         Vec3 pos = new Vec3(x, y, z);
+         BlockHitResult bhr = mc.level.clip(new ClipContext(lastPos, pos, Block.OUTLINE, Fluid.NONE, mc.player));
          if (bhr != null && bhr.getType() == Type.BLOCK) {
             return bhr.getBlockPos();
          }
 
-         for (Entity ent : mc.world.getEntities()) {
-            if (!(ent instanceof ArrowEntity)
+         for (Entity ent : mc.level.entitiesForRendering()) {
+            if (!(ent instanceof Arrow)
                && ent != mc.player
-               && !(ent instanceof EnderPearlEntity)
-               && ent.getBoundingBox().intersects(new Box(x - 0.3, y - 0.3, z - 0.3, x + 0.3, y + 0.3, z + 0.2))) {
+               && !(ent instanceof ThrownEnderpearl)
+               && ent.getBoundingBox().intersects(new AABB(x - 0.3, y - 0.3, z - 0.3, x + 0.3, y + 0.3, z + 0.2))) {
                return null;
             }
          }

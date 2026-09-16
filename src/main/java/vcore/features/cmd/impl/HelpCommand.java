@@ -2,9 +2,9 @@ package vcore.features.cmd.impl;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import java.util.concurrent.atomic.AtomicBoolean;
-import net.minecraft.command.CommandSource;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.features.cmd.Command;
@@ -15,7 +15,7 @@ public class HelpCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.executes(
          context -> {
             sendMessage("Commands: \n");
@@ -25,16 +25,16 @@ public class HelpCommand extends Command {
                .forEach(
                   command -> {
                      mc.player
-                        .sendMessage(
-                           Text.of(
-                              (flip.get() ? Formatting.LIGHT_PURPLE : Formatting.DARK_PURPLE)
+                        .sendSystemMessage(
+                           Component.nullToEmpty(
+                              (flip.get() ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.DARK_PURPLE)
                                  + Managers.COMMAND.getPrefix()
-                                 + (flip.get() ? Formatting.AQUA : Formatting.DARK_AQUA)
+                                 + (flip.get() ? ChatFormatting.AQUA : ChatFormatting.DARK_AQUA)
                                  + command.getName()
                                  + (command.getAliases().isEmpty() ? "" : " (" + command.getAliases() + ")")
-                                 + Formatting.DARK_GRAY
+                                 + ChatFormatting.DARK_GRAY
                                  + " -> "
-                                 + (flip.get() ? Formatting.WHITE : Formatting.GRAY)
+                                 + (flip.get() ? ChatFormatting.WHITE : ChatFormatting.GRAY)
                                  + command.getDescription()
                            )
                         );

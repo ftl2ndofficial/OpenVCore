@@ -1,7 +1,7 @@
 package vcore.features.modules.player;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
 import vcore.utility.Timer;
@@ -19,7 +19,7 @@ public class HotbarReplenish extends Module {
 
    @Override
    public void onUpdate() {
-      if (mc.currentScreen == null) {
+      if (mc.screen == null) {
          if (this.timer.passedMs(this.delay.getValue() * 1000)) {
             for (int i = 0; i < 9; i++) {
                if (this.need(i)) {
@@ -32,21 +32,21 @@ public class HotbarReplenish extends Module {
    }
 
    private boolean need(int slot) {
-      ItemStack stack = mc.player.getInventory().getStack(slot);
+      ItemStack stack = mc.player.getInventory().getItem(slot);
       if (!stack.isEmpty() && stack.isStackable()) {
-         if (stack.getMaxCount() == 16 && stack.getCount() > this.refillSmallThr.getValue()) {
+         if (stack.getMaxStackSize() == 16 && stack.getCount() > this.refillSmallThr.getValue()) {
             return false;
          }
 
-         if (stack.getMaxCount() == 64 && stack.getCount() > this.refillThr.getValue()) {
+         if (stack.getMaxStackSize() == 64 && stack.getCount() > this.refillThr.getValue()) {
             return false;
          }
 
          for (int i = 9; i < 36; i++) {
-            ItemStack item = mc.player.getInventory().getStack(i);
+            ItemStack item = mc.player.getInventory().getItem(i);
             if (!item.isEmpty() && this.canMerge(stack, item)) {
                boolean swap = this.mode.is(HotbarReplenish.Mode.QUICK_MOVE);
-               clickSlot(i, swap ? slot : 0, swap ? SlotActionType.SWAP : SlotActionType.QUICK_MOVE);
+               clickSlot(i, swap ? slot : 0, swap ? ClickType.SWAP : ClickType.QUICK_MOVE);
                return true;
             }
          }
@@ -58,7 +58,7 @@ public class HotbarReplenish extends Module {
    }
 
    private boolean canMerge(ItemStack source, ItemStack stack) {
-      return source.getItem() == stack.getItem() && source.getName().equals(stack.getName());
+      return source.getItem() == stack.getItem() && source.getHoverName().equals(stack.getHoverName());
    }
 
    private enum Mode {

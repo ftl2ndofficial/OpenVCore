@@ -1,9 +1,9 @@
 package vcore.features.cmd.impl;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import net.minecraft.command.CommandSource;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.alchemy.PotionContents;
 import vcore.features.cmd.Command;
 
 public class TreasureCommand extends Command {
@@ -12,10 +12,10 @@ public class TreasureCommand extends Command {
    }
 
    @Override
-   public void executeBuild(LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.executes(context -> {
-         if (mc.player.getMainHandStack().getItem().toString().equals("filled_map")) {
-            Record nbt = (Record)mc.player.getMainHandStack().getOrDefault(DataComponentTypes.MAP_DECORATIONS, PotionContentsComponent.DEFAULT);
+         if (mc.player.getMainHandItem().getItem().toString().equals("filled_map")) {
+            Record nbt = (Record)mc.player.getMainHandItem().getOrDefault(DataComponents.MAP_DECORATIONS, PotionContents.EMPTY);
             if (nbt == null) {
                return 1;
             }

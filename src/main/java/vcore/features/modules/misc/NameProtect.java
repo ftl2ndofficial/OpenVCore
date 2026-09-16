@@ -4,7 +4,7 @@ import java.text.Normalizer;
 import java.text.Normalizer.Form;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.world.entity.player.Player;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
 import vcore.core.manager.player.FriendManager;
@@ -31,7 +31,7 @@ public class NameProtect extends Module {
       if (ModuleManager.nameProtect.isEnabled() && mc.player != null) {
          Map<String, String> replacements = new LinkedHashMap<>();
          String customName = getCustomName();
-         addReplacement(replacements, mc.getSession().getUsername(), customName);
+         addReplacement(replacements, mc.getUser().getName(), customName);
          addReplacement(replacements, mc.getGameProfile().getName(), customName);
          addReplacement(replacements, mc.player.getName().getString(), customName);
          if (hideFriends.getValue()) {
@@ -236,7 +236,7 @@ public class NameProtect extends Module {
       };
    }
 
-   public static String getDisplayName(PlayerEntity player) {
+   public static String getDisplayName(Player player) {
       if (ModuleManager.nameProtect.isEnabled() && hideFriends.getValue()) {
          try {
             if (Managers.FRIEND.isFriend(player)) {

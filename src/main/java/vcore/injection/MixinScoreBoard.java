@@ -1,8 +1,8 @@
 package vcore.injection;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.Team;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -14,14 +14,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinScoreBoard {
    @Final
    @Shadow
-   private Object2ObjectMap<String, Team> teamsByScoreHolder;
+   private Object2ObjectMap<String, PlayerTeam> teamsByPlayer;
 
-   @Inject(method = "removeScoreHolderFromTeam", at = @At("HEAD"), cancellable = true)
-   public void removeScoreHolderFromTeamHook(String scoreHolderName, Team team, CallbackInfo ci) {
+   @Inject(method = "removePlayerFromTeam(Ljava/lang/String;Lnet/minecraft/world/scores/PlayerTeam;)V", at = @At("HEAD"), cancellable = true)
+   public void removeScoreHolderFromTeamHook(String scoreHolderName, PlayerTeam team, CallbackInfo ci) {
       ci.cancel();
-      if (this.teamsByScoreHolder.get(scoreHolderName) == team) {
-         this.teamsByScoreHolder.remove(scoreHolderName);
-         team.getPlayerList().remove(scoreHolderName);
+      if (this.teamsByPlayer.get(scoreHolderName) == team) {
+         this.teamsByPlayer.remove(scoreHolderName);
+         team.getPlayers().remove(scoreHolderName);
       }
    }
 }

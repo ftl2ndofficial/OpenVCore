@@ -7,17 +7,17 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.command.CommandSource;
-import net.minecraft.registry.BuiltinRegistries;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.data.registries.VanillaRegistries;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 
 public abstract class Command {
-   protected static final CommandRegistryAccess REGISTRY_ACCESS = CommandManager.createRegistryAccess(BuiltinRegistries.createWrapperLookup());
-   protected static final MinecraftClient mc = MinecraftClient.getInstance();
+   protected static final CommandBuildContext REGISTRY_ACCESS = Commands.createValidationContext(VanillaRegistries.createLookup());
+   protected static final Minecraft mc = Minecraft.getInstance();
    protected final List<String> names;
    private final String description;
 
@@ -41,27 +41,27 @@ public abstract class Command {
       return List.copyOf(resolvedNames);
    }
 
-   public abstract void executeBuild(LiteralArgumentBuilder<CommandSource> var1);
+   public abstract void executeBuild(LiteralArgumentBuilder<SharedSuggestionProvider> var1);
 
    public static void sendMessage(String message) {
       if (mc.player != null) {
-         mc.player.sendMessage(Text.of(vcore.core.manager.client.CommandManager.getClientMessage() + " " + message));
+         mc.player.sendSystemMessage(Component.nullToEmpty(vcore.core.manager.client.CommandManager.getClientMessage() + " " + message));
       }
    }
 
    @NotNull
-   protected static <T> RequiredArgumentBuilder<CommandSource, T> arg(String name, ArgumentType<T> type) {
+   protected static <T> RequiredArgumentBuilder<SharedSuggestionProvider, T> arg(String name, ArgumentType<T> type) {
       return RequiredArgumentBuilder.argument(name, type);
    }
 
    @NotNull
-   protected static LiteralArgumentBuilder<CommandSource> literal(String name) {
+   protected static LiteralArgumentBuilder<SharedSuggestionProvider> literal(String name) {
       return LiteralArgumentBuilder.literal(name);
    }
 
-   public void register(CommandDispatcher<CommandSource> dispatcher) {
+   public void register(CommandDispatcher<SharedSuggestionProvider> dispatcher) {
       for (String name : this.names) {
-         LiteralArgumentBuilder<CommandSource> builder = LiteralArgumentBuilder.literal(name);
+         LiteralArgumentBuilder<SharedSuggestionProvider> builder = LiteralArgumentBuilder.literal(name);
          this.executeBuild(builder);
          dispatcher.register(builder);
       }

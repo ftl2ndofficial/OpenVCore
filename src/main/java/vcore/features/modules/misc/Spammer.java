@@ -190,16 +190,16 @@ public class Spammer extends Module {
          if (this.mode.getValue() == Spammer.Mode.Chat) {
             if (c.charAt(0) == '/') {
                c = c.replace("/", "");
-               mc.player.networkHandler.sendCommand(c);
+               mc.player.connection.sendUnsignedCommand(c);
             } else if (this.messages.getValue() != Spammer.Messages.Script) {
-               mc.player.networkHandler.sendChatMessage(this.global.getValue() ? "!" + c : c);
+               mc.player.connection.sendChat(this.global.getValue() ? "!" + c : c);
             } else {
-               mc.player.networkHandler.sendChatMessage(c);
+               mc.player.connection.sendChat(c);
             }
          } else {
             try {
                String prefix = this.whisper_prefix.getValue().prefix;
-               mc.player.networkHandler.sendCommand(prefix + this.getPlayerName() + " " + c);
+               mc.player.connection.sendUnsignedCommand(prefix + this.getPlayerName() + " " + c);
             } catch (NullPointerException var4) {
             }
          }

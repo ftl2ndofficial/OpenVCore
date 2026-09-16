@@ -2,10 +2,10 @@ package vcore.features.modules.player;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ArmorItem;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
 import org.lwjgl.opengl.GL11;
 import vcore.core.Managers;
 import vcore.features.modules.Module;
@@ -30,13 +30,13 @@ public class DurabilityAlert extends Module {
    @Override
    public void onUpdate() {
       if (this.friends.getValue()) {
-         for (PlayerEntity player : mc.world.getPlayers()) {
+         for (Player player : mc.level.players()) {
             if (Managers.FRIEND.isFriend(player) && player != mc.player) {
                for (ItemStack stack : player.getInventory().armor) {
                   if (!stack.isEmpty() && stack.getItem() instanceof ArmorItem && getDurability(stack) < this.percent.getValue() && this.timer.passedMs(30000L)
                      )
                    {
-                     mc.player.networkHandler.sendChatCommand("msg " + player.getName().getString() + " Your armor is about to break!");
+                     mc.player.connection.sendCommand("msg " + player.getName().getString() + " Your armor is about to break!");
                      this.timer.reset();
                   }
                }
@@ -59,24 +59,24 @@ public class DurabilityAlert extends Module {
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       if (this.need_alert) {
          FontRenderers.sf_bold
             .drawCenteredString(
-               context.getMatrices(),
+               context.pose(),
                "Armor about to break!",
-               mc.getWindow().getScaledWidth() / 2.0F,
-               mc.getWindow().getScaledHeight() / 3.0F - 60.0F,
+               mc.getWindow().getGuiScaledWidth() / 2.0F,
+               mc.getWindow().getGuiScaledHeight() / 3.0F - 60.0F,
                WARNING_COLOR.getRGB()
             );
          RenderSystem.setShaderColor(WARNING_COLOR.getRed() / 255.0F, WARNING_COLOR.getGreen() / 255.0F, WARNING_COLOR.getBlue() / 255.0F, 1.0F);
          RenderSystem.setShaderTexture(0, TextureStorage.brokenShield);
          GL11.glTexParameteri(3553, 10241, 9729);
          GL11.glTexParameteri(3553, 10240, 9729);
-         context.drawTexture(
+         context.blit(
             TextureStorage.brokenShield,
-            (int)(mc.getWindow().getScaledWidth() / 2.0F - 25.0F),
-            (int)(mc.getWindow().getScaledHeight() / 3.0F - 120.0F),
+            (int)(mc.getWindow().getGuiScaledWidth() / 2.0F - 25.0F),
+            (int)(mc.getWindow().getGuiScaledHeight() / 3.0F - 120.0F),
             50,
             50,
             0.0F,
@@ -93,6 +93,6 @@ public class DurabilityAlert extends Module {
    }
 
    public static int getDurability(ItemStack stack) {
-      return (int)((stack.getMaxDamage() - stack.getDamage()) / Math.max(0.1, stack.getMaxDamage()) * 100.0);
+      return (int)((stack.getMaxDamage() - stack.getDamageValue()) / Math.max(0.1, stack.getMaxDamage()) * 100.0);
    }
 }

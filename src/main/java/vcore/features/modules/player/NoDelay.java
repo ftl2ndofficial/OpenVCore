@@ -1,7 +1,7 @@
 package vcore.features.modules.player;
 
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Items;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Items;
 import vcore.features.modules.Module;
 import vcore.injection.accesors.ILivingEntity;
 import vcore.injection.accesors.IMinecraftClient;
@@ -22,11 +22,11 @@ public class NoDelay extends Module {
          ((ILivingEntity)mc.player).setLastJumpCooldown(0);
       }
 
-      if (this.blocks.getValue() && mc.player.getMainHandStack().getItem() instanceof BlockItem) {
+      if (this.blocks.getValue() && mc.player.getMainHandItem().getItem() instanceof BlockItem) {
          ((IMinecraftClient)mc).setUseCooldown(0);
       }
 
-      if (this.xp.getValue() && mc.player.getMainHandStack().getItem() == Items.EXPERIENCE_BOTTLE) {
+      if (this.xp.getValue() && mc.player.getMainHandItem().getItem() == Items.EXPERIENCE_BOTTLE) {
          ((IMinecraftClient)mc).setUseCooldown(0);
       }
    }

@@ -1,27 +1,27 @@
 package vcore.injection.accesors;
 
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin(ClientPlayerEntity.class)
+@Mixin(LocalPlayer.class)
 public interface IClientPlayerEntity {
-   @Invoker("sendMovementPackets")
+   @Invoker("sendPosition")
    void iSendMovementPackets();
 
-   @Accessor("lastYaw")
+   @Accessor("yRotLast")
    float getLastYaw();
 
-   @Accessor("lastPitch")
+   @Accessor("xRotLast")
    float getLastPitch();
 
-   @Accessor("lastYaw")
+   @Accessor("yRotLast")
    void setLastYaw(float var1);
 
-   @Accessor("lastPitch")
+   @Accessor("xRotLast")
    void setLastPitch(float var1);
 
-   @Accessor("mountJumpStrength")
+   @Accessor("jumpRidingScale")
    void setMountJumpStrength(float var1);
 }

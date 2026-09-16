@@ -4,10 +4,10 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
 import java.util.List;
 import java.util.function.Supplier;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import vcore.events.impl.TotemPopEvent;
 import vcore.features.hud.HudElement;
 import vcore.gui.font.FontRenderers;
@@ -22,33 +22,33 @@ public class TotemCounter extends HudElement {
    }
 
    @Override
-   public void render(DrawContext context) {
+   public void render(GuiGraphics context) {
       super.render(context);
       int count = this.getItemCount(Items.TOTEM_OF_UNDYING);
       if (count != 0) {
-         int width = mc.getWindow().getScaledWidth();
-         int height = mc.getWindow().getScaledHeight();
-         int u = mc.player.getMaxAir();
-         int v = Math.min(mc.player.getAir(), u);
-         int adjustment = !mc.player.isSubmergedInWater() && v >= u ? 0 : 10;
+         int width = mc.getWindow().getGuiScaledWidth();
+         int height = mc.getWindow().getGuiScaledHeight();
+         int u = mc.player.getMaxAirSupply();
+         int v = Math.min(mc.player.getAirSupply(), u);
+         int adjustment = !mc.player.isUnderWater() && v >= u ? 0 : 10;
          float factor = Math.abs(this.angle < 0.0F ? this.angle / 15.0F : 0.0F);
          int center = width / 2;
          int y = height - 55 - adjustment;
          int x = center - 8;
          RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-         context.drawItem(Items.TOTEM_OF_UNDYING.getDefaultStack(), x, y);
-         context.drawItemInSlot(mc.textRenderer, Items.TOTEM_OF_UNDYING.getDefaultStack(), x, y);
+         context.renderItem(Items.TOTEM_OF_UNDYING.getDefaultInstance(), x, y);
+         context.renderItemDecorations(mc.font, Items.TOTEM_OF_UNDYING.getDefaultInstance(), x, y);
          RenderSystem.setShaderColor(1.0F, 1.0F - factor, 1.0F - factor, 1.0F);
          if (factor > 0.0F) {
             Render2DEngine.drawBlurredShadow(
-               context.getMatrices(), x - 6, y - 5, 11.0F, 11.0F, 8, Render2DEngine.injectAlpha(new Color(16711680), (int)(255.0F * factor))
+               context.pose(), x - 6, y - 5, 11.0F, 11.0F, 8, Render2DEngine.injectAlpha(new Color(16711680), (int)(255.0F * factor))
             );
          }
 
          String sCount = count + "";
          float textX = center - FontRenderers.sf_bold.getStringWidth(sCount) / 2.0F;
          float textY = y - 6;
-         FontRenderers.sf_bold.drawString(context.getMatrices(), sCount, textX, textY, -1);
+         FontRenderers.sf_bold.drawString(context.pose(), sCount, textX, textY, -1);
          RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       }
    }
@@ -75,7 +75,7 @@ public class TotemCounter extends HudElement {
       int n2 = 44;
 
       for (int i = 0; i <= n2; i++) {
-         ItemStack itemStack = mc.player.getInventory().getStack(i);
+         ItemStack itemStack = mc.player.getInventory().getItem(i);
          if (itemStack.getItem() == item) {
             n += itemStack.getCount();
          }

@@ -1,6 +1,6 @@
 package vcore.events.impl;
 
-import net.minecraft.client.input.Input;
+import net.minecraft.client.player.Input;
 import vcore.events.Event;
 
 public class EventKeyboardInput extends Event {
@@ -24,13 +24,13 @@ public class EventKeyboardInput extends Event {
    }
 
    public static void clearMovementInput(Input input) {
-      input.pressingForward = false;
-      input.pressingBack = false;
-      input.pressingLeft = false;
-      input.pressingRight = false;
-      input.movementForward = 0.0F;
-      input.movementSideways = 0.0F;
+      input.up = false;
+      input.down = false;
+      input.left = false;
+      input.right = false;
+      input.forwardImpulse = 0.0F;
+      input.leftImpulse = 0.0F;
       input.jumping = false;
-      input.sneaking = false;
+      input.shiftKeyDown = false;
    }
 }

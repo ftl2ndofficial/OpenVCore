@@ -1,5 +1,6 @@
 package vcore.features.modules.misc;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -10,26 +11,24 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ThreadLocalRandom;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.FluidBlock;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventPostSync;
 import vcore.events.impl.EventSync;
@@ -111,8 +110,8 @@ public class Nuker extends Module {
       this.cachedHitResult = null;
       this.switchTickCounter = 0;
       this.hasRotation = false;
-      this.rotationYaw = mc.player != null ? mc.player.getYaw() : 0.0F;
-      this.rotationPitch = mc.player != null ? mc.player.getPitch() : 0.0F;
+      this.rotationYaw = mc.player != null ? mc.player.getYRot() : 0.0F;
+      this.rotationPitch = mc.player != null ? mc.player.getXRot() : 0.0F;
       this.renderTargets.clear();
    }
 
@@ -129,8 +128,8 @@ public class Nuker extends Module {
    @EventHandler
    public void onSync(EventSync e) {
       if (this.hasRotation) {
-         mc.player.setYaw(this.rotationYaw);
-         mc.player.setPitch(this.rotationPitch);
+         mc.player.setYRot(this.rotationYaw);
+         mc.player.setXRot(this.rotationPitch);
       }
    }
 
@@ -146,7 +145,7 @@ public class Nuker extends Module {
    @EventHandler
    public void onPlayerUpdate(PlayerUpdateEvent e) {
       if (!fullNullCheck()) {
-         if (!this.ignoreOpenInventory.getValue() && mc.currentScreen instanceof HandledScreen) {
+         if (!this.ignoreOpenInventory.getValue() && mc.screen instanceof AbstractContainerScreen) {
             this.clearLegitTarget();
          } else {
             if (this.mode.getValue() == Nuker.Mode.Legit) {
@@ -161,12 +160,12 @@ public class Nuker extends Module {
    }
 
    private void handleLegitMode() {
-      Vec3d eyesPos = InteractionUtility.getEyesPos(mc.player);
+      Vec3 eyesPos = InteractionUtility.getEyesPos(mc.player);
       float rangeVal = this.range.getValue();
       float wallRangeVal = this.wallRange.getValue();
       float searchRange = Math.max(rangeVal, wallRangeVal);
       if (this.currentTarget != null) {
-         BlockState state = mc.world.getBlockState(this.currentTarget);
+         BlockState state = mc.level.getBlockState(this.currentTarget);
          if (!this.isNotBreakable(state, this.currentTarget)
             && this.isValidBlock(state)
             && this.isInRange(eyesPos, this.currentTarget, state, rangeVal, wallRangeVal)) {
@@ -214,7 +213,7 @@ public class Nuker extends Module {
 
    private void tryBreakLegitTarget() {
       if (this.currentTarget != null && this.cachedHitResult != null && this.hasRotation) {
-         BlockState state = mc.world.getBlockState(this.currentTarget);
+         BlockState state = mc.level.getBlockState(this.currentTarget);
          if (!this.isNotBreakable(state, this.currentTarget) && this.isValidBlock(state)) {
             if (this.switchDelay.getValue() > 0 && this.wasTarget != null && !this.currentTarget.equals(this.wasTarget)) {
                if (this.switchTickCounter < this.switchDelay.getValue()) {
@@ -238,21 +237,21 @@ public class Nuker extends Module {
    }
 
    private void setRotationFromHit(BlockHitResult hit) {
-      float[] angle = InteractionUtility.calculateAngle(hit.getPos());
+      float[] angle = InteractionUtility.calculateAngle(hit.getLocation());
       if (!this.hasRotation) {
-         this.rotationYaw = mc.player.getYaw();
-         this.rotationPitch = mc.player.getPitch();
+         this.rotationYaw = mc.player.getYRot();
+         this.rotationPitch = mc.player.getXRot();
          this.hasRotation = true;
       }
 
       this.rotationYaw = this.stepRotation(this.rotationYaw, angle[0], this.yawSpeed.getValue());
-      this.rotationPitch = MathHelper.clamp(this.stepRotation(this.rotationPitch, angle[1], this.pitchSpeed.getValue()), -90.0F, 90.0F);
+      this.rotationPitch = Mth.clamp(this.stepRotation(this.rotationPitch, angle[1], this.pitchSpeed.getValue()), -90.0F, 90.0F);
       ModuleManager.moveFix.fixRotation = this.rotationYaw;
    }
 
    private float stepRotation(float current, float target, float speed) {
-      float delta = MathHelper.wrapDegrees(target - current);
-      return current + MathHelper.clamp(delta, -speed, speed);
+      float delta = Mth.wrapDegrees(target - current);
+      return current + Mth.clamp(delta, -speed, speed);
    }
 
    private BlockHitResult raytraceBreakTarget(BlockState state) {
@@ -266,21 +265,21 @@ public class Nuker extends Module {
    }
 
    private BlockHitResult raytraceRotation(float maxRange, float yaw, float pitch) {
-      Vec3d eyesPos = InteractionUtility.getEyesPos(mc.player);
-      Vec3d lookVec = this.getRotationVector(yaw, pitch);
-      Vec3d endPos = eyesPos.add(lookVec.multiply(maxRange));
-      return mc.world.raycast(new RaycastContext(eyesPos, endPos, ShapeType.OUTLINE, FluidHandling.NONE, mc.player));
+      Vec3 eyesPos = InteractionUtility.getEyesPos(mc.player);
+      Vec3 lookVec = this.getRotationVector(yaw, pitch);
+      Vec3 endPos = eyesPos.add(lookVec.scale(maxRange));
+      return mc.level.clip(new ClipContext(eyesPos, endPos, Block.OUTLINE, Fluid.NONE, mc.player));
    }
 
    private BlockHitResult raytraceCurrentTargetShape(BlockState state, float maxRange) {
-      VoxelShape shape = state.getOutlineShape(mc.world, this.currentTarget);
+      VoxelShape shape = state.getShape(mc.level, this.currentTarget);
       if (shape.isEmpty()) {
          return null;
       }
 
-      Vec3d eyesPos = InteractionUtility.getEyesPos(mc.player);
-      Vec3d endPos = eyesPos.add(this.getRotationVector(this.rotationYaw, this.rotationPitch).multiply(maxRange));
-      BlockHitResult hit = shape.raycast(eyesPos, endPos, this.currentTarget);
+      Vec3 eyesPos = InteractionUtility.getEyesPos(mc.player);
+      Vec3 endPos = eyesPos.add(this.getRotationVector(this.rotationYaw, this.rotationPitch).scale(maxRange));
+      BlockHitResult hit = shape.clip(eyesPos, endPos, this.currentTarget);
       return this.isHitCurrentTarget(hit) ? hit : null;
    }
 
@@ -288,23 +287,23 @@ public class Nuker extends Module {
       return hit != null && hit.getType() == Type.BLOCK && hit.getBlockPos().equals(this.currentTarget);
    }
 
-   private Vec3d getRotationVector(float yaw, float pitch) {
+   private Vec3 getRotationVector(float yaw, float pitch) {
       float yawRadians = -yaw * (float) (Math.PI / 180.0) - (float) Math.PI;
       float pitchRadians = -pitch * (float) (Math.PI / 180.0);
-      float yawCos = MathHelper.cos(yawRadians);
-      float yawSin = MathHelper.sin(yawRadians);
-      float pitchCos = -MathHelper.cos(pitchRadians);
-      float pitchSin = MathHelper.sin(pitchRadians);
-      return new Vec3d(yawSin * pitchCos, pitchSin, yawCos * pitchCos);
+      float yawCos = Mth.cos(yawRadians);
+      float yawSin = Mth.sin(yawRadians);
+      float pitchCos = -Mth.cos(pitchRadians);
+      float pitchSin = Mth.sin(pitchRadians);
+      return new Vec3(yawSin * pitchCos, pitchSin, yawCos * pitchCos);
    }
 
-   private BlockHitResult findBlockHit(BlockPos pos, Vec3d eyesPos, float rangeVal, float wallRangeVal) {
+   private BlockHitResult findBlockHit(BlockPos pos, Vec3 eyesPos, float rangeVal, float wallRangeVal) {
       double rangeSq = (double)rangeVal * rangeVal;
 
       for (float[] sample : SAMPLE_POINTS) {
-         Vec3d point = new Vec3d(pos.getX() + sample[0], pos.getY() + sample[1], pos.getZ() + sample[2]);
-         if (!(eyesPos.squaredDistanceTo(point) > rangeSq)) {
-            BlockHitResult bhr = mc.world.raycast(new RaycastContext(eyesPos, point, ShapeType.OUTLINE, FluidHandling.NONE, mc.player));
+         Vec3 point = new Vec3(pos.getX() + sample[0], pos.getY() + sample[1], pos.getZ() + sample[2]);
+         if (!(eyesPos.distanceToSqr(point) > rangeSq)) {
+            BlockHitResult bhr = mc.level.clip(new ClipContext(eyesPos, point, Block.OUTLINE, Fluid.NONE, mc.player));
             if (bhr != null && bhr.getType() == Type.BLOCK && bhr.getBlockPos().equals(pos)) {
                return bhr;
             }
@@ -313,13 +312,13 @@ public class Nuker extends Module {
 
       if (wallRangeVal > 0.0F) {
          double wallRangeSq = (double)wallRangeVal * wallRangeVal;
-         Vec3d closest = this.getClosestPointOnBlock(pos, eyesPos);
-         if (closest != null && eyesPos.squaredDistanceTo(closest) <= wallRangeSq) {
-            Direction dir = Direction.getFacing(
+         Vec3 closest = this.getClosestPointOnBlock(pos, eyesPos);
+         if (closest != null && eyesPos.distanceToSqr(closest) <= wallRangeSq) {
+            Direction dir = Direction.getNearest(
                (float)(eyesPos.x - (pos.getX() + 0.5)), (float)(eyesPos.y - (pos.getY() + 0.5)), (float)(eyesPos.z - (pos.getZ() + 0.5))
             );
-            Vec3d hitPoint = new Vec3d(
-               pos.getX() + 0.5 + dir.getOffsetX() * 0.5, pos.getY() + 0.5 + dir.getOffsetY() * 0.5, pos.getZ() + 0.5 + dir.getOffsetZ() * 0.5
+            Vec3 hitPoint = new Vec3(
+               pos.getX() + 0.5 + dir.getStepX() * 0.5, pos.getY() + 0.5 + dir.getStepY() * 0.5, pos.getZ() + 0.5 + dir.getStepZ() * 0.5
             );
             return new BlockHitResult(hitPoint, dir, pos, false);
          }
@@ -328,33 +327,33 @@ public class Nuker extends Module {
       return null;
    }
 
-   private Vec3d getClosestPointOnBlock(BlockPos pos, Vec3d eyesPos) {
-      BlockState state = mc.world.getBlockState(pos);
-      VoxelShape shape = state.getOutlineShape(mc.world, pos);
+   private Vec3 getClosestPointOnBlock(BlockPos pos, Vec3 eyesPos) {
+      BlockState state = mc.level.getBlockState(pos);
+      VoxelShape shape = state.getShape(mc.level, pos);
       if (shape.isEmpty()) {
          return null;
       }
 
-      Box b = shape.getBoundingBox().offset(pos.getX(), pos.getY(), pos.getZ());
-      return new Vec3d(
+      AABB b = shape.bounds().move(pos.getX(), pos.getY(), pos.getZ());
+      return new Vec3(
          Math.max(b.minX, Math.min(eyesPos.x, b.maxX)), Math.max(b.minY, Math.min(eyesPos.y, b.maxY)), Math.max(b.minZ, Math.min(eyesPos.z, b.maxZ))
       );
    }
 
    private void doBreak(BlockHitResult hitResult) {
       BlockPos blockPos = hitResult.getBlockPos();
-      Direction direction = hitResult.getSide();
+      Direction direction = hitResult.getDirection();
       this.rememberRenderTarget(blockPos);
       if (mc.player.isCreative()) {
-         mc.interactionManager.attackBlock(blockPos, direction);
-         mc.player.swingHand(Hand.MAIN_HAND);
+         mc.gameMode.startDestroyBlock(blockPos, direction);
+         mc.player.swing(InteractionHand.MAIN_HAND);
       } else if (this.forceImmediateBreak.getValue()) {
-         this.sendSequencedPacket(id -> new PlayerActionC2SPacket(Action.START_DESTROY_BLOCK, blockPos, direction, id));
-         mc.player.swingHand(Hand.MAIN_HAND);
-         this.sendSequencedPacket(id -> new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, blockPos, direction, id));
+         this.sendSequencedPacket(id -> new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, blockPos, direction, id));
+         mc.player.swing(InteractionHand.MAIN_HAND);
+         this.sendSequencedPacket(id -> new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, blockPos, direction, id));
       } else {
-         mc.interactionManager.updateBlockBreakingProgress(blockPos, direction);
-         mc.player.swingHand(Hand.MAIN_HAND);
+         mc.gameMode.continueDestroyBlock(blockPos, direction);
+         mc.player.swing(InteractionHand.MAIN_HAND);
       }
    }
 
@@ -377,10 +376,10 @@ public class Nuker extends Module {
 
             BlockPos pos = pair.pos;
             this.rememberRenderTarget(pos);
-            this.sendSequencedPacket(id -> new PlayerActionC2SPacket(Action.START_DESTROY_BLOCK, pos, Direction.DOWN, id));
-            mc.player.swingHand(Hand.MAIN_HAND);
+            this.sendSequencedPacket(id -> new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, pos, Direction.DOWN, id));
+            mc.player.swing(InteractionHand.MAIN_HAND);
             if (!this.doNotStop.getValue()) {
-               this.sendSequencedPacket(id -> new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, pos, Direction.DOWN, id));
+               this.sendSequencedPacket(id -> new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, pos, Direction.DOWN, id));
             }
 
             this.wasTarget = pos;
@@ -390,26 +389,26 @@ public class Nuker extends Module {
    }
 
    private List<Nuker.BlockPosPair> lookupTargets(float radius) {
-      Vec3d eyesPos = InteractionUtility.getEyesPos(mc.player);
+      Vec3 eyesPos = InteractionUtility.getEyesPos(mc.player);
       double rangeSquared = radius * radius;
       int intRange = (int)Math.ceil(radius) + 1;
-      BlockPos playerBlockPos = BlockPos.ofFloored(mc.player.getPos());
+      BlockPos playerBlockPos = BlockPos.containing(mc.player.position());
       List<Nuker.BlockPosPair> positions = new ArrayList<>();
 
-      for (BlockPos pos : BlockPos.iterateOutwards(playerBlockPos.up(), intRange, intRange, intRange)) {
-         BlockState state = mc.world.getBlockState(pos);
+      for (BlockPos pos : BlockPos.withinManhattan(playerBlockPos.above(), intRange, intRange, intRange)) {
+         BlockState state = mc.level.getBlockState(pos);
          if (this.isPositionAvailable(eyesPos, rangeSquared, pos, state)) {
-            positions.add(new Nuker.BlockPosPair(pos.toImmutable(), state));
+            positions.add(new Nuker.BlockPosPair(pos.immutable(), state));
          }
       }
 
       BlockPos sortAnchor = this.wasTarget != null ? this.wasTarget : playerBlockPos;
-      positions.sort(Comparator.comparingDouble(p -> p.pos.getSquaredDistance(sortAnchor)));
-      Box playerFeet = mc.player.getBoundingBox().offset(0.0, -1.0, 0.0);
+      positions.sort(Comparator.comparingDouble(p -> p.pos.distSqr(sortAnchor)));
+      AABB playerFeet = mc.player.getBoundingBox().move(0.0, -1.0, 0.0);
       List<Nuker.BlockPosPair> nonStanding = new ArrayList<>();
 
       for (Nuker.BlockPosPair pair : positions) {
-         if (!playerFeet.intersects(new Box(pair.pos))) {
+         if (!playerFeet.intersects(new AABB(pair.pos))) {
             nonStanding.add(pair);
          }
       }
@@ -417,12 +416,12 @@ public class Nuker extends Module {
       return nonStanding.isEmpty() ? positions : nonStanding;
    }
 
-   private boolean isPositionAvailable(Vec3d eyesPos, double rangeSquared, BlockPos pos, BlockState state) {
+   private boolean isPositionAvailable(Vec3 eyesPos, double rangeSquared, BlockPos pos, BlockState state) {
       if (state.isAir()) {
          return false;
       }
 
-      Block block = state.getBlock();
+      net.minecraft.world.level.block.Block block = state.getBlock();
       if (block == Blocks.BEDROCK) {
          return false;
       }
@@ -431,7 +430,7 @@ public class Nuker extends Module {
          return false;
       }
 
-      if (!mc.player.isCreative() && state.getHardness(mc.world, pos) < 0.0F) {
+      if (!mc.player.isCreative() && state.getDestroySpeed(mc.level, pos) < 0.0F) {
          return false;
       }
 
@@ -442,12 +441,12 @@ public class Nuker extends Module {
          return false;
       }
 
-      VoxelShape shape = state.getOutlineShape(mc.world, pos);
+      VoxelShape shape = state.getShape(mc.level, pos);
       if (shape.isEmpty()) {
          return false;
       }
 
-      Box b = shape.getBoundingBox().offset(pos.getX(), pos.getY(), pos.getZ());
+      AABB b = shape.bounds().move(pos.getX(), pos.getY(), pos.getZ());
       double cx = Math.max(b.minX, Math.min(eyesPos.x, b.maxX));
       double cy = Math.max(b.minY, Math.min(eyesPos.y, b.maxY));
       double cz = Math.max(b.minZ, Math.min(eyesPos.z, b.maxZ));
@@ -461,29 +460,29 @@ public class Nuker extends Module {
       if (state.isAir()) {
          return true;
       } else {
-         return state.getBlock() == Blocks.BEDROCK ? true : !mc.player.isCreative() && state.getHardness(mc.world, pos) < 0.0F;
+         return state.getBlock() == Blocks.BEDROCK ? true : !mc.player.isCreative() && state.getDestroySpeed(mc.level, pos) < 0.0F;
       }
    }
 
    private boolean isValidBlock(BlockState state) {
-      Block block = state.getBlock();
-      boolean inList = this.selectedBlocks.getValue().getItemsById().contains(block.getTranslationKey().replace("block.minecraft.", ""));
+      net.minecraft.world.level.block.Block block = state.getBlock();
+      boolean inList = this.selectedBlocks.getValue().getItemsById().contains(block.getDescriptionId().replace("block.minecraft.", ""));
 
       return switch ((Nuker.Filter)this.filter.getValue()) {
-         case BlackList -> !inList && block != Blocks.AIR && block != Blocks.CAVE_AIR && !(block instanceof FluidBlock);
+         case BlackList -> !inList && block != Blocks.AIR && block != Blocks.CAVE_AIR && !(block instanceof LiquidBlock);
          case WhiteList -> inList;
       };
    }
 
-   private boolean isInRange(Vec3d eyesPos, BlockPos pos, BlockState state, float rangeVal, float wallRangeVal) {
+   private boolean isInRange(Vec3 eyesPos, BlockPos pos, BlockState state, float rangeVal, float wallRangeVal) {
       float maxRange = Math.max(rangeVal, wallRangeVal);
       return this.isPositionAvailable(eyesPos, (double)maxRange * maxRange, pos, state);
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       if (this.render.getValue()) {
-         if (mc.world != null) {
+         if (mc.level != null) {
             Color baseColor = this.colorMode.getValue() == Nuker.ColorMode.Sync ? HudEditor.getColor(1) : this.color.getValue().getColorObject();
             long now = System.currentTimeMillis();
             Iterator<Entry<Long, Nuker.TargetRenderEntry>> iterator = this.renderTargets.entrySet().iterator();
@@ -497,7 +496,7 @@ public class Nuker extends Module {
                   float progress = (float)age / 500.0F;
                   float scale = 1.0F + -0.19999999F * progress;
                   float alphaFactor = 1.0F - progress;
-                  Box renderBox = scaleBox(entry.box(), scale);
+                  AABB renderBox = scaleBox(entry.box(), scale);
                   Color outlineColor = new Color(
                      baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), Math.max(0, Math.min(255, Math.round(255.0F * alphaFactor)))
                   );
@@ -519,17 +518,17 @@ public class Nuker extends Module {
 
    private void rememberRenderTarget(BlockPos pos) {
       if (this.render.getValue() && pos != null) {
-         this.renderTargets.put(pos.asLong(), new Nuker.TargetRenderEntry(new Box(pos), System.currentTimeMillis()));
+         this.renderTargets.put(pos.asLong(), new Nuker.TargetRenderEntry(new AABB(pos), System.currentTimeMillis()));
       }
    }
 
-   private static Box scaleBox(Box box, float scale) {
+   private static AABB scaleBox(AABB box, float scale) {
       if (scale == 1.0F) {
          return box;
       }
 
       double expand = (scale - 1.0F) * 0.5F;
-      return box.expand(expand, expand, expand);
+      return box.inflate(expand, expand, expand);
    }
 
    private record BlockPosPair(BlockPos pos, BlockState state) {
@@ -550,6 +549,6 @@ public class Nuker extends Module {
       Instant;
    }
 
-   private record TargetRenderEntry(Box box, long timestamp) {
+   private record TargetRenderEntry(AABB box, long timestamp) {
    }
 }

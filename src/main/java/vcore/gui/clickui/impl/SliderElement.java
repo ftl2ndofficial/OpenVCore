@@ -1,11 +1,11 @@
 package vcore.gui.clickui.impl;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.Objects;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.StringHelper;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.util.Mth;
+import net.minecraft.util.StringUtil;
 import vcore.Vcore;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.clickui.AbstractElement;
@@ -40,10 +40,10 @@ public class SliderElement extends AbstractElement {
    }
 
    @Override
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       super.render(context, mouseX, mouseY, delta);
       this.animation = Render2DEngine.scrollAnimate(this.animation, this.getValueProgress(), 0.4F);
-      MatrixStack matrixStack = context.getMatrices();
+      PoseStack matrixStack = context.pose();
       this.drawGroupGuide(context, this.height);
       String inputValue = this.getInputValue();
       if (!this.dragging) {
@@ -157,7 +157,7 @@ public class SliderElement extends AbstractElement {
       float value = Render2DEngine.interpolateFloat(
          ((Number)this.setting.getMin()).floatValue(),
          ((Number)this.setting.getMax()).floatValue(),
-         MathHelper.clamp((mouseX - (this.getTrackX() + 2.75F)) / (this.getTrackWidth() - 5.5F), 0.0, 1.0)
+         Mth.clamp((mouseX - (this.getTrackX() + 2.75F)) / (this.getTrackWidth() - 5.5F), 0.0, 1.0)
       );
       if (this.setting.getValue() instanceof Float) {
          this.setting.setValue(this.setting.hasStep() ? value : MathUtility.round2(value));
@@ -228,7 +228,7 @@ public class SliderElement extends AbstractElement {
    @Override
    public void charTyped(char key, int keyCode) {
       if (this.listening && Vcore.currentKeyListener == Vcore.KeyListening.Sliders) {
-         if (StringHelper.isValidChar(key)) {
+         if (StringUtil.isAllowedChatCharacter(key)) {
             String k = key == '-' ? "-" : ".";
 
             try {

@@ -1,6 +1,6 @@
 package vcore.gui.clickui;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 import vcore.features.modules.Module;
 import vcore.utility.render.Render2DEngine;
 
@@ -34,7 +34,7 @@ public class AbstractCategory {
    public void setModuleOffset(float offset, int mouseX, int mouseY) {
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       this.hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height);
       if (this.dragging) {
          this.x = this.prevX + mouseX;

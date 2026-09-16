@@ -1,22 +1,22 @@
 package vcore.events.impl;
 
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.world.inventory.ClickType;
 import vcore.events.Event;
 
 public class EventClickSlot extends Event {
-   private final SlotActionType slotActionType;
+   private final ClickType slotActionType;
    private final int slot;
    private final int button;
    private final int id;
 
-   public EventClickSlot(SlotActionType slotActionType, int slot, int button, int id) {
+   public EventClickSlot(ClickType slotActionType, int slot, int button, int id) {
       this.slot = slot;
       this.button = button;
       this.id = id;
       this.slotActionType = slotActionType;
    }
 
-   public SlotActionType getSlotActionType() {
+   public ClickType getSlotActionType() {
       return this.slotActionType;
    }
 

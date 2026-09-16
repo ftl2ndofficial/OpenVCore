@@ -1,8 +1,8 @@
 package vcore.gui.clickui;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
 import vcore.gui.clickui.impl.ManagerPanel;
@@ -12,15 +12,15 @@ public class ManagerScreen extends Screen {
    private final ManagerPanel panel;
 
    public ManagerScreen(Screen parent) {
-      super(Text.of("ManagerScreen"));
+      super(Component.nullToEmpty("ManagerScreen"));
       this.parent = parent;
       this.panel = new ManagerPanel();
       this.panel.setOpen(true);
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       if (ModuleManager.clickGui.blur.getValue()) {
-         this.applyBlur(delta);
+         this.renderBlurredBackground(delta);
       }
 
       if (Module.fullNullCheck()) {
@@ -31,7 +31,7 @@ public class ManagerScreen extends Screen {
       this.panel.render(context, mouseX, mouseY, delta);
    }
 
-   public boolean shouldPause() {
+   public boolean isPauseScreen() {
       return false;
    }
 
@@ -48,7 +48,7 @@ public class ManagerScreen extends Screen {
       if (this.panel.keyPressed(keyCode)) {
          return true;
       } else if (keyCode == 256) {
-         this.close();
+         this.onClose();
          return true;
       } else {
          return super.keyPressed(keyCode, scanCode, modifiers);
@@ -59,9 +59,9 @@ public class ManagerScreen extends Screen {
       return this.panel.charTyped(chr) ? true : super.charTyped(chr, modifiers);
    }
 
-   public void close() {
-      if (this.client != null) {
-         this.client.setScreen(this.parent);
+   public void onClose() {
+      if (this.minecraft != null) {
+         this.minecraft.setScreen(this.parent);
       }
    }
 }

@@ -7,8 +7,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.manager.IManager;
 
@@ -19,7 +19,7 @@ public class FriendManager implements IManager {
       return friends.stream().anyMatch(friend -> friend.equalsIgnoreCase(name));
    }
 
-   public boolean isFriend(@NotNull PlayerEntity player) {
+   public boolean isFriend(@NotNull Player player) {
       return this.isFriend(player.getName().getString());
    }
 
@@ -39,8 +39,8 @@ public class FriendManager implements IManager {
       friends.clear();
    }
 
-   public List<AbstractClientPlayerEntity> getNearFriends() {
-      return mc.world == null ? new ArrayList<>() : mc.world.getPlayers().stream().filter(player -> friends.contains(player.getName().getString())).toList();
+   public List<AbstractClientPlayer> getNearFriends() {
+      return mc.level == null ? new ArrayList<>() : mc.level.players().stream().filter(player -> friends.contains(player.getName().getString())).toList();
    }
 
    public void saveFriends() {

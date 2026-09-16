@@ -10,8 +10,8 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.command.CommandSource;
-import net.minecraft.text.Text;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 import vcore.core.Managers;
 
 public class FriendArgumentType implements ArgumentType<String> {
@@ -24,14 +24,14 @@ public class FriendArgumentType implements ArgumentType<String> {
    public String parse(StringReader reader) throws CommandSyntaxException {
       String friend = reader.readString();
       if (!Managers.FRIEND.isFriend(friend)) {
-         throw new DynamicCommandExceptionType(name -> Text.literal("Friend with name " + name + " does not exist :(")).create(friend);
+         throw new DynamicCommandExceptionType(name -> Component.literal("Friend with name " + name + " does not exist :(")).create(friend);
       } else {
          return friend;
       }
    }
 
    public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-      return CommandSource.suggestMatching(Managers.FRIEND.getFriends(), builder);
+      return SharedSuggestionProvider.suggest(Managers.FRIEND.getFriends(), builder);
    }
 
    public Collection<String> getExamples() {

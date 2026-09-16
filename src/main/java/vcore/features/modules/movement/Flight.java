@@ -1,7 +1,7 @@
 package vcore.features.modules.movement;
 
-import net.minecraft.client.gui.screen.ingame.ShulkerBoxScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen;
+import net.minecraft.client.player.LocalPlayer;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
 import vcore.utility.player.MovementUtility;
@@ -19,32 +19,32 @@ public class Flight extends Module {
    @Override
    public void onUpdate() {
       if (!fullNullCheck()) {
-         ClientPlayerEntity player = mc.player;
+         LocalPlayer player = mc.player;
          if (player != null && mc.options != null) {
             switch ((Flight.Mode)this.mode.getValue()) {
                case Shulker:
-                  if (mc.currentScreen instanceof ShulkerBoxScreen) {
-                     player.addVelocity(0.0, 0.9F, 0.0);
+                  if (mc.screen instanceof ShulkerBoxScreen) {
+                     player.push(0.0, 0.9F, 0.0);
                   }
                   break;
                case Vanilla:
                   if (MovementUtility.isMoving()) {
                      double[] dir = MovementUtility.forward(this.hSpeed.getValue().floatValue());
-                     player.setVelocity(dir[0], 0.0, dir[1]);
+                     player.setDeltaMovement(dir[0], 0.0, dir[1]);
                   } else {
-                     player.setVelocity(0.0, 0.0, 0.0);
+                     player.setDeltaMovement(0.0, 0.0, 0.0);
                   }
 
-                  if (mc.options.jumpKey.isPressed()) {
-                     player.setVelocity(player.getVelocity().add(0.0, this.vSpeed.getValue().floatValue(), 0.0));
+                  if (mc.options.keyJump.isDown()) {
+                     player.setDeltaMovement(player.getDeltaMovement().add(0.0, this.vSpeed.getValue().floatValue(), 0.0));
                   }
 
-                  if (mc.options.sneakKey.isPressed()) {
-                     player.setVelocity(player.getVelocity().add(0.0, -this.vSpeed.getValue(), 0.0));
+                  if (mc.options.keyShift.isDown()) {
+                     player.setDeltaMovement(player.getDeltaMovement().add(0.0, -this.vSpeed.getValue(), 0.0));
                   }
 
                   if (this.antiKick.getValue()) {
-                     player.setVelocity(player.getVelocity().add(0.0, -0.08, 0.0));
+                     player.setDeltaMovement(player.getDeltaMovement().add(0.0, -0.08, 0.0));
                   }
             }
          }
@@ -54,10 +54,10 @@ public class Flight extends Module {
    @Override
    public void onDisable() {
       if (!fullNullCheck()) {
-         ClientPlayerEntity player = mc.player;
+         LocalPlayer player = mc.player;
          if (player != null) {
             player.getAbilities().flying = false;
-            player.getAbilities().setFlySpeed(0.05F);
+            player.getAbilities().setFlyingSpeed(0.05F);
          }
       }
    }

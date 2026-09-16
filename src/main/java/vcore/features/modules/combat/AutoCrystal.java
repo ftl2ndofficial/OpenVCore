@@ -1,29 +1,29 @@
 package vcore.features.modules.combat;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.RespawnAnchorBlock;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.mob.SlimeEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.AxeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.PickaxeItem;
-import net.minecraft.item.ShovelItem;
-import net.minecraft.item.SwordItem;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.monster.Slime;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.item.ShovelItem;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.HitResult.Type;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import vcore.core.manager.client.ModuleManager;
@@ -106,7 +106,7 @@ public final class AutoCrystal extends Module {
    private void onItemUse(@NotNull EventItemUse event) {
       if (!fullNullCheck()) {
          if (this.isCrystalBaseEnabled()) {
-            Item mainHand = mc.player.getMainHandStack().getItem();
+            Item mainHand = mc.player.getMainHandItem().getItem();
             if ((mainHand == Items.END_CRYSTAL || mainHand == Items.OBSIDIAN) && !this.isMouseDown(1)) {
                event.cancel();
                return;
@@ -125,7 +125,7 @@ public final class AutoCrystal extends Module {
    private void onAttack(@NotNull EventAttack event) {
       if (!fullNullCheck()) {
          if (event.isPre() && this.isCrystalBaseEnabled()) {
-            if (mc.player.getMainHandStack().isOf(Items.END_CRYSTAL) && !this.isMouseDown(0)) {
+            if (mc.player.getMainHandItem().is(Items.END_CRYSTAL) && !this.isMouseDown(0)) {
                event.cancel();
             }
          }
@@ -133,7 +133,7 @@ public final class AutoCrystal extends Module {
    }
 
    public void runCrystalTick(boolean ignoreActivationKey) {
-      if (!fullNullCheck() && mc.currentScreen == null) {
+      if (!fullNullCheck() && mc.screen == null) {
          boolean dontPlace = this.placeClock > 0;
          boolean dontBreak = this.breakClock > 0;
          if (dontPlace) {
@@ -158,8 +158,8 @@ public final class AutoCrystal extends Module {
 
                      this.crystalling = true;
                      if (this.isHolding(Items.END_CRYSTAL)) {
-                        if (this.lastCrystalTick != mc.player.age) {
-                           this.lastCrystalTick = mc.player.age;
+                        if (this.lastCrystalTick != mc.player.tickCount) {
+                           this.lastCrystalTick = mc.player.tickCount;
                            this.handleEntityTarget(dontBreak);
                            this.handleBlockTarget(dontPlace);
                         }
@@ -176,7 +176,7 @@ public final class AutoCrystal extends Module {
          BlockHitResult hit = this.getLookedBlock();
          if (hit != null) {
             if (this.baseActive || !this.baseCheckPlace.getValue() || this.canPlaceAgainst(hit)) {
-               if (this.baseActive || this.isValidBaseStartItem(mc.player.getMainHandStack())) {
+               if (this.baseActive || this.isValidBaseStartItem(mc.player.getMainHandItem())) {
                   if (!this.baseActive && this.baseSwordSwap.getValue() && this.isCrystalBase(hit.getBlockPos())) {
                      this.baseCrystalling = true;
                   }
@@ -196,9 +196,9 @@ public final class AutoCrystal extends Module {
    }
 
    private boolean tryStartBaseSwordSwapFromCrystalHit() {
-      if (!this.baseActive && this.baseSwordSwap.getValue() && this.isValidBaseStartItem(mc.player.getMainHandStack())) {
+      if (!this.baseActive && this.baseSwordSwap.getValue() && this.isValidBaseStartItem(mc.player.getMainHandItem())) {
          EntityHitResult hit = this.getLookedEntity();
-         if (hit != null && hit.getEntity() instanceof EndCrystalEntity) {
+         if (hit != null && hit.getEntity() instanceof EndCrystal) {
             this.baseActive = true;
             this.baseCrystalling = true;
             this.handleBaseCrystalSelection();
@@ -213,7 +213,7 @@ public final class AutoCrystal extends Module {
 
    private void handleBasePlacement(@NotNull BlockHitResult hit) {
       if (!this.isCrystalBase(hit.getBlockPos()) && !this.isChargedAnchor(hit.getBlockPos())) {
-         mc.options.useKey.setPressed(false);
+         mc.options.keyUse.setDown(false);
          if (!this.isHolding(Items.OBSIDIAN)) {
             if (!this.tickBaseSwitchClock()) {
                return;
@@ -226,8 +226,8 @@ public final class AutoCrystal extends Module {
          }
 
          if (this.isHolding(Items.OBSIDIAN) && this.tickBasePlaceClock()) {
-            mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
-            mc.player.swingHand(Hand.MAIN_HAND);
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
+            mc.player.swing(InteractionHand.MAIN_HAND);
             this.markReturnSwordPending();
             this.basePlaceClock = this.baseDelay.getValue();
             this.baseCrystalling = true;
@@ -264,10 +264,10 @@ public final class AutoCrystal extends Module {
       EntityHitResult hit = this.getLookedEntity();
       if (hit != null && !dontBreak) {
          Entity entity = hit.getEntity();
-         if (entity instanceof EndCrystalEntity || entity instanceof SlimeEntity) {
+         if (entity instanceof EndCrystal || entity instanceof Slime) {
             if (!ModuleManager.crystalOptimizer.isAttackInhibited(entity)) {
-               int previousSlot = mc.player.getInventory().selectedSlot;
-               if ((entity instanceof EndCrystalEntity || entity instanceof SlimeEntity) && this.antiWeakness.getValue() && this.cantBreakCrystal()) {
+               int previousSlot = mc.player.getInventory().selected;
+               if ((entity instanceof EndCrystal || entity instanceof Slime) && this.antiWeakness.getValue() && this.cantBreakCrystal()) {
                   SearchInvResult weapon = InventoryUtility.getAntiWeaknessItem();
                   if (!weapon.found()) {
                      return;
@@ -287,14 +287,14 @@ public final class AutoCrystal extends Module {
    }
 
    private void placeCrystal(@NotNull BlockHitResult hit) {
-      mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
-      mc.player.swingHand(Hand.MAIN_HAND);
+      mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
+      mc.player.swing(InteractionHand.MAIN_HAND);
       this.markReturnSwordPending();
    }
 
    private void attackEntity(@NotNull Entity entity) {
-      mc.interactionManager.attackEntity(mc.player, entity);
-      mc.player.swingHand(Hand.MAIN_HAND);
+      mc.gameMode.attack(mc.player, entity);
+      mc.player.swing(InteractionHand.MAIN_HAND);
       this.markReturnSwordPending();
    }
 
@@ -355,37 +355,37 @@ public final class AutoCrystal extends Module {
    }
 
    private boolean isMouseDown(int button) {
-      return GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), button) == 1;
+      return GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), button) == 1;
    }
 
    private boolean isHolding(@NotNull Item item) {
-      return mc.player.getMainHandStack().isOf(item);
+      return mc.player.getMainHandItem().is(item);
    }
 
    private boolean isDeadPlayerNearby() {
-      return mc.world
-         .getPlayers()
+      return mc.level
+         .players()
          .stream()
          .filter(player -> player != mc.player)
-         .anyMatch(player -> player.squaredDistanceTo(mc.player) <= 36.0 && (player.isDead() || player.getHealth() <= 0.0F));
+         .anyMatch(player -> player.distanceToSqr(mc.player) <= 36.0 && (player.isDeadOrDying() || player.getHealth() <= 0.0F));
    }
 
    private boolean shouldWaitDamageTick() {
-      boolean targetDamageTick = mc.world
-         .getPlayers()
+      boolean targetDamageTick = mc.level
+         .players()
          .stream()
          .filter(player -> player != mc.player)
-         .filter(player -> player.squaredDistanceTo(mc.player) < 36.0)
+         .filter(player -> player.distanceToSqr(mc.player) < 36.0)
          .filter(player -> player.getVehicle() == null)
-         .filter(player -> !player.isOnGround())
+         .filter(player -> !player.onGround())
          .anyMatch(player -> player.hurtTime >= 2);
-      return targetDamageTick && !(mc.player.getAttacker() instanceof PlayerEntity);
+      return targetDamageTick && !(mc.player.getLastHurtByMob() instanceof Player);
    }
 
    private boolean cantBreakCrystal() {
-      StatusEffectInstance weakness = mc.player.getStatusEffect(StatusEffects.WEAKNESS);
-      StatusEffectInstance strength = mc.player.getStatusEffect(StatusEffects.STRENGTH);
-      return weakness != null && (strength == null || strength.getAmplifier() <= weakness.getAmplifier()) && !this.isTool(mc.player.getMainHandStack());
+      MobEffectInstance weakness = mc.player.getEffect(MobEffects.WEAKNESS);
+      MobEffectInstance strength = mc.player.getEffect(MobEffects.DAMAGE_BOOST);
+      return weakness != null && (strength == null || strength.getAmplifier() <= weakness.getAmplifier()) && !this.isTool(mc.player.getMainHandItem());
    }
 
    private boolean isTool(@NotNull ItemStack stack) {
@@ -422,8 +422,8 @@ public final class AutoCrystal extends Module {
    }
 
    private boolean canPlaceAgainst(@NotNull BlockHitResult hit) {
-      BlockPos placePos = hit.getBlockPos().offset(hit.getSide());
-      return mc.world.getBlockState(placePos).isReplaceable();
+      BlockPos placePos = hit.getBlockPos().relative(hit.getDirection());
+      return mc.level.getBlockState(placePos).canBeReplaced();
    }
 
    private boolean canPlaceCrystal(@NotNull BlockPos basePos) {
@@ -431,15 +431,15 @@ public final class AutoCrystal extends Module {
          return false;
       }
 
-      BlockPos crystalPos = basePos.up();
-      if (!mc.world.getBlockState(crystalPos).isAir()) {
+      BlockPos crystalPos = basePos.above();
+      if (!mc.level.getBlockState(crystalPos).isAir()) {
          return false;
       }
 
-      Box crystalBox = new Box(
+      AABB crystalBox = new AABB(
          crystalPos.getX(), crystalPos.getY(), crystalPos.getZ(), crystalPos.getX() + 1.0, crystalPos.getY() + 2.0, crystalPos.getZ() + 1.0
       );
-      return mc.world.getOtherEntities(null, crystalBox, Entity::isAlive).stream().noneMatch(this::blocksCrystalPlacement);
+      return mc.level.getEntities(null, crystalBox, Entity::isAlive).stream().noneMatch(this::blocksCrystalPlacement);
    }
 
    private boolean blocksCrystalPlacement(@NotNull Entity entity) {
@@ -447,26 +447,26 @@ public final class AutoCrystal extends Module {
    }
 
    private boolean isCrystalBase(@NotNull BlockPos pos) {
-      BlockState state = mc.world.getBlockState(pos);
-      return state.isOf(Blocks.OBSIDIAN) || state.isOf(Blocks.BEDROCK);
+      BlockState state = mc.level.getBlockState(pos);
+      return state.is(Blocks.OBSIDIAN) || state.is(Blocks.BEDROCK);
    }
 
    private boolean isChargedAnchor(@NotNull BlockPos pos) {
-      BlockState state = mc.world.getBlockState(pos);
-      return state.isOf(Blocks.RESPAWN_ANCHOR) && (Integer)state.get(RespawnAnchorBlock.CHARGES) > 0;
+      BlockState state = mc.level.getBlockState(pos);
+      return state.is(Blocks.RESPAWN_ANCHOR) && (Integer)state.getValue(RespawnAnchorBlock.CHARGE) > 0;
    }
 
    private BlockHitResult getLookedBlock() {
-      if (mc.crosshairTarget == null) {
+      if (mc.hitResult == null) {
          return null;
       }
 
-      if (mc.crosshairTarget.getType() == Type.BLOCK) {
-         return (BlockHitResult)mc.crosshairTarget;
+      if (mc.hitResult.getType() == Type.BLOCK) {
+         return (BlockHitResult)mc.hitResult;
       }
 
-      if (mc.crosshairTarget instanceof EntityHitResult entityHit && ModuleManager.crystalOptimizer.shouldIgnoreForPlacement(entityHit.getEntity())) {
-         HitResult result = mc.player.raycast(5.0, 1.0F, false);
+      if (mc.hitResult instanceof EntityHitResult entityHit && ModuleManager.crystalOptimizer.shouldIgnoreForPlacement(entityHit.getEntity())) {
+         HitResult result = mc.player.pick(5.0, 1.0F, false);
          if (result.getType() == Type.BLOCK) {
             return (BlockHitResult)result;
          }
@@ -476,6 +476,6 @@ public final class AutoCrystal extends Module {
    }
 
    private EntityHitResult getLookedEntity() {
-      return mc.crosshairTarget != null && mc.crosshairTarget.getType() == Type.ENTITY ? (EntityHitResult)mc.crosshairTarget : null;
+      return mc.hitResult != null && mc.hitResult.getType() == Type.ENTITY ? (EntityHitResult)mc.hitResult : null;
    }
 }

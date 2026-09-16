@@ -1,6 +1,6 @@
 package vcore.injection;
 
-import net.minecraft.client.render.block.entity.MobSpawnerBlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.SpawnerRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -8,10 +8,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
 
-@Mixin(MobSpawnerBlockEntityRenderer.class)
+@Mixin(SpawnerRenderer.class)
 public class MixinMobSpawnerBlockEntityRenderer {
    @Inject(
-      method = "render(FLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;ILnet/minecraft/entity/Entity;Lnet/minecraft/client/render/entity/EntityRenderDispatcher;DD)V",
+      method = "renderEntityInSpawner(FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;DD)V",
       at = @At("HEAD"),
       cancellable = true
    )

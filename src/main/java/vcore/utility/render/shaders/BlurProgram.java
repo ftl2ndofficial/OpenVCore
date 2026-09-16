@@ -1,12 +1,12 @@
 package vcore.utility.render.shaders;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.SimpleFramebuffer;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.opengl.GL30;
 import vcore.features.modules.Module;
 import vcore.utility.render.WindowResizeCallback;
@@ -26,8 +26,8 @@ public class BlurProgram {
    private Uniform1f quality;
    private Uniform4f color1;
    private SamplerUniform sampler;
-   private Framebuffer input;
-   public static final ManagedCoreShader BLUR = ShaderEffectManager.getInstance().manageCoreShader(Identifier.of("vcore", "blur"), VertexFormats.POSITION);
+   private RenderTarget input;
+   public static final ManagedCoreShader BLUR = ShaderEffectManager.getInstance().manageCoreShader(ResourceLocation.fromNamespaceAndPath("vcore", "blur"), DefaultVertexFormat.POSITION);
 
    public BlurProgram() {
       this.setup();
@@ -35,36 +35,36 @@ public class BlurProgram {
 
    public void setParameters(float x, float y, float width, float height, float r, Color c1, float blurStrenth, float blurOpacity) {
       if (this.input == null) {
-         this.input = new SimpleFramebuffer(
-            Module.mc.getWindow().getScaledWidth(), Module.mc.getWindow().getScaledHeight(), false, MinecraftClient.IS_SYSTEM_MAC
+         this.input = new TextureTarget(
+            Module.mc.getWindow().getGuiScaledWidth(), Module.mc.getWindow().getGuiScaledHeight(), false, Minecraft.ON_OSX
          );
       }
 
-      float i = (float)Module.mc.getWindow().getScaleFactor();
+      float i = (float)Module.mc.getWindow().getGuiScale();
       this.radius.set(r * i);
-      this.uLocation.set(x * i, -y * i + Module.mc.getWindow().getScaledHeight() * i - height * i);
+      this.uLocation.set(x * i, -y * i + Module.mc.getWindow().getGuiScaledHeight() * i - height * i);
       this.uSize.set(width * i, height * i);
       this.opacity.set(blurOpacity);
       this.quality.set(blurStrenth);
       this.color1.set(c1.getRed() / 255.0F, c1.getGreen() / 255.0F, c1.getBlue() / 255.0F, 1.0F);
-      this.sampler.set(this.input.getColorAttachment());
+      this.sampler.set(this.input.getColorTextureId());
    }
 
    public void use() {
-      Framebuffer buffer = MinecraftClient.getInstance().getFramebuffer();
-      this.input.beginWrite(false);
-      GL30.glBindFramebuffer(36008, buffer.fbo);
-      GL30.glBlitFramebuffer(0, 0, buffer.textureWidth, buffer.textureHeight, 0, 0, buffer.textureWidth, buffer.textureHeight, 16384, 9729);
-      buffer.beginWrite(false);
+      RenderTarget buffer = Minecraft.getInstance().getMainRenderTarget();
+      this.input.bindWrite(false);
+      GL30.glBindFramebuffer(36008, buffer.frameBufferId);
+      GL30.glBlitFramebuffer(0, 0, buffer.width, buffer.height, 0, 0, buffer.width, buffer.height, 16384, 9729);
+      buffer.bindWrite(false);
       if (this.input != null
-         && (this.input.textureWidth != Module.mc.getWindow().getFramebufferWidth() || this.input.textureHeight != Module.mc.getWindow().getFramebufferHeight())
+         && (this.input.width != Module.mc.getWindow().getWidth() || this.input.height != Module.mc.getWindow().getHeight())
          )
        {
-         this.input.resize(Module.mc.getWindow().getFramebufferWidth(), Module.mc.getWindow().getFramebufferHeight(), MinecraftClient.IS_SYSTEM_MAC);
+         this.input.resize(Module.mc.getWindow().getWidth(), Module.mc.getWindow().getHeight(), Minecraft.ON_OSX);
       }
 
-      this.inputResolution.set(buffer.textureWidth, buffer.textureHeight);
-      this.sampler.set(this.input.getColorAttachment());
+      this.inputResolution.set(buffer.width, buffer.height);
+      this.sampler.set(this.input.getColorTextureId());
       RenderSystem.setShader(BLUR::getProgram);
    }
 
@@ -79,7 +79,7 @@ public class BlurProgram {
       this.sampler = BLUR.findSampler("InputSampler");
       WindowResizeCallback.EVENT.register((WindowResizeCallback)(client, window) -> {
          if (this.input != null) {
-            this.input.resize(window.getFramebufferWidth(), window.getFramebufferHeight(), MinecraftClient.IS_SYSTEM_MAC);
+            this.input.resize(window.getWidth(), window.getHeight(), Minecraft.ON_OSX);
          }
       });
    }

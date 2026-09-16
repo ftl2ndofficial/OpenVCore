@@ -9,17 +9,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import net.minecraft.block.Block;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.resource.language.I18n;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.StringHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.StringUtil;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
 import vcore.gui.font.FontRenderer;
@@ -57,7 +57,7 @@ public class ItemSelectScreen extends Screen {
    private float scrollOffset;
 
    public ItemSelectScreen(Screen parent, Setting<ItemSelectSetting> itemSetting) {
-      super(Text.of("ItemSelect"));
+      super(Component.nullToEmpty("ItemSelect"));
       this.parent = parent;
       this.itemSetting = itemSetting;
       ensureCatalog();
@@ -66,13 +66,13 @@ public class ItemSelectScreen extends Screen {
       this.refreshAllItems();
    }
 
-   public boolean shouldPause() {
+   public boolean isPauseScreen() {
       return false;
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       if (ModuleManager.clickGui.blur.getValue()) {
-         this.applyBlur(delta);
+         this.renderBlurredBackground(delta);
       }
 
       if (Module.fullNullCheck()) {
@@ -81,25 +81,25 @@ public class ItemSelectScreen extends Screen {
 
       float x = (this.width - 260.0F) / 2.0F;
       float y = (this.height - 320.0F) / 2.0F;
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), x, y, 260.0F, 320.0F, 8.0F, new Color(28, 28, 30, 230));
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), x, y, 260.0F, 28.0F, 8.0F, new Color(24, 24, 26, 210));
+      Render2DEngine.drawClickGuiRound(context.pose(), x, y, 260.0F, 320.0F, 8.0F, new Color(28, 28, 30, 230));
+      Render2DEngine.drawClickGuiRound(context.pose(), x, y, 260.0F, 28.0F, 8.0F, new Color(24, 24, 26, 210));
       String title = "Items / " + this.itemSetting.getModule().getName();
-      FontRenderers.sf_medium.drawString(context.getMatrices(), title, x + 8.0F, y + 9.0F, Color.WHITE.getRGB());
+      FontRenderers.sf_medium.drawString(context.pose(), title, x + 8.0F, y + 9.0F, Color.WHITE.getRGB());
       float searchX = this.getSearchX(x);
       float searchY = this.getSearchY(y);
       float closeX = this.getCloseButtonX(x);
       float closeY = this.getCloseButtonY(y);
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), closeX, closeY, 10.0F, 10.0F, 2.0F, new Color(75, 75, 75, 180));
+      Render2DEngine.drawClickGuiRound(context.pose(), closeX, closeY, 10.0F, 10.0F, 2.0F, new Color(75, 75, 75, 180));
       Render2DEngine.drawLine(closeX + 2.0F, closeY + 2.0F, closeX + 8.0F, closeY + 8.0F, Color.WHITE.getRGB());
       Render2DEngine.drawLine(closeX + 2.0F, closeY + 8.0F, closeX + 8.0F, closeY + 2.0F, Color.WHITE.getRGB());
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), searchX, searchY, 90.0F, 12.0F, 3.0F, new Color(54, 54, 56, 180));
+      Render2DEngine.drawClickGuiRound(context.pose(), searchX, searchY, 90.0F, 12.0F, 3.0F, new Color(54, 54, 56, 180));
       String searchDisplay = this.getSearchDisplayText();
       float searchTextX = searchX + 4.0F;
       float searchTextY = this.getCenteredTextY(FontRenderers.sf_medium_mini, searchDisplay.isEmpty() ? "|" : searchDisplay, searchY, 12.0F);
-      FontRenderers.sf_medium_mini.drawString(context.getMatrices(), searchDisplay, searchTextX, searchTextY, new Color(14013909).getRGB());
+      FontRenderers.sf_medium_mini.drawString(context.pose(), searchDisplay, searchTextX, searchTextY, new Color(14013909).getRGB());
       if (this.shouldRenderSearchCaret()) {
          float caretX = searchTextX + FontRenderers.sf_medium_mini.getStringWidth(searchDisplay);
-         FontRenderers.sf_medium_mini.drawString(context.getMatrices(), "|", caretX, searchTextY, Color.WHITE.getRGB());
+         FontRenderers.sf_medium_mini.drawString(context.pose(), "|", caretX, searchTextY, Color.WHITE.getRGB());
       }
 
       float allTabX = x + 10.0F;
@@ -115,7 +115,7 @@ public class ItemSelectScreen extends Screen {
       this.clampScroll(listHeight, activeItems.size());
       Render2DEngine.beginScissor(listX, listY, listX + listWidth, listY + listHeight);
       if (activeItems.isEmpty()) {
-         FontRenderers.sf_medium.drawCenteredString(context.getMatrices(), "It's empty here yet", x + 130.0F, listY + 18.0F, new Color(12434877).getRGB());
+         FontRenderers.sf_medium.drawCenteredString(context.pose(), "It's empty here yet", x + 130.0F, listY + 18.0F, new Color(12434877).getRGB());
       }
 
       int startIndex = Math.max(0, (int)Math.floor(-this.scrollOffset / 20.0F));
@@ -131,11 +131,11 @@ public class ItemSelectScreen extends Screen {
       Render2DEngine.endScissor();
    }
 
-   private void drawTab(DrawContext context, String title, float x, float y, float width, boolean active) {
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), x, y, width, 16.0F, 3.0F, active ? new Color(90, 90, 96, 170) : new Color(48, 48, 52, 140));
+   private void drawTab(GuiGraphics context, String title, float x, float y, float width, boolean active) {
+      Render2DEngine.drawClickGuiRound(context.pose(), x, y, width, 16.0F, 3.0F, active ? new Color(90, 90, 96, 170) : new Color(48, 48, 52, 140));
       FontRenderers.sf_medium_mini
          .drawCenteredString(
-            context.getMatrices(),
+            context.pose(),
             title,
             x + width / 2.0F,
             this.getCenteredTextY(FontRenderers.sf_medium_mini, title, y, 16.0F),
@@ -143,16 +143,16 @@ public class ItemSelectScreen extends Screen {
          );
    }
 
-   private void drawRow(DrawContext context, ItemSelectScreen.ItemPlate itemPlate, float x, float y, float width, int mouseX, int mouseY) {
+   private void drawRow(GuiGraphics context, ItemSelectScreen.ItemPlate itemPlate, float x, float y, float width, int mouseX, int mouseY) {
       boolean hovered = Render2DEngine.isHovered(mouseX, mouseY, x, y, width, 20.0);
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), x, y, width, 18.0F, 3.0F, hovered ? new Color(70, 70, 75, 130) : new Color(52, 52, 56, 110));
-      context.getMatrices().push();
-      context.getMatrices().translate(x + 4.0F, y + 1.0F, 0.0F);
-      context.drawItem(itemPlate.stack(), 0, 0);
-      context.getMatrices().pop();
+      Render2DEngine.drawClickGuiRound(context.pose(), x, y, width, 18.0F, 3.0F, hovered ? new Color(70, 70, 75, 130) : new Color(52, 52, 56, 110));
+      context.pose().pushPose();
+      context.pose().translate(x + 4.0F, y + 1.0F, 0.0F);
+      context.renderItem(itemPlate.stack(), 0, 0);
+      context.pose().popPose();
       FontRenderers.sf_medium
          .drawString(
-            context.getMatrices(),
+            context.pose(),
             itemPlate.displayName(),
             x + 24.0F,
             this.getCenteredTextY(FontRenderers.sf_medium, itemPlate.displayName(), y, 18.0F),
@@ -162,10 +162,10 @@ public class ItemSelectScreen extends Screen {
       String actionLabel = selected ? "-" : "+";
       float actionX = this.getActionButtonX(x, width);
       float actionY = this.getActionButtonY(y);
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), actionX, actionY, 12.0F, 12.0F, 3.0F, new Color(82, 82, 88, 180));
+      Render2DEngine.drawClickGuiRound(context.pose(), actionX, actionY, 12.0F, 12.0F, 3.0F, new Color(82, 82, 88, 180));
       FontRenderers.sf_medium_mini
          .drawCenteredString(
-            context.getMatrices(),
+            context.pose(),
             actionLabel,
             actionX + 6.0F,
             this.getCenteredTextY(FontRenderers.sf_medium_mini, actionLabel, actionY, 12.0F),
@@ -177,7 +177,7 @@ public class ItemSelectScreen extends Screen {
       float x = (this.width - 260.0F) / 2.0F;
       float y = (this.height - 320.0F) / 2.0F;
       if (Render2DEngine.isHovered(mouseX, mouseY, this.getCloseButtonX(x), this.getCloseButtonY(y), 10.0, 10.0)) {
-         this.close();
+         this.onClose();
          return true;
       }
 
@@ -291,7 +291,7 @@ public class ItemSelectScreen extends Screen {
       }
 
       if (keyCode == 256) {
-         this.close();
+         this.onClose();
          return true;
       } else {
          return super.keyPressed(keyCode, scanCode, modifiers);
@@ -299,7 +299,7 @@ public class ItemSelectScreen extends Screen {
    }
 
    public boolean charTyped(char chr, int modifiers) {
-      if (this.listening && StringHelper.isValidChar(chr)) {
+      if (this.listening && StringUtil.isAllowedChatCharacter(chr)) {
          if ("Search".equals(this.search)) {
             this.search = "";
          }
@@ -312,9 +312,9 @@ public class ItemSelectScreen extends Screen {
       }
    }
 
-   public void close() {
-      if (this.client != null) {
-         this.client.setScreen(this.parent);
+   public void onClose() {
+      if (this.minecraft != null) {
+         this.minecraft.setScreen(this.parent);
       }
    }
 
@@ -405,21 +405,21 @@ public class ItemSelectScreen extends Screen {
    }
 
    private static void ensureCatalog() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      String currentLanguage = client.options.language;
+      Minecraft client = Minecraft.getInstance();
+      String currentLanguage = client.options.languageCode;
       if (cachedCatalog.isEmpty() || !Objects.equals(cachedLanguage, currentLanguage)) {
          Map<String, ItemSelectScreen.ItemPlate> deduplicated = new LinkedHashMap<>();
 
-         for (Block block : Registries.BLOCK) {
+         for (Block block : BuiltInRegistries.BLOCK) {
             Item item = block.asItem();
             if (!shouldSkipCatalogEntry(item)) {
-               cachePlate(deduplicated, item, block.getTranslationKey());
+               cachePlate(deduplicated, item, block.getDescriptionId());
             }
          }
 
-         for (Item item : Registries.ITEM) {
+         for (Item item : BuiltInRegistries.ITEM) {
             if (!shouldSkipCatalogEntry(item)) {
-               cachePlate(deduplicated, item, item.getTranslationKey());
+               cachePlate(deduplicated, item, item.getDescriptionId());
             }
          }
 
@@ -431,14 +431,14 @@ public class ItemSelectScreen extends Screen {
    private static void cachePlate(Map<String, ItemSelectScreen.ItemPlate> destination, Item item, String translationKey) {
       String simpleId = simplifyId(translationKey);
       if (!destination.containsKey(simpleId)) {
-         String displayName = "block.minecraft.air".equals(translationKey) ? I18n.translate(translationKey, new Object[0]) : item.getName().getString();
+         String displayName = "block.minecraft.air".equals(translationKey) ? I18n.get(translationKey, new Object[0]) : item.getDescription().getString();
          String searchKey = (translationKey + " " + displayName).toLowerCase(Locale.ROOT);
-         destination.put(simpleId, new ItemSelectScreen.ItemPlate(item.getDefaultStack(), simpleId, displayName, searchKey));
+         destination.put(simpleId, new ItemSelectScreen.ItemPlate(item.getDefaultInstance(), simpleId, displayName, searchKey));
       }
    }
 
    private static boolean shouldSkipCatalogEntry(Item item) {
-      return item == Items.AIR || item.getDefaultStack().isEmpty();
+      return item == Items.AIR || item.getDefaultInstance().isEmpty();
    }
 
    private record ItemPlate(ItemStack stack, String simpleId, String displayName, String searchKey) {

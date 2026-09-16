@@ -16,12 +16,12 @@ public class AutoWalk extends Module {
    public void onEnable() {
       if (this.mode.getValue() == AutoWalk.Mode.Baritone) {
          mc.player
-            .networkHandler
-            .sendChatMessage(
+            .connection
+            .sendChat(
                "#goto "
-                  + 3000000.0 * Math.cos(Math.toRadians(mc.player.getYaw() + 90.0F))
+                  + 3000000.0 * Math.cos(Math.toRadians(mc.player.getYRot() + 90.0F))
                   + " "
-                  + 3000000.0 * Math.sin(Math.toRadians(mc.player.getYaw() + 90.0F))
+                  + 3000000.0 * Math.sin(Math.toRadians(mc.player.getYRot() + 90.0F))
             );
       }
    }
@@ -29,14 +29,14 @@ public class AutoWalk extends Module {
    @Override
    public void onDisable() {
       if (this.mode.getValue() == AutoWalk.Mode.Baritone) {
-         mc.player.networkHandler.sendChatMessage("#stop");
+         mc.player.connection.sendChat("#stop");
       }
    }
 
    @EventHandler
    public void onKey(EventKeyboardInput e) {
       if (this.mode.getValue() == AutoWalk.Mode.Simple) {
-         mc.player.input.movementForward = 1.0F;
+         mc.player.input.forwardImpulse = 1.0F;
       }
    }
 

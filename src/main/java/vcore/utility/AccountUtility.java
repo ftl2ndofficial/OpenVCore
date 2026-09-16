@@ -10,18 +10,18 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.SocialInteractionsManager;
-import net.minecraft.client.session.ProfileKeys;
-import net.minecraft.client.session.Session;
-import net.minecraft.client.session.Session.AccountType;
-import net.minecraft.client.session.report.AbuseReportContext;
-import net.minecraft.client.session.report.ReporterEnvironment;
-import net.minecraft.util.Uuids;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
+import net.minecraft.client.User.Type;
+import net.minecraft.client.gui.screens.social.PlayerSocialManager;
+import net.minecraft.client.multiplayer.ProfileKeyPairManager;
+import net.minecraft.client.multiplayer.chat.report.ReportEnvironment;
+import net.minecraft.client.multiplayer.chat.report.ReportingContext;
+import net.minecraft.core.UUIDUtil;
 import vcore.injection.accesors.IMinecraftClient;
 
 public final class AccountUtility {
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private static final String USERNAME_RESOURCE_PATH = "/assets/vcore/data/usernames/";
    private static final int MIN_RANDOM_NAME_LENGTH = 8;
    private static final int MAX_MINECRAFT_NAME_LENGTH = 16;
@@ -34,7 +34,7 @@ public final class AccountUtility {
 
    public static String login(String name) {
       String username = normalizeMinecraftName(name);
-      Session session = new Session(username, Uuids.getOfflinePlayerUuid(username), "", Optional.empty(), Optional.empty(), AccountType.MOJANG);
+      User session = new User(username, UUIDUtil.createOfflinePlayerUUID(username), "", Optional.empty(), Optional.empty(), Type.MOJANG);
       setSession(session);
       return username;
    }
@@ -92,15 +92,15 @@ public final class AccountUtility {
       return leetRandomly(output.toString(), random.nextInt(3), random);
    }
 
-   private static void setSession(Session session) {
+   private static void setSession(User session) {
       IMinecraftClient accessor = (IMinecraftClient)mc;
       accessor.setSessionT(session);
       mc.getGameProfile().getProperties().clear();
       UserApiService apiService = UserApiService.OFFLINE;
       accessor.setUserApiService(apiService);
-      accessor.setSocialInteractionsManagerT(new SocialInteractionsManager(mc, apiService));
-      accessor.setProfileKeys(ProfileKeys.create(apiService, session, mc.runDirectory.toPath()));
-      accessor.setAbuseReportContextT(AbuseReportContext.create(ReporterEnvironment.ofIntegratedServer(), apiService));
+      accessor.setSocialInteractionsManagerT(new PlayerSocialManager(mc, apiService));
+      accessor.setProfileKeys(ProfileKeyPairManager.create(apiService, session, mc.gameDirectory.toPath()));
+      accessor.setAbuseReportContextT(ReportingContext.create(ReportEnvironment.local(), apiService));
       accessor.invokeUpdateWindowTitle();
    }
 

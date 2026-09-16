@@ -1,5 +1,7 @@
 package vcore.gui.font;
 
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.platform.NativeImage.Format;
 import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.chars.Char2ObjectArrayMap;
 import java.awt.Color;
@@ -16,11 +18,9 @@ import java.awt.image.WritableRaster;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.texture.NativeImage.Format;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.system.MemoryUtil;
 import vcore.injection.accesors.INativeImage;
 
@@ -28,14 +28,14 @@ class GlyphMap {
    final char fromIncl;
    final char toExcl;
    final Font font;
-   final Identifier bindToTexture;
+   final ResourceLocation bindToTexture;
    final int pixelPadding;
    private final Char2ObjectArrayMap<Glyph> glyphs = new Char2ObjectArrayMap();
    int width;
    int height;
    boolean generated = false;
 
-   public GlyphMap(char from, char to, Font font, Identifier identifier, int padding) {
+   public GlyphMap(char from, char to, Font font, ResourceLocation identifier, int padding) {
       this.fromIncl = from;
       this.toExcl = to;
       this.font = font;
@@ -52,7 +52,7 @@ class GlyphMap {
    }
 
    public void destroy() {
-      MinecraftClient.getInstance().getTextureManager().destroyTexture(this.bindToTexture);
+      Minecraft.getInstance().getTextureManager().release(this.bindToTexture);
       this.glyphs.clear();
       this.width = -1;
       this.height = -1;
@@ -128,7 +128,7 @@ class GlyphMap {
       }
    }
 
-   public static void registerBufferedImageTexture(Identifier i, BufferedImage bi) {
+   public static void registerBufferedImageTexture(ResourceLocation i, BufferedImage bi) {
       try {
          int ow = bi.getWidth();
          int oh = bi.getHeight();
@@ -162,12 +162,12 @@ class GlyphMap {
             }
          }
 
-         NativeImageBackedTexture tex = new NativeImageBackedTexture(image);
+         DynamicTexture tex = new DynamicTexture(image);
          tex.upload();
          if (RenderSystem.isOnRenderThread()) {
-            MinecraftClient.getInstance().getTextureManager().registerTexture(i, tex);
+            Minecraft.getInstance().getTextureManager().register(i, tex);
          } else {
-            RenderSystem.recordRenderCall(() -> MinecraftClient.getInstance().getTextureManager().registerTexture(i, tex));
+            RenderSystem.recordRenderCall(() -> Minecraft.getInstance().getTextureManager().register(i, tex));
          }
       } catch (Throwable e) {
          e.printStackTrace();

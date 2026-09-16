@@ -1,9 +1,9 @@
 package vcore.features.modules.misc;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.screen.multiplayer.AddServerScreen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
+import net.minecraft.client.gui.screens.EditServerScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -59,8 +59,8 @@ public final class RPC extends Module {
                   presence.details = this.getDetails();
                   presence.state = "Build >> Release (1.21/1.21.1)";
                   if (nickname.getValue()) {
-                     presence.smallImageText = ModuleManager.nameProtect.isEnabled() ? "discord.gg/GNYyWbwKUE" : mc.getSession().getUsername();
-                     presence.smallImageKey = "https://minotar.net/helm/" + mc.getSession().getUsername() + "/100.png";
+                     presence.smallImageText = ModuleManager.nameProtect.isEnabled() ? "discord.gg/GNYyWbwKUE" : mc.getUser().getName();
+                     presence.smallImageKey = "https://minotar.net/helm/" + mc.getUser().getName() + "/100.png";
                   } else {
                      presence.smallImageText = "";
                      presence.smallImageKey = "";
@@ -89,10 +89,10 @@ public final class RPC extends Module {
 
    private String getDetails() {
       String result = "";
-      if (!(mc.currentScreen instanceof MultiplayerScreen) && !(mc.currentScreen instanceof AddServerScreen) && !(mc.currentScreen instanceof TitleScreen)) {
-         if (mc.getCurrentServerEntry() != null) {
-            result = showIP.getValue() ? "Playing on " + mc.getCurrentServerEntry().address : "Playing on server";
-         } else if (mc.isInSingleplayer()) {
+      if (!(mc.screen instanceof JoinMultiplayerScreen) && !(mc.screen instanceof EditServerScreen) && !(mc.screen instanceof TitleScreen)) {
+         if (mc.getCurrentServer() != null) {
+            result = showIP.getValue() ? "Playing on " + mc.getCurrentServer().ip : "Playing on server";
+         } else if (mc.isLocalServer()) {
             result = "SinglePlayer";
          }
       } else {

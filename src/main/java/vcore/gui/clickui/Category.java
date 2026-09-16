@@ -2,7 +2,7 @@ package vcore.gui.clickui;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.clickui.impl.SearchBar;
@@ -38,12 +38,12 @@ public class Category extends AbstractCategory {
    }
 
    @Override
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       super.render(context, mouseX, mouseY, delta);
       this.hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, 25.0);
       this.setWidth(125.0F);
-      Render2DEngine.drawGuiBase(context.getMatrices(), this.getX(), this.getY(), this.width, this.isOpen() ? 280.0F : 25.0F, 12.0F, HudEditor.getBlurOpacity());
-      FontRenderers.categories.drawCenteredString(context.getMatrices(), this.getName(), this.getX() + this.width / 2.0F, this.getY() + 7.0F, -1);
+      Render2DEngine.drawGuiBase(context.pose(), this.getX(), this.getY(), this.width, this.isOpen() ? 280.0F : 25.0F, 12.0F, HudEditor.getBlurOpacity());
+      FontRenderers.categories.drawCenteredString(context.pose(), this.getName(), this.getX() + this.width / 2.0F, this.getY() + 7.0F, -1);
       if (this.isOpen()) {
          float maxScroll = (float)Math.max(0.0, this.getButtonsHeight() - 250.0);
          if (this.scrollTarget < 0.0F) {
@@ -55,8 +55,8 @@ public class Category extends AbstractCategory {
          }
 
          this.scrollOffset = AnimationUtility.fast(this.scrollOffset, this.scrollTarget, 10.0F);
-         context.getMatrices().push();
-         Render2DEngine.addWindow(context.getMatrices(), this.getX(), this.getY() + 25.0F, this.getX() + this.width, this.getY() + 280.0F - 5.0F, 1.0);
+         context.pose().pushPose();
+         Render2DEngine.addWindow(context.pose(), this.getX(), this.getY() + 25.0F, this.getX() + this.width, this.getY() + 280.0F - 5.0F, 1.0);
          float baseY = this.getY() + 25.0F - this.scrollOffset;
 
          for (AbstractButton button : this.buttons) {
@@ -74,7 +74,7 @@ public class Category extends AbstractCategory {
          }
 
          Render2DEngine.popWindow();
-         context.getMatrices().pop();
+         context.pose().popPose();
       }
 
       this.updatePosition();

@@ -1,14 +1,14 @@
 package vcore.injection.accesors;
 
-import net.minecraft.client.render.entity.LivingEntityRenderer;
-import net.minecraft.client.render.entity.feature.FeatureRenderer;
-import net.minecraft.client.render.entity.model.EntityModel;
-import net.minecraft.entity.LivingEntity;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(LivingEntityRenderer.class)
 public interface ILivingEntityRenderer {
-   @Invoker("addFeature")
-   <T extends LivingEntity, M extends EntityModel<T>> boolean vcore$addFeature(FeatureRenderer<T, M> var1);
+   @Invoker("addLayer")
+   <T extends LivingEntity, M extends EntityModel<T>> boolean vcore$addFeature(RenderLayer<T, M> var1);
 }

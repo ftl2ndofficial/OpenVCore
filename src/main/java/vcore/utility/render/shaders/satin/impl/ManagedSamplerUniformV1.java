@@ -1,8 +1,8 @@
 package vcore.utility.render.shaders.satin.impl;
 
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.texture.AbstractTexture;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.client.renderer.texture.AbstractTexture;
 
 public final class ManagedSamplerUniformV1 extends ManagedSamplerUniformBase {
    public ManagedSamplerUniformV1(String name) {
@@ -15,7 +15,7 @@ public final class ManagedSamplerUniformV1 extends ManagedSamplerUniformBase {
    }
 
    @Override
-   public void set(Framebuffer textureFbo) {
+   public void set(RenderTarget textureFbo) {
       this.set((Object)textureFbo);
    }
 
@@ -29,7 +29,7 @@ public final class ManagedSamplerUniformV1 extends ManagedSamplerUniformBase {
       SamplerAccess[] targets = this.targets;
       if (targets.length > 0 && this.cachedValue != value) {
          for (SamplerAccess target : targets) {
-            ((ShaderProgram)target).addSampler(this.name, value);
+            ((ShaderInstance)target).setSampler(this.name, value);
          }
 
          this.cachedValue = value;

@@ -1,9 +1,9 @@
 package vcore.setting.impl;
 
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 public class ItemBindSetting {
    private String itemId;
@@ -44,7 +44,7 @@ public class ItemBindSetting {
 
    public void setItem(ItemStack stack) {
       if (stack != null && !stack.isEmpty()) {
-         this.itemId = Registries.ITEM.getId(stack.getItem()).toString();
+         this.itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
       } else {
          this.clearItem();
       }
@@ -55,12 +55,12 @@ public class ItemBindSetting {
          return null;
       }
 
-      Identifier id = Identifier.tryParse(this.itemId);
-      return id != null && Registries.ITEM.containsId(id) ? (Item)Registries.ITEM.get(id) : null;
+      ResourceLocation id = ResourceLocation.tryParse(this.itemId);
+      return id != null && BuiltInRegistries.ITEM.containsKey(id) ? (Item)BuiltInRegistries.ITEM.get(id) : null;
    }
 
    public String getDisplayName(String fallback) {
       Item item = this.getItem();
-      return item == null ? fallback : item.getName().getString();
+      return item == null ? fallback : item.getDescription().getString();
    }
 }

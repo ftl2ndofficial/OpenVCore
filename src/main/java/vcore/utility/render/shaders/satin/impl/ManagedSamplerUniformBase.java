@@ -4,9 +4,9 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gl.JsonEffectShaderProgram;
-import net.minecraft.client.gl.PostEffectPass;
-import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.renderer.EffectInstance;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.client.renderer.ShaderInstance;
 import vcore.utility.render.shaders.satin.api.managed.uniform.SamplerUniform;
 
 public abstract class ManagedSamplerUniformBase extends ManagedUniformBase implements SamplerUniform {
@@ -19,12 +19,12 @@ public abstract class ManagedSamplerUniformBase extends ManagedUniformBase imple
    }
 
    @Override
-   public boolean findUniformTargets(List<PostEffectPass> shaders) {
+   public boolean findUniformTargets(List<PostPass> shaders) {
       List<SamplerAccess> targets = new ArrayList<>(shaders.size());
       IntList rawTargets = new IntArrayList(shaders.size());
 
-      for (PostEffectPass shader : shaders) {
-         JsonEffectShaderProgram program = shader.getProgram();
+      for (PostPass shader : shaders) {
+         EffectInstance program = shader.getEffect();
          SamplerAccess access = (SamplerAccess)program;
          if (access.hasSampler(this.name)) {
             targets.add(access);
@@ -43,7 +43,7 @@ public abstract class ManagedSamplerUniformBase extends ManagedUniformBase imple
    }
 
    @Override
-   public boolean findUniformTarget(ShaderProgram shader) {
+   public boolean findUniformTarget(ShaderInstance shader) {
       return this.findUniformTarget1((SamplerAccess)shader);
    }
 

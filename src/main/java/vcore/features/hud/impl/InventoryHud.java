@@ -2,9 +2,9 @@ package vcore.features.hud.impl;
 
 import java.util.List;
 import java.util.function.Supplier;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.item.ItemStack;
 import vcore.features.hud.HudElement;
 import vcore.features.modules.render.HudEditor;
 import vcore.setting.impl.PositionSetting;
@@ -15,9 +15,9 @@ public class InventoryHud extends HudElement {
    }
 
    @Override
-   public void render(DrawContext context) {
+   public void render(GuiGraphics context) {
       super.render(context);
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.player != null) {
          float x = this.getPosX();
          float y = this.getPosY();
@@ -40,26 +40,26 @@ public class InventoryHud extends HudElement {
             }
          }
 
-         context.getMatrices().push();
+         context.pose().pushPose();
 
          for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
                int slot = 9 + row * 9 + col;
-               ItemStack stack = mc.player.getInventory().getStack(slot);
+               ItemStack stack = mc.player.getInventory().getItem(slot);
                if (!stack.isEmpty()) {
                   float itemX = x + col * (cellSize + gap);
                   float itemY = y + row * (cellSize + gap);
-                  context.getMatrices().push();
-                  context.getMatrices().translate(itemX, itemY, 0.0F);
-                  context.getMatrices().scale(s, s, 1.0F);
-                  context.drawItem(stack, 0, 0);
-                  context.drawItemInSlot(mc.textRenderer, stack, 0, 0);
-                  context.getMatrices().pop();
+                  context.pose().pushPose();
+                  context.pose().translate(itemX, itemY, 0.0F);
+                  context.pose().scale(s, s, 1.0F);
+                  context.renderItem(stack, 0, 0);
+                  context.renderItemDecorations(mc.font, stack, 0, 0);
+                  context.pose().popPose();
                }
             }
          }
 
-         context.getMatrices().pop();
+         context.pose().popPose();
          this.setBounds((int)x, (int)y, totalW, totalH);
       }
    }

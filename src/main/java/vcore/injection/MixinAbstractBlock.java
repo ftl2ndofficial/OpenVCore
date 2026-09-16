@@ -1,14 +1,14 @@
 package vcore.injection;
 
-import net.minecraft.block.AbstractBlock;
-import net.minecraft.block.BlockState;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.BlockView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,25 +17,25 @@ import vcore.core.manager.IManager;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.player.AutoTool;
 
-@Mixin(AbstractBlock.class)
+@Mixin(BlockBehaviour.class)
 public abstract class MixinAbstractBlock {
-   @Inject(method = "calcBlockBreakingDelta", at = @At("HEAD"), cancellable = true)
-   public void calcBlockBreakingDeltaHook(BlockState state, PlayerEntity player, BlockView world, BlockPos pos, CallbackInfoReturnable<Float> ci) {
+   @Inject(method = "getDestroyProgress", at = @At("HEAD"), cancellable = true)
+   public void calcBlockBreakingDeltaHook(BlockState state, Player player, BlockGetter world, BlockPos pos, CallbackInfoReturnable<Float> ci) {
       if (ModuleManager.autoTool.isEnabled() && AutoTool.silent.getValue()) {
-         float f = state.getHardness(world, pos);
+         float f = state.getDestroySpeed(world, pos);
          if (f < 0.0F) {
             ci.setReturnValue(0.0F);
          } else {
-            float dig_speed = this.getDigSpeed(state, player.getInventory().getStack(AutoTool.itemIndex)) / f;
-            ci.setReturnValue(player.getInventory().getStack(AutoTool.itemIndex).isSuitableFor(state) ? dig_speed / 30.0F : dig_speed / 100.0F);
+            float dig_speed = this.getDigSpeed(state, player.getInventory().getItem(AutoTool.itemIndex)) / f;
+            ci.setReturnValue(player.getInventory().getItem(AutoTool.itemIndex).isCorrectToolForDrops(state) ? dig_speed / 30.0F : dig_speed / 100.0F);
          }
       }
    }
 
    public float getDigSpeed(BlockState state, ItemStack stack) {
-      double str = stack.getMiningSpeedMultiplier(state);
-      int effect = EnchantmentHelper.getLevel(
-         (RegistryEntry)IManager.mc.world.getRegistryManager().get(Enchantments.EFFICIENCY.getRegistryRef()).getEntry(Enchantments.EFFICIENCY).get(), stack
+      double str = stack.getDestroySpeed(state);
+      int effect = EnchantmentHelper.getItemEnchantmentLevel(
+         (Holder)IManager.mc.level.registryAccess().registryOrThrow(Enchantments.EFFICIENCY.registryKey()).getHolder(Enchantments.EFFICIENCY).get(), stack
       );
       return (float)Math.max(str + (str > 1.0 ? effect * effect + 1.0 : 0.0), 0.0);
    }

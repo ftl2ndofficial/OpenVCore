@@ -1,15 +1,15 @@
 package vcore.features.modules.combat;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.TntEntity;
-import net.minecraft.entity.mob.CreeperEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.TntMinecartEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.MinecartTNT;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.InputBlocker;
 import vcore.core.Managers;
 import vcore.events.impl.EventSync;
@@ -131,18 +131,18 @@ public final class AutoTotem extends Module {
    private void performSwap(int slot) {
       if (this.canSwapToOffhand()) {
          int slotId = convertSlotIndex(slot);
-         if (slotId >= 0 && slotId < mc.player.currentScreenHandler.slots.size()) {
-            mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotId, 40, SlotActionType.SWAP, mc.player);
+         if (slotId >= 0 && slotId < mc.player.containerMenu.slots.size()) {
+            mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotId, 40, ClickType.SWAP, mc.player);
             if (this.resetAttackCooldown.getValue()) {
-               mc.player.resetLastAttackedTicks();
+               mc.player.resetAttackStrengthTicker();
             }
          }
       }
    }
 
    public int getItemSlot() {
-      if (mc.player != null && mc.world != null) {
-         Item offHandItem = mc.player.getOffHandStack().getItem();
+      if (mc.player != null && mc.level != null) {
+         Item offHandItem = mc.player.getOffhandItem().getItem();
          int itemSlot = -1;
          Item item = null;
          switch ((AutoTotem.OffHand)this.offhand.getValue()) {
@@ -150,7 +150,7 @@ public final class AutoTotem extends Module {
                item = Items.TOTEM_OF_UNDYING;
                break;
             case Smart:
-               if (offHandItem != Items.TOTEM_OF_UNDYING && !mc.player.getOffHandStack().isEmpty()) {
+               if (offHandItem != Items.TOTEM_OF_UNDYING && !mc.player.getOffhandItem().isEmpty()) {
                   this.prevItem = offHandItem;
                }
 
@@ -178,9 +178,9 @@ public final class AutoTotem extends Module {
          }
 
          if (this.offhand.getValue() == AutoTotem.OffHand.Smart && this.safety.getValue().isExtended() && this.maceEntity.getValue()) {
-            for (PlayerEntity pl : Managers.ASYNC.getAsyncPlayers()) {
+            for (Player pl : Managers.ASYNC.getAsyncPlayers()) {
                if (pl != null && pl != mc.player && !Managers.FRIEND.isFriend(pl)) {
-                  boolean hasMace = pl.getMainHandStack().getItem() == Items.MACE || pl.getOffHandStack().getItem() == Items.MACE;
+                  boolean hasMace = pl.getMainHandItem().getItem() == Items.MACE || pl.getOffhandItem().getItem() == Items.MACE;
                   if (hasMace) {
                      double dx = Math.abs(pl.getX() - mc.player.getX());
                      double dz = Math.abs(pl.getZ() - mc.player.getZ());
@@ -195,19 +195,19 @@ public final class AutoTotem extends Module {
          }
 
          if (this.offhand.getValue() == AutoTotem.OffHand.Smart && this.safety.getValue().isExtended()) {
-            for (Entity entity : mc.world.getEntities()) {
-               if (entity != null && entity.isAlive() && !(this.getPlayerPos().squaredDistanceTo(entity.getPos()) > 36.0)) {
-                  if (this.onTnt.getValue() && entity instanceof TntEntity) {
+            for (Entity entity : mc.level.entitiesForRendering()) {
+               if (entity != null && entity.isAlive() && !(this.getPlayerPos().distanceToSqr(entity.position()) > 36.0)) {
+                  if (this.onTnt.getValue() && entity instanceof PrimedTnt) {
                      item = Items.TOTEM_OF_UNDYING;
                      break;
                   }
 
-                  if (this.onMinecartTnt.getValue() && entity instanceof TntMinecartEntity) {
+                  if (this.onMinecartTnt.getValue() && entity instanceof MinecartTNT) {
                      item = Items.TOTEM_OF_UNDYING;
                      break;
                   }
 
-                  if (this.onCreeper.getValue() && entity instanceof CreeperEntity) {
+                  if (this.onCreeper.getValue() && entity instanceof Creeper) {
                      item = Items.TOTEM_OF_UNDYING;
                      break;
                   }
@@ -215,13 +215,13 @@ public final class AutoTotem extends Module {
             }
          }
 
-         if (item != null && mc.player.getOffHandStack().getItem() != item) {
+         if (item != null && mc.player.getOffhandItem().getItem() != item) {
             SearchInvResult itemResult = InventoryUtility.findItemInInventory(item);
             if (itemResult.found()) {
                itemSlot = itemResult.slot();
             }
 
-            return item == mc.player.getMainHandStack().getItem() && mc.options.useKey.isPressed() ? -1 : itemSlot;
+            return item == mc.player.getMainHandItem().getItem() && mc.options.keyUse.isDown() ? -1 : itemSlot;
          } else {
             return -1;
          }
@@ -234,7 +234,7 @@ public final class AutoTotem extends Module {
       if (mc.player == null) {
          return 0.0F;
       } else {
-         return mc.player.getInventory().getArmorStack(2).getItem() == Items.ELYTRA ? this.elytraHP.getValue() : this.healthF.getValue();
+         return mc.player.getInventory().getArmor(2).getItem() == Items.ELYTRA ? this.elytraHP.getValue() : this.healthF.getValue();
       }
    }
 
@@ -279,17 +279,17 @@ public final class AutoTotem extends Module {
 
    private boolean canSwapToOffhand() {
       return mc.player != null
-         && mc.interactionManager != null
+         && mc.gameMode != null
          && mc.player.getInventory() != null
-         && mc.player.currentScreenHandler == mc.player.playerScreenHandler;
+         && mc.player.containerMenu == mc.player.inventoryMenu;
    }
 
    private static int convertSlotIndex(int slotIndex) {
       return slotIndex < 9 ? 36 + slotIndex : slotIndex;
    }
 
-   private Vec3d getPlayerPos() {
-      return mc.player.getPos();
+   private Vec3 getPlayerPos() {
+      return mc.player.position();
    }
 
    @Override

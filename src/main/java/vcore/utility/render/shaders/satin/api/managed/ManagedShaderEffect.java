@@ -1,11 +1,11 @@
 package vcore.utility.render.shaders.satin.api.managed;
 
-import net.minecraft.client.gl.PostEffectProcessor;
+import net.minecraft.client.renderer.PostChain;
 import vcore.utility.render.shaders.satin.api.managed.uniform.SamplerUniformV2;
 import vcore.utility.render.shaders.satin.api.managed.uniform.UniformFinder;
 
 public interface ManagedShaderEffect extends UniformFinder {
-   PostEffectProcessor getShaderEffect();
+   PostChain getShaderEffect();
 
    void release();
 

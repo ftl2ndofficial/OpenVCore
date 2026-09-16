@@ -2,11 +2,11 @@ package vcore.features.modules.combat;
 
 import java.util.Random;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.Blocks;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.PlayerUpdateEvent;
@@ -33,17 +33,17 @@ public final class TriggerBot extends Module {
    @EventHandler
    public void onAttack(PlayerUpdateEvent e) {
       if (!mc.player.isUsingItem() || !this.pauseEating.getValue()) {
-         if (!mc.options.jumpKey.isPressed() && mc.player.isOnGround() && this.autoJump.getValue()) {
-            mc.player.jump();
+         if (!mc.options.keyJump.isDown() && mc.player.onGround() && this.autoJump.getValue()) {
+            mc.player.jumpFromGround();
          }
 
          if (!this.autoCrit() && this.delay > 0) {
             this.delay--;
          } else {
-            Entity ent = Managers.PLAYER.getRtxTarget(mc.player.getYaw(), mc.player.getPitch(), this.attackRange.getValue(), this.ignoreWalls.getValue());
+            Entity ent = Managers.PLAYER.getRtxTarget(mc.player.getYRot(), mc.player.getXRot(), this.attackRange.getValue(), this.ignoreWalls.getValue());
             if (ent != null && !Managers.FRIEND.isFriend(ent.getName().getString())) {
-               mc.interactionManager.attackEntity(mc.player, ent);
-               mc.player.swingHand(Hand.MAIN_HAND);
+               mc.gameMode.attack(mc.player, ent);
+               mc.player.swing(InteractionHand.MAIN_HAND);
                this.delay = this.random.nextInt(this.minDelay.getValue(), this.maxDelay.getValue() + 1);
             }
          }
@@ -55,24 +55,24 @@ public final class TriggerBot extends Module {
          || mc.player.getAbilities().flying
          || mc.player.isFallFlying()
          || ModuleManager.elytraPlus.isEnabled()
-         || mc.player.hasStatusEffect(StatusEffects.BLINDNESS)
-         || mc.player.isHoldingOntoLadder()
-         || mc.world.getBlockState(BlockPos.ofFloored(mc.player.getPos())).getBlock() == Blocks.COBWEB;
+         || mc.player.hasEffect(MobEffects.BLINDNESS)
+         || mc.player.isSuppressingSlidingDownLadder()
+         || mc.level.getBlockState(BlockPos.containing(mc.player.position())).getBlock() == Blocks.COBWEB;
       if (mc.player.fallDistance > 1.0F && mc.player.fallDistance < 1.14) {
          return false;
-      } else if (ModuleManager.aura.getAttackCooldown() < (mc.player.isOnGround() ? 1.0F : 0.9F)) {
+      } else if (ModuleManager.aura.getAttackCooldown() < (mc.player.onGround() ? 1.0F : 0.9F)) {
          return false;
       } else {
          boolean mergeWithTargetStrafe = !ModuleManager.targetStrafe.isEnabled() || !ModuleManager.targetStrafe.jump.getValue();
-         boolean mergeWithSpeed = !ModuleManager.speed.isEnabled() || mc.player.isOnGround();
-         if (!mc.options.jumpKey.isPressed() && mergeWithTargetStrafe && mergeWithSpeed && !this.onlySpace.getValue() && !this.autoJump.getValue()) {
+         boolean mergeWithSpeed = !ModuleManager.speed.isEnabled() || mc.player.onGround();
+         if (!mc.options.keyJump.isDown() && mergeWithTargetStrafe && mergeWithSpeed && !this.onlySpace.getValue() && !this.autoJump.getValue()) {
             return true;
          } else if (mc.player.isInLava()) {
             return true;
-         } else if (!mc.options.jumpKey.isPressed() && ModuleManager.aura.isAboveWater()) {
+         } else if (!mc.options.keyJump.isDown() && ModuleManager.aura.isAboveWater()) {
             return true;
          } else {
-            return reasonForSkipCrit ? true : !mc.player.isOnGround() && mc.player.fallDistance > 0.0F;
+            return reasonForSkipCrit ? true : !mc.player.onGround() && mc.player.fallDistance > 0.0F;
          }
       }
    }

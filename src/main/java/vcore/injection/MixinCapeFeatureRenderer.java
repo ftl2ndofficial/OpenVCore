@@ -1,10 +1,10 @@
 package vcore.injection;
 
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.feature.CapeFeatureRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.MathHelper;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.layers.CapeLayer;
+import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -12,14 +12,14 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.core.manager.client.ModuleManager;
 
-@Mixin(CapeFeatureRenderer.class)
+@Mixin(CapeLayer.class)
 public class MixinCapeFeatureRenderer {
    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
    private void renderCustomModelCape(
-      MatrixStack matrixStack,
-      VertexConsumerProvider vertexConsumerProvider,
+      PoseStack matrixStack,
+      MultiBufferSource vertexConsumerProvider,
       int i,
-      AbstractClientPlayerEntity abstractClientPlayerEntity,
+      AbstractClientPlayer abstractClientPlayerEntity,
       float f,
       float g,
       float h,
@@ -38,10 +38,10 @@ public class MixinCapeFeatureRenderer {
    @ModifyVariable(method = "render", at = @At("STORE"), ordinal = 6)
    private float renderHook(
       float n,
-      MatrixStack matrixStack,
-      VertexConsumerProvider vertexConsumerProvider,
+      PoseStack matrixStack,
+      MultiBufferSource vertexConsumerProvider,
       int i,
-      AbstractClientPlayerEntity abstractClientPlayerEntity,
+      AbstractClientPlayer abstractClientPlayerEntity,
       float f,
       float g,
       float h,
@@ -49,6 +49,6 @@ public class MixinCapeFeatureRenderer {
       float k,
       float l
    ) {
-      return MathHelper.lerp(h, abstractClientPlayerEntity.prevBodyYaw, abstractClientPlayerEntity.bodyYaw);
+      return Mth.lerp(h, abstractClientPlayerEntity.yBodyRotO, abstractClientPlayerEntity.yBodyRot);
    }
 }

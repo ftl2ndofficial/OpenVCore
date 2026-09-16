@@ -1,12 +1,12 @@
 package vcore.features.hud.impl;
 
-import com.mojang.blaze3d.platform.GlStateManager.DstFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SrcFactor;
+import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
+import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
 import java.util.List;
 import java.util.function.Supplier;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.hud.HudElement;
 import vcore.features.modules.misc.NameProtect;
@@ -30,10 +30,10 @@ public class WaterMark extends HudElement {
    }
 
    @Override
-   public void render(DrawContext context) {
+   public void render(GuiGraphics context) {
       this.setPositionPixels(5.0F, 5.0F);
       super.render(context);
-      String username = ModuleManager.nameProtect.isEnabled() ? NameProtect.getCustomName() : mc.getSession().getUsername();
+      String username = ModuleManager.nameProtect.isEnabled() ? NameProtect.getCustomName() : mc.getUser().getName();
       int fps = FrameRateCounter.INSTANCE.getFps();
       String fpsText = fps + " FPS";
       float usernameWidth = FontRenderers.sf_bold.getStringWidth(username);
@@ -45,15 +45,15 @@ public class WaterMark extends HudElement {
       float fpsIconX = accountTextX + usernameWidth + 4.5F;
       float fpsTextX = fpsIconX + 12.0F;
       float rightWidth = Math.max(fpsTextX + fpsTextWidth - rightX + 6.0F, 45.0F);
-      Render2DEngine.drawHudBase(context.getMatrices(), this.getPosX(), this.getPosY(), leftWidth, 15.0F, 3.0F);
-      Render2DEngine.drawHudBase(context.getMatrices(), rightX, this.getPosY(), rightWidth, 15.0F, 3.0F);
+      Render2DEngine.drawHudBase(context.pose(), this.getPosX(), this.getPosY(), leftWidth, 15.0F, 3.0F);
+      Render2DEngine.drawHudBase(context.pose(), rightX, this.getPosY(), rightWidth, 15.0F, 3.0F);
       Render2DEngine.setupRender();
-      Render2DEngine.drawRect(context.getMatrices(), this.getPosX() + 13.0F, this.getPosY() + 1.5F, 0.5F, 11.0F, new Color(1157627903, true));
-      FontRenderers.sf_bold.drawGradientString(context.getMatrices(), "Release", this.getPosX() + 15.0F, this.getPosY() + 5.0F, 20);
-      RenderSystem.blendFunc(SrcFactor.SRC_ALPHA, DstFactor.ONE);
+      Render2DEngine.drawRect(context.pose(), this.getPosX() + 13.0F, this.getPosY() + 1.5F, 0.5F, 11.0F, new Color(1157627903, true));
+      FontRenderers.sf_bold.drawGradientString(context.pose(), "Release", this.getPosX() + 15.0F, this.getPosY() + 5.0F, 20);
+      RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
       RenderSystem.setShaderTexture(0, TextureStorage.miniLogo);
       Render2DEngine.renderGradientTexture(
-         context.getMatrices(),
+         context.pose(),
          this.getPosX() + 1.0F,
          this.getPosY() + 2.0F,
          11.0,
@@ -71,7 +71,7 @@ public class WaterMark extends HudElement {
       );
       RenderSystem.setShaderTexture(0, TextureStorage.playerIcon);
       Render2DEngine.renderGradientTexture(
-         context.getMatrices(),
+         context.pose(),
          rightX + 3.0F,
          this.getPosY() + 3.0F,
          8.0,
@@ -89,7 +89,7 @@ public class WaterMark extends HudElement {
       );
       RenderSystem.setShaderTexture(0, TextureStorage.fpsIcon);
       Render2DEngine.renderGradientTexture(
-         context.getMatrices(),
+         context.pose(),
          fpsIconX,
          this.getPosY() + 2.0F,
          10.0,
@@ -108,8 +108,8 @@ public class WaterMark extends HudElement {
       Render2DEngine.endRender();
       Render2DEngine.setupRender();
       RenderSystem.defaultBlendFunc();
-      FontRenderers.sf_bold.drawString(context.getMatrices(), username, accountTextX, this.getPosY() + 5.0F, HudEditor.getTextColor().getRGB());
-      FontRenderers.sf_bold.drawString(context.getMatrices(), fpsText, fpsTextX, this.getPosY() + 5.0F, HudEditor.getTextColor().getRGB());
+      FontRenderers.sf_bold.drawString(context.pose(), username, accountTextX, this.getPosY() + 5.0F, HudEditor.getTextColor().getRGB());
+      FontRenderers.sf_bold.drawString(context.pose(), fpsText, fpsTextX, this.getPosY() + 5.0F, HudEditor.getTextColor().getRGB());
       Render2DEngine.endRender();
       this.setBounds(this.getPosX(), this.getPosY(), leftWidth + 5.0F + rightWidth, 15.0F);
    }

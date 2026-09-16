@@ -1,8 +1,8 @@
 package vcore.features.cmd.impl;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.command.CommandSource;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.features.cmd.Command;
@@ -15,14 +15,14 @@ public class FriendCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(literal("reset").executes(context -> {
          Managers.FRIEND.clear();
          sendMessage("Friends got reset.");
          return 1;
       }));
       builder.then(literal("add").then(arg("player", PlayerArgumentType.create()).executes(context -> {
-         PlayerListEntry player = (PlayerListEntry)context.getArgument("player", PlayerListEntry.class);
+         PlayerInfo player = (PlayerInfo)context.getArgument("player", PlayerInfo.class);
          Managers.FRIEND.addFriend(player.getProfile().getName());
          sendMessage(player.getProfile().getName() + " has been friended");
          return 1;
@@ -34,7 +34,7 @@ public class FriendCommand extends Command {
          return 1;
       })));
       builder.then(literal("is").then(arg("player", PlayerArgumentType.create()).executes(context -> {
-         PlayerListEntry player = (PlayerListEntry)context.getArgument("player", PlayerListEntry.class);
+         PlayerInfo player = (PlayerInfo)context.getArgument("player", PlayerInfo.class);
          sendMessage(player.getProfile().getName() + (Managers.FRIEND.isFriend(player.getProfile().getName()) ? " is friended." : " isn't friended."));
          return 1;
       })));

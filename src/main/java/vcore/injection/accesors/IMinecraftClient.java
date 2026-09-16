@@ -1,50 +1,50 @@
 package vcore.injection.accesors;
 
 import com.mojang.authlib.minecraft.UserApiService;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.SocialInteractionsManager;
-import net.minecraft.client.session.ProfileKeys;
-import net.minecraft.client.session.Session;
-import net.minecraft.client.session.report.AbuseReportContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
+import net.minecraft.client.gui.screens.social.PlayerSocialManager;
+import net.minecraft.client.multiplayer.ProfileKeyPairManager;
+import net.minecraft.client.multiplayer.chat.report.ReportingContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin(MinecraftClient.class)
+@Mixin(Minecraft.class)
 public interface IMinecraftClient {
-   @Accessor("itemUseCooldown")
+   @Accessor("rightClickDelay")
    int getUseCooldown();
 
-   @Accessor("itemUseCooldown")
+   @Accessor("rightClickDelay")
    void setUseCooldown(int var1);
 
-   @Invoker("doItemUse")
+   @Invoker("startUseItem")
    void idoItemUse();
 
-   @Invoker("doAttack")
+   @Invoker("startAttack")
    boolean idoAttack();
 
-   @Invoker("updateWindowTitle")
+   @Invoker("updateTitle")
    void invokeUpdateWindowTitle();
 
    @Mutable
-   @Accessor("profileKeys")
-   void setProfileKeys(ProfileKeys var1);
+   @Accessor("profileKeyPairManager")
+   void setProfileKeys(ProfileKeyPairManager var1);
 
    @Mutable
-   @Accessor("session")
-   void setSessionT(Session var1);
+   @Accessor("user")
+   void setSessionT(User var1);
 
    @Mutable
    @Accessor
    void setUserApiService(UserApiService var1);
 
    @Mutable
-   @Accessor("socialInteractionsManager")
-   void setSocialInteractionsManagerT(SocialInteractionsManager var1);
+   @Accessor("playerSocialManager")
+   void setSocialInteractionsManagerT(PlayerSocialManager var1);
 
    @Mutable
-   @Accessor("abuseReportContext")
-   void setAbuseReportContextT(AbuseReportContext var1);
+   @Accessor("reportingContext")
+   void setAbuseReportContextT(ReportingContext var1);
 }

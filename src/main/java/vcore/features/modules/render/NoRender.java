@@ -3,16 +3,16 @@ package vcore.features.modules.render;
 import java.util.ArrayList;
 import java.util.List;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.Entity.RemovalReason;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.entity.projectile.ArrowEntity;
-import net.minecraft.entity.projectile.thrown.EggEntity;
-import net.minecraft.entity.projectile.thrown.ExperienceBottleEntity;
-import net.minecraft.entity.projectile.thrown.PotionEntity;
-import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Entity.RemovalReason;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.entity.projectile.ThrownEgg;
+import net.minecraft.world.entity.projectile.ThrownExperienceBottle;
+import net.minecraft.world.entity.projectile.ThrownPotion;
 import vcore.core.Managers;
 import vcore.events.impl.EventSync;
 import vcore.events.impl.PacketEvent;
@@ -73,7 +73,7 @@ public class NoRender extends Module {
 
    @EventHandler
    public void onPacketReceive(PacketEvent.Receive e) {
-      if (e.getPacket() instanceof TitleS2CPacket && this.antiTitle.getValue()) {
+      if (e.getPacket() instanceof ClientboundSetTitleTextPacket && this.antiTitle.getValue()) {
          e.cancel();
       }
    }
@@ -81,44 +81,44 @@ public class NoRender extends Module {
    @EventHandler
    public void onSync(EventSync e) {
       for (Entity ent : Managers.ASYNC.getAsyncEntities()) {
-         if (ent instanceof PotionEntity) {
+         if (ent instanceof ThrownPotion) {
             this.potionCouter++;
             if (this.potions.getValue()) {
-               mc.world.removeEntity(ent.getId(), RemovalReason.KILLED);
+               mc.level.removeEntity(ent.getId(), RemovalReason.KILLED);
             }
          }
 
-         if (ent instanceof ExperienceBottleEntity) {
+         if (ent instanceof ThrownExperienceBottle) {
             this.xpCounter++;
             if (this.xp.getValue()) {
-               mc.world.removeEntity(ent.getId(), RemovalReason.KILLED);
+               mc.level.removeEntity(ent.getId(), RemovalReason.KILLED);
             }
          }
 
-         if (ent instanceof EndCrystalEntity && this.crystals.getValue()) {
-            mc.world.removeEntity(ent.getId(), RemovalReason.KILLED);
+         if (ent instanceof EndCrystal && this.crystals.getValue()) {
+            mc.level.removeEntity(ent.getId(), RemovalReason.KILLED);
          }
 
-         if (ent instanceof ArrowEntity) {
+         if (ent instanceof Arrow) {
             this.arrowCounter++;
             if (this.arrows.getValue()) {
-               mc.world.removeEntity(ent.getId(), RemovalReason.KILLED);
+               mc.level.removeEntity(ent.getId(), RemovalReason.KILLED);
             }
          }
 
-         if (ent instanceof EggEntity && this.eggs.getValue()) {
-            mc.world.removeEntity(ent.getId(), RemovalReason.KILLED);
+         if (ent instanceof ThrownEgg && this.eggs.getValue()) {
+            mc.level.removeEntity(ent.getId(), RemovalReason.KILLED);
          }
 
          if (ent instanceof ItemEntity) {
             this.itemsCounter++;
             if (this.items.getValue()) {
-               mc.world.removeEntity(ent.getId(), RemovalReason.KILLED);
+               mc.level.removeEntity(ent.getId(), RemovalReason.KILLED);
             }
          }
 
-         if (ent instanceof ArmorStandEntity && this.noArmorStands.getValue()) {
-            mc.world.removeEntity(ent.getId(), RemovalReason.KILLED);
+         if (ent instanceof ArmorStand && this.noArmorStands.getValue()) {
+            mc.level.removeEntity(ent.getId(), RemovalReason.KILLED);
          }
       }
 
@@ -142,7 +142,7 @@ public class NoRender extends Module {
          List<Integer> toRemove = new ArrayList<>();
 
          for (Entity ent : Managers.ASYNC.getAsyncEntities()) {
-            if (ent instanceof ArrowEntity && this.arrowCounter > 64) {
+            if (ent instanceof Arrow && this.arrowCounter > 64) {
                toRemove.add(ent.getId());
             }
 
@@ -150,17 +150,17 @@ public class NoRender extends Module {
                toRemove.add(ent.getId());
             }
 
-            if (ent instanceof ExperienceBottleEntity && this.xpCounter > 16) {
+            if (ent instanceof ThrownExperienceBottle && this.xpCounter > 16) {
                toRemove.add(ent.getId());
             }
 
-            if (ent instanceof PotionEntity && this.potionCouter > 8) {
+            if (ent instanceof ThrownPotion && this.potionCouter > 8) {
                toRemove.add(ent.getId());
             }
          }
 
          try {
-            toRemove.forEach(id -> mc.world.removeEntity(id, RemovalReason.KILLED));
+            toRemove.forEach(id -> mc.level.removeEntity(id, RemovalReason.KILLED));
          } catch (Exception var5) {
          }
       }

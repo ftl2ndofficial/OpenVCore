@@ -5,9 +5,9 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import java.io.File;
 import java.util.Objects;
-import net.minecraft.command.CommandSource;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Util;
+import net.minecraft.ChatFormatting;
+import net.minecraft.Util;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.features.cmd.Command;
@@ -21,15 +21,15 @@ public class CfgCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.executes(
          context -> {
             StringBuilder configs = new StringBuilder("Configs: ");
 
             for (String str : Objects.requireNonNull(Managers.CONFIG.getConfigList())) {
-               configs.append("\n- " + (str.equals(Managers.CONFIG.getCurrentConfig().getName().replace(".vc", "")) ? Formatting.GREEN : ""))
+               configs.append("\n- " + (str.equals(Managers.CONFIG.getCurrentConfig().getName().replace(".vc", "")) ? ChatFormatting.GREEN : ""))
                   .append(str)
-                  .append(Formatting.RESET);
+                  .append(ChatFormatting.RESET);
             }
 
             sendMessage(configs.toString());
@@ -38,7 +38,7 @@ public class CfgCommand extends Command {
       );
       builder.then(literal("dir").executes(context -> {
          try {
-            Util.getOperatingSystem().open(new File("Vcore/configs/").toURI());
+            Util.getPlatform().openUri(new File("Vcore/configs/").toURI());
          } catch (Exception e) {
             e.printStackTrace();
          }

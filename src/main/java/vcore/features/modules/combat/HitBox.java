@@ -1,24 +1,24 @@
 package vcore.features.modules.combat;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.VertexFormat.DrawMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.AxeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.MaceItem;
-import net.minecraft.item.SwordItem;
-import net.minecraft.util.math.Box;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.phys.AABB;
 import vcore.core.manager.client.ModuleManager;
 import vcore.core.manager.client.ServerManager;
 import vcore.features.modules.Module;
@@ -67,7 +67,7 @@ public final class HitBox extends Module {
    public boolean shouldExpand(Entity entity) {
       if (mc == null || mc.player == null) {
          return false;
-      } else if (!(entity instanceof PlayerEntity)) {
+      } else if (!(entity instanceof Player)) {
          return false;
       } else if (entity.getId() == mc.player.getId()) {
          return false;
@@ -85,11 +85,11 @@ public final class HitBox extends Module {
          return false;
       }
 
-      Item handItem = mc.player.getMainHandStack().getItem();
+      Item handItem = mc.player.getMainHandItem().getItem();
       return handItem instanceof SwordItem || handItem instanceof AxeItem || handItem instanceof MaceItem;
    }
 
-   public static Box getBaseBoundingBox(Entity entity) {
+   public static AABB getBaseBoundingBox(Entity entity) {
       boolean previous = isSkippingExpand();
       SKIP_EXPAND.set(true);
 
@@ -105,14 +105,14 @@ public final class HitBox extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
-      if (RenderHitbox.getValue() && mc != null && mc.world != null) {
+   public void onRender3D(PoseStack stack) {
+      if (RenderHitbox.getValue() && mc != null && mc.level != null) {
          long now = System.currentTimeMillis();
          float tickDelta = Render3DEngine.getTickDelta();
          Map<Integer, HitBox.RenderAnimState> keep = new HashMap<>();
          List<HitBox.RenderAction> renderActions = new ArrayList<>();
 
-         for (PlayerEntity player : mc.world.getPlayers()) {
+         for (Player player : mc.level.players()) {
             if (this.shouldExpand(player)) {
                double targetExpandXZ = XZExpand.getValue().floatValue();
                double targetExpandY = YExpand.getValue().floatValue();
@@ -126,8 +126,8 @@ public final class HitBox extends Module {
                float progress = (float)Math.min(1.0, (now - state.startTime) / 250.0);
                double expandXZ = lerp(state.fromExpandXZ, state.toExpandXZ, progress);
                double expandY = lerp(state.fromExpandY, state.toExpandY, progress);
-               Box baseBox = interpolateBox(player, tickDelta);
-               Box renderBox = expandBox(baseBox, expandXZ, expandY);
+               AABB baseBox = interpolateBox(player, tickDelta);
+               AABB renderBox = expandBox(baseBox, expandXZ, expandY);
                renderActions.add(new HitBox.RenderAction(renderBox, Color.WHITE));
             }
          }
@@ -143,12 +143,12 @@ public final class HitBox extends Module {
          Render3DEngine.setupRender();
          RenderSystem.enableDepthTest();
          RenderSystem.disableCull();
-         RenderSystem.setShader(GameRenderer::getRenderTypeLinesProgram);
+         RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
          RenderSystem.lineWidth(1.0F);
-         BufferBuilder buffer = Tessellator.getInstance().begin(DrawMode.LINES, VertexFormats.LINES);
+         BufferBuilder buffer = Tesselator.getInstance().begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
 
          for (HitBox.RenderAction action : renderActions) {
-            MatrixStack matrices = Render3DEngine.matrixFrom(action.box().minX, action.box().minY, action.box().minZ);
+            PoseStack matrices = Render3DEngine.matrixFrom(action.box().minX, action.box().minY, action.box().minZ);
             Render3DEngine.setOutlinePoints(action.box(), matrices, buffer, action.color());
          }
 
@@ -164,11 +164,11 @@ public final class HitBox extends Module {
       return a + (b - a) * t;
    }
 
-   private static Box interpolateBox(PlayerEntity player, float tickDelta) {
-      Box box = getBaseBoundingBox(player);
-      double dx = player.getX() - player.prevX;
-      double dy = player.getY() - player.prevY;
-      double dz = player.getZ() - player.prevZ;
+   private static AABB interpolateBox(Player player, float tickDelta) {
+      AABB box = getBaseBoundingBox(player);
+      double dx = player.getX() - player.xo;
+      double dy = player.getY() - player.yo;
+      double dz = player.getZ() - player.zo;
       double k = 1.0 - tickDelta;
       double minX = box.minX - dx * k;
       double minY = box.minY - dy * k;
@@ -176,7 +176,7 @@ public final class HitBox extends Module {
       double maxX = box.maxX - dx * k;
       double maxY = box.maxY - dy * k;
       double maxZ = box.maxZ - dz * k;
-      return new Box(minX, minY, minZ, maxX, maxY, maxZ);
+      return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
    }
 
    private static boolean sameExpand(double axz, double ay, double bxz, double by) {
@@ -184,13 +184,13 @@ public final class HitBox extends Module {
       return Math.abs(axz - bxz) < eps && Math.abs(ay - by) < eps;
    }
 
-   private static Box expandBox(Box base, double expandXZ, double expandY) {
+   private static AABB expandBox(AABB base, double expandXZ, double expandY) {
       double halfXZ = expandXZ / 2.0;
       double halfY = expandY / 2.0;
-      return new Box(base.minX - halfXZ, base.minY - halfY, base.minZ - halfXZ, base.maxX + halfXZ, base.maxY + halfY, base.maxZ + halfXZ);
+      return new AABB(base.minX - halfXZ, base.minY - halfY, base.minZ - halfXZ, base.maxX + halfXZ, base.maxY + halfY, base.maxZ + halfXZ);
    }
 
-   private record RenderAction(Box box, Color color) {
+   private record RenderAction(AABB box, Color color) {
    }
 
    private record RenderAnimState(double fromExpandXZ, double fromExpandY, double toExpandXZ, double toExpandY, long startTime) {

@@ -1,15 +1,15 @@
 package vcore.features.modules.combat;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.BlockPos.Mutable;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventMove;
 import vcore.events.impl.EventSync;
@@ -52,8 +52,8 @@ public class TargetStrafe extends Module {
             this.hasQueuedMotion = false;
             strafesCheck = false;
          } else {
-            ClientPlayerEntity player = mc.player;
-            ClientWorld world = mc.world;
+            LocalPlayer player = mc.player;
+            ClientLevel world = mc.level;
             if (player != null && world != null) {
                this.jumpTicks = Math.max(0, this.jumpTicks - 1);
                this.hasQueuedMotion = false;
@@ -81,37 +81,37 @@ public class TargetStrafe extends Module {
       }
    }
 
-   private void handleCollisionMode(ClientPlayerEntity player) {
+   private void handleCollisionMode(LocalPlayer player) {
       if (MovementUtility.isMoving()) {
          if (Aura.target instanceof LivingEntity target) {
             if (!(player.distanceTo(target) >= this.collisionDistance.getValue())) {
-               Vec3d direction = target.getPos().subtract(player.getPos()).normalize();
+               Vec3 direction = target.position().subtract(player.position()).normalize();
                double speed = this.collisionSpeed.getValue().floatValue();
-               player.setVelocity(player.getVelocity().x + direction.x * speed, player.getVelocity().y, player.getVelocity().z + direction.z * speed);
+               player.setDeltaMovement(player.getDeltaMovement().x + direction.x * speed, player.getDeltaMovement().y, player.getDeltaMovement().z + direction.z * speed);
             }
          }
       }
    }
 
-   private void handleDefaultMode(ClientPlayerEntity player, ClientWorld world) {
+   private void handleDefaultMode(LocalPlayer player, ClientLevel world) {
       if (Aura.target instanceof LivingEntity target && target.isAlive()) {
-         if (this.jump.getValue() && player.isOnGround()) {
-            mc.options.jumpKey.setPressed(false);
-            player.jump();
+         if (this.jump.getValue() && player.onGround()) {
+            mc.options.keyJump.setDown(false);
+            player.jumpFromGround();
          }
 
          float maxDistance = ModuleManager.aura.attackRange.getValue() + ModuleManager.aura.aimRange.getValue();
          double distanceToTarget = player.distanceTo(target);
          if (!(distanceToTarget > maxDistance)) {
-            mc.options.forwardKey.setPressed(false);
+            mc.options.keyUp.setDown(false);
             float speed = this.defaultSpeed.getValue();
             if (this.damageBoost.getValue() && player.hurtTime > 0 && player.isAlive()) {
                speed += this.boostSpeed.getValue();
             }
 
-            float clampDist = (float)MathHelper.clamp(distanceToTarget, 0.01F, maxDistance);
+            float clampDist = (float)Mth.clamp(distanceToTarget, 0.01F, maxDistance);
             double baseAngle = Math.atan2(player.getZ() - target.getZ(), player.getX() - target.getX());
-            float angleStep = MathHelper.clamp(speed / clampDist, 0.01F, 1.0F);
+            float angleStep = Mth.clamp(speed / clampDist, 0.01F, 1.0F);
             double orbitAngle = baseAngle + (this.clockwise ? angleStep : -angleStep);
             double orbitX = target.getX() + this.defaultDistance.getValue().floatValue() * Math.cos(orbitAngle);
             double orbitZ = target.getZ() + this.defaultDistance.getValue().floatValue() * Math.sin(orbitAngle);
@@ -131,12 +131,12 @@ public class TargetStrafe extends Module {
       }
    }
 
-   private boolean isUnsafeAreaAround(double x, double z, ClientPlayerEntity player, ClientWorld world) {
-      if (!player.horizontalCollision && (!mc.options.leftKey.isPressed() && !mc.options.rightKey.isPressed() || this.jumpTicks > 0)) {
-         Mutable mutable = new Mutable();
+   private boolean isUnsafeAreaAround(double x, double z, LocalPlayer player, ClientLevel world) {
+      if (!player.horizontalCollision && (!mc.options.keyLeft.isDown() && !mc.options.keyRight.isDown() || this.jumpTicks > 0)) {
+         MutableBlockPos mutable = new MutableBlockPos();
          int top = (int)(player.getY() + 4.0);
 
-         for (int y = top; y >= world.getBottomY(); y--) {
+         for (int y = top; y >= world.getMinBuildHeight(); y--) {
             mutable.set(x, y, z);
             BlockState state = world.getBlockState(mutable);
             Block block = state.getBlock();
@@ -156,10 +156,10 @@ public class TargetStrafe extends Module {
       }
    }
 
-   private boolean isVoidAboveVoid(double x, double z, ClientPlayerEntity player, ClientWorld world) {
-      Mutable mutable = new Mutable();
+   private boolean isVoidAboveVoid(double x, double z, LocalPlayer player, ClientLevel world) {
+      MutableBlockPos mutable = new MutableBlockPos();
 
-      for (int y = (int)player.getY(); y > world.getBottomY(); y--) {
+      for (int y = (int)player.getY(); y > world.getMinBuildHeight(); y--) {
          mutable.set(x, y, z);
          if (!world.getBlockState(mutable).isAir()) {
             return false;
@@ -169,7 +169,7 @@ public class TargetStrafe extends Module {
       return true;
    }
 
-   private float calculateAngleToTarget(double x, double z, ClientPlayerEntity player) {
+   private float calculateAngleToTarget(double x, double z, LocalPlayer player) {
       double diffX = x - player.getX();
       double diffZ = z - player.getZ();
       return (float)(Math.atan2(diffZ, diffX) * 180.0 / Math.PI - 90.0);

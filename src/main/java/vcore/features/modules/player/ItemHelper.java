@@ -2,13 +2,13 @@ package vcore.features.modules.player;
 
 import java.util.Arrays;
 import java.util.List;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import vcore.core.InputBlocker;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
@@ -55,7 +55,7 @@ public class ItemHelper extends Module {
          this.resetScheduledUse();
       } else {
          this.handleScheduledUse();
-         if (mc.currentScreen == null) {
+         if (mc.screen == null) {
             for (int i = 0; i < this.itemSettings.size(); i++) {
                ItemBindSetting setting = this.itemSettings.get(i).getValue();
                Bind bind = setting.getBind();
@@ -88,7 +88,7 @@ public class ItemHelper extends Module {
       if (item != null && item != Items.AIR) {
          Setting<ItemBindSetting> setting = this.itemSettings.get(index);
          ItemBindSetting current = setting.getValue();
-         setting.setValue(new ItemBindSetting(Registries.ITEM.getId(item).toString(), current.getBind()));
+         setting.setValue(new ItemBindSetting(BuiltInRegistries.ITEM.getKey(item).toString(), current.getBind()));
          return true;
       } else {
          return false;
@@ -131,10 +131,10 @@ public class ItemHelper extends Module {
       float[] rotation = this.getUseRotation();
       if (result.found()) {
          InventoryUtility.saveAndSwitchTo(result.slot());
-         this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, rotation[0], rotation[1]));
+         this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, rotation[0], rotation[1]));
          InventoryUtility.returnSlot();
       } else if (invResult.found()) {
-         int targetHotbarSlot = mc.player.getInventory().selectedSlot;
+         int targetHotbarSlot = mc.player.getInventory().selected;
          if (this.grimStop.getValue() && MovementUtility.isMoving()) {
             this.scheduleInventoryUse(invResult.slot(), targetHotbarSlot, 5L);
             return;
@@ -176,11 +176,11 @@ public class ItemHelper extends Module {
    }
 
    private void useInventoryItem(int inventorySlot, int hotbarSlot, float[] rotation) {
-      if (inventorySlot != -1 && mc.player != null && mc.interactionManager != null) {
-         clickSlot(inventorySlot, hotbarSlot, SlotActionType.SWAP);
-         this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, rotation[0], rotation[1]));
-         clickSlot(inventorySlot, hotbarSlot, SlotActionType.SWAP);
-         this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+      if (inventorySlot != -1 && mc.player != null && mc.gameMode != null) {
+         clickSlot(inventorySlot, hotbarSlot, ClickType.SWAP);
+         this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, rotation[0], rotation[1]));
+         clickSlot(inventorySlot, hotbarSlot, ClickType.SWAP);
+         this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       }
    }
 
@@ -197,8 +197,8 @@ public class ItemHelper extends Module {
    }
 
    private float[] getUseRotation() {
-      float yaw = mc.player.getYaw();
-      float pitch = mc.player.getPitch();
+      float yaw = mc.player.getYRot();
+      float pitch = mc.player.getXRot();
       if (ModuleManager.aura.isEnabled() && Aura.target != null) {
          yaw = ModuleManager.aura.rotationYaw;
          pitch = ModuleManager.aura.rotationPitch;

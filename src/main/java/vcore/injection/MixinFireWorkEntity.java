@@ -1,8 +1,8 @@
 package vcore.injection;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.projectile.FireworkRocketEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,9 +17,9 @@ import vcore.features.modules.combat.Aura;
 @Mixin(FireworkRocketEntity.class)
 public class MixinFireWorkEntity {
    @Shadow
-   private LivingEntity shooter;
+   private LivingEntity attachedToEntity;
 
-   private Vec3d getRotationVectorForBoost(LivingEntity entity) {
+   private Vec3 getRotationVectorForBoost(LivingEntity entity) {
       if (IManager.mc.player != null
          && entity == IManager.mc.player
          && IManager.mc.player.isFallFlying()
@@ -32,43 +32,43 @@ public class MixinFireWorkEntity {
 
          return shouldUseAuraRotation
             ? Managers.PLAYER.getRotationVector(ModuleManager.aura.rotationPitch, ModuleManager.aura.rotationYaw)
-            : entity.getRotationVector();
+            : entity.getLookAngle();
       } else {
-         return entity.getRotationVector();
+         return entity.getLookAngle();
       }
    }
 
-   @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;getRotationVector()Lnet/minecraft/util/math/Vec3d;"))
-   private Vec3d tickHook(LivingEntity instance) {
+   @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getLookAngle()Lnet/minecraft/world/phys/Vec3;"))
+   private Vec3 tickHook(LivingEntity instance) {
       return this.getRotationVectorForBoost(instance);
    }
 
-   @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;setVelocity(Lnet/minecraft/util/math/Vec3d;)V"))
-   private void tickSetVelocityHook(LivingEntity entity, Vec3d velocity) {
+   @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V"))
+   private void tickSetVelocityHook(LivingEntity entity, Vec3 velocity) {
       if (entity != null) {
          if (!entity.isFallFlying()) {
-            entity.setVelocity(velocity);
+            entity.setDeltaMovement(velocity);
          } else {
-            Vec3d direction = this.getRotationVectorForBoost(entity);
-            Vec3d motion = entity.getVelocity();
-            Vec3d multiplier = new Vec3d(1.5, 1.5, 1.5);
+            Vec3 direction = this.getRotationVectorForBoost(entity);
+            Vec3 motion = entity.getDeltaMovement();
+            Vec3 multiplier = new Vec3(1.5, 1.5, 1.5);
             if (entity == IManager.mc.player) {
-               EventFireworkMotion event = new EventFireworkMotion(entity, (FireworkRocketEntity)(Object)this, new Vec3d(1.6, 1.6, 1.6));
+               EventFireworkMotion event = new EventFireworkMotion(entity, (FireworkRocketEntity)(Object)this, new Vec3(1.6, 1.6, 1.6));
                Vcore.EVENT_BUS.post(event);
                if (event.isCancelled()) {
                   multiplier = event.getVector();
-                  if (multiplier.equals(Vec3d.ZERO)) {
+                  if (multiplier.equals(Vec3.ZERO)) {
                      return;
                   }
                }
             }
 
-            Vec3d newMotion = motion.add(
+            Vec3 newMotion = motion.add(
                direction.x * 0.1 + (direction.x * multiplier.x - motion.x) * 0.5,
                direction.y * 0.1 + (direction.y * multiplier.y - motion.y) * 0.5,
                direction.z * 0.1 + (direction.z * multiplier.z - motion.z) * 0.5
             );
-            entity.setVelocity(newMotion);
+            entity.setDeltaMovement(newMotion);
          }
       }
    }

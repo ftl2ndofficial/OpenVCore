@@ -1,14 +1,14 @@
 package vcore.gui.clickui.impl;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.StringHelper;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.util.StringUtil;
 import org.lwjgl.glfw.GLFW;
 import vcore.core.Managers;
 import vcore.core.manager.client.MacroManager;
@@ -78,18 +78,18 @@ public class ManagerPanel {
       this.width = width;
       this.height = height;
       if (Module.mc.getWindow() != null) {
-         this.x = (Module.mc.getWindow().getScaledWidth() - width) / 2.0F;
-         this.y = (Module.mc.getWindow().getScaledHeight() - height) / 2.0F;
+         this.x = (Module.mc.getWindow().getGuiScaledWidth() - width) / 2.0F;
+         this.y = (Module.mc.getWindow().getGuiScaledHeight() - height) / 2.0F;
       }
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       float target = this.open ? 1.0F : 0.0F;
       this.alphaAnim = this.lerp(this.alphaAnim, target, 0.15F);
       if (!(this.alphaAnim < 0.01F) || this.open) {
          RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-         MatrixStack matrices = context.getMatrices();
-         matrices.push();
+         PoseStack matrices = context.pose();
+         matrices.pushPose();
          float scale = 0.9F + 0.1F * this.alphaAnim;
          matrices.translate(this.x + this.width / 2.0F, this.y + this.height / 2.0F, 0.0F);
          matrices.scale(scale, scale, 1.0F);
@@ -172,21 +172,21 @@ public class ManagerPanel {
          }
 
          Render2DEngine.endScissor();
-         matrices.pop();
-         this.renderTabHints(context.getMatrices());
+         matrices.popPose();
+         this.renderTabHints(context.pose());
          if (Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height) && this.isOpen()) {
             ClickGUI.anyHovered = true;
          }
       }
    }
 
-   private void renderSidebar(MatrixStack matrices) {
+   private void renderSidebar(PoseStack matrices) {
       this.renderSidebarTab(matrices, ManagerPanel.Tab.FRIEND, this.getTopTabY(0));
       this.renderSidebarTab(matrices, ManagerPanel.Tab.CONFIG, this.getTopTabY(1));
       this.renderSidebarTab(matrices, ManagerPanel.Tab.MACRO, this.getTopTabY(2));
    }
 
-   private void renderSidebarTab(MatrixStack matrices, ManagerPanel.Tab tab, float tabY) {
+   private void renderSidebarTab(PoseStack matrices, ManagerPanel.Tab tab, float tabY) {
       boolean isCurrent = this.currentTab == tab;
       Color textCol = isCurrent ? new Color(255, 255, 255) : new Color(150, 150, 150);
       textCol = Render2DEngine.injectAlpha(textCol, (int)(textCol.getAlpha() * this.alphaAnim));
@@ -208,12 +208,12 @@ public class ManagerPanel {
       return this.y + 20.0F + index * 23.5F;
    }
 
-   private void drawFriendSectionHeader(MatrixStack matrices, String title, float ix, float iy) {
+   private void drawFriendSectionHeader(PoseStack matrices, String title, float ix, float iy) {
       Color headerCol = Render2DEngine.injectAlpha(new Color(190, 190, 190), (int)(180.0F * this.alphaAnim));
       FontRenderers.sf_bold_mini.drawString(matrices, title, ix + 2.0F, iy + 2.0F, headerCol.getRGB());
    }
 
-   private void drawFriendItem(MatrixStack matrices, String name, float ix, float iy, float iw, float ih, boolean online) {
+   private void drawFriendItem(PoseStack matrices, String name, float ix, float iy, float iw, float ih, boolean online) {
       FontRenderer markedTextFont = this.getMarkedTextFont();
       int backgroundAlpha = online ? 70 : 25;
       int textAlpha = online ? 255 : 100;
@@ -238,7 +238,7 @@ public class ManagerPanel {
       }
    }
 
-   private void drawConfigItem(MatrixStack matrices, String name, float ix, float iy, float iw, float ih, boolean activeConfig) {
+   private void drawConfigItem(PoseStack matrices, String name, float ix, float iy, float iw, float ih, boolean activeConfig) {
       FontRenderer markedTextFont = this.getMarkedTextFont();
       Color itemBg = Render2DEngine.injectAlpha(new Color(200, 200, 200), (int)((activeConfig ? 70 : 25) * this.alphaAnim));
       this.drawPanelBackground(matrices, ix, iy, iw, ih, 3.0F, itemBg);
@@ -260,7 +260,7 @@ public class ManagerPanel {
       }
    }
 
-   private void drawMacroHeader(MatrixStack matrices, float ix, float iy, float iw) {
+   private void drawMacroHeader(PoseStack matrices, float ix, float iy, float iw) {
       ManagerPanel.MacroLayout layout = this.createMacroLayout(ix, iy, iw);
       Color textColor = Render2DEngine.injectAlpha(new Color(190, 190, 190), (int)(190.0F * this.alphaAnim));
       FontRenderer font = FontRenderers.sf_bold_mini;
@@ -269,7 +269,7 @@ public class ManagerPanel {
       font.drawString(matrices, "Text", layout.textX() + 5.0F, iy + 3.0F, textColor.getRGB());
    }
 
-   private void drawMacroRow(MatrixStack matrices, MacroManager.Macro macro, ManagerPanel.MacroLayout layout, int mouseX, int mouseY) {
+   private void drawMacroRow(PoseStack matrices, MacroManager.Macro macro, ManagerPanel.MacroLayout layout, int mouseX, int mouseY) {
       boolean rowHovered = Render2DEngine.isHovered(mouseX, mouseY, layout.cardX(), layout.cardY(), layout.cardWidth(), layout.cardHeight());
       Color cardColor = Render2DEngine.injectAlpha(new Color(200, 200, 200), (int)((rowHovered ? 42 : 28) * this.alphaAnim));
       this.drawPanelBackground(matrices, layout.cardX(), layout.cardY(), layout.cardWidth(), layout.cardHeight(), 4.0F, cardColor);
@@ -312,7 +312,7 @@ public class ManagerPanel {
    }
 
    private void drawMacroField(
-      MatrixStack matrices, float fx, float fy, float fw, float fh, String text, boolean editing, boolean listening, int mouseX, int mouseY
+      PoseStack matrices, float fx, float fy, float fw, float fh, String text, boolean editing, boolean listening, int mouseX, int mouseY
    ) {
       boolean hovered = Render2DEngine.isHovered(mouseX, mouseY, fx, fy, fw, fh);
       int alpha = !editing && !listening ? (hovered ? 58 : 40) : 85;
@@ -324,12 +324,12 @@ public class ManagerPanel {
       font.drawStringWithHorizontalFade(matrices, text, fx + 5.0F, textY, textColor.getRGB(), Math.max(0.0F, fw - 10.0F), 10.0F);
    }
 
-   private void renderTabHints(MatrixStack matrices) {
+   private void renderTabHints(PoseStack matrices) {
       List<String> hints = this.getTabHints();
       if (!hints.isEmpty() && Module.mc.getWindow() != null) {
          FontRenderer font = FontRenderers.sf_bold_mini;
          float lineHeight = font.getFontHeight("A") + 2.0F;
-         float startY = Module.mc.getWindow().getScaledHeight() - 8.0F - lineHeight * hints.size();
+         float startY = Module.mc.getWindow().getGuiScaledHeight() - 8.0F - lineHeight * hints.size();
          float startX = 8.0F;
 
          for (int i = 0; i < hints.size(); i++) {
@@ -338,7 +338,7 @@ public class ManagerPanel {
       }
    }
 
-   private void drawPanelBackground(MatrixStack matrices, float x, float y, float width, float height, float radius, Color color) {
+   private void drawPanelBackground(PoseStack matrices, float x, float y, float width, float height, float radius, Color color) {
       if (this.alphaAnim > 0.99F) {
          Render2DEngine.drawClickGuiRound(matrices, x, y, width, height, radius, color);
       } else {
@@ -360,7 +360,7 @@ public class ManagerPanel {
       return hints.stream().sorted((left, right) -> Float.compare(font.getStringWidth(left), font.getStringWidth(right))).toList();
    }
 
-   private void drawOutlinedHintText(MatrixStack matrices, FontRenderer font, String text, float x, float y) {
+   private void drawOutlinedHintText(PoseStack matrices, FontRenderer font, String text, float x, float y) {
       int outlineColor = Render2DEngine.injectAlpha(Color.BLACK, 255).getRGB();
       int fillColor = Render2DEngine.injectAlpha(Color.WHITE, 255).getRGB();
       font.drawString(matrices, text, x - 0.45F, y, outlineColor);
@@ -554,7 +554,7 @@ public class ManagerPanel {
          return false;
       }
 
-      if (!StringHelper.isValidChar(key)) {
+      if (!StringUtil.isAllowedChatCharacter(key)) {
          return false;
       }
 
@@ -804,11 +804,11 @@ public class ManagerPanel {
    }
 
    private boolean isOnline(String name) {
-      if (Module.mc.getNetworkHandler() == null) {
+      if (Module.mc.getConnection() == null) {
          return false;
       }
 
-      for (PlayerListEntry entry : Module.mc.getNetworkHandler().getPlayerList()) {
+      for (PlayerInfo entry : Module.mc.getConnection().getOnlinePlayers()) {
          if (entry.getProfile().getName().equalsIgnoreCase(name)) {
             return true;
          }

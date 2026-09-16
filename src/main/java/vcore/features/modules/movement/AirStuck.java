@@ -1,16 +1,16 @@
 package vcore.features.modules.movement;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.phys.Vec3;
 import vcore.events.impl.EventTick;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
 
 public class AirStuck extends Module {
    private static final boolean CANCEL_PACKETS = true;
-   private Vec3d freezePos = Vec3d.ZERO;
+   private Vec3 freezePos = Vec3.ZERO;
 
    public AirStuck() {
       super("AirStuck", "Freezes the player in mid-air, preventing movement.", Module.Category.MOVEMENT);
@@ -19,27 +19,27 @@ public class AirStuck extends Module {
    @Override
    public void onEnable() {
       if (mc.player != null) {
-         this.freezePos = mc.player.getPos();
+         this.freezePos = mc.player.position();
       }
    }
 
    @Override
    public void onDisable() {
-      this.freezePos = Vec3d.ZERO;
+      this.freezePos = Vec3.ZERO;
    }
 
    @EventHandler
    public void onTick(EventTick e) {
-      if (!fullNullCheck() && this.freezePos != Vec3d.ZERO) {
-         ClientPlayerEntity player = mc.player;
+      if (!fullNullCheck() && this.freezePos != Vec3.ZERO) {
+         LocalPlayer player = mc.player;
          if (player != null) {
-            player.setVelocity(0.0, 0.0, 0.0);
+            player.setDeltaMovement(0.0, 0.0, 0.0);
             if (player.input != null) {
-               player.input.movementForward = 0.0F;
-               player.input.movementSideways = 0.0F;
+               player.input.forwardImpulse = 0.0F;
+               player.input.leftImpulse = 0.0F;
             }
 
-            player.setPos(player.getX(), this.freezePos.y, player.getZ());
+            player.setPosRaw(player.getX(), this.freezePos.y, player.getZ());
          }
       }
    }
@@ -47,7 +47,7 @@ public class AirStuck extends Module {
    @EventHandler
    public void onPacketSend(PacketEvent.Send e) {
       if (!fullNullCheck()) {
-         if (e.getPacket() instanceof PlayerMoveC2SPacket) {
+         if (e.getPacket() instanceof ServerboundMovePlayerPacket) {
             e.cancel();
          }
       }

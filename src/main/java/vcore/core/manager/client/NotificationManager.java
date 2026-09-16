@@ -11,7 +11,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 import org.apache.commons.lang3.SystemUtils;
 import vcore.Vcore;
 import vcore.core.manager.IManager;
@@ -23,16 +23,16 @@ public class NotificationManager implements IManager {
    private TrayIcon trayIcon;
 
    public void publicity(String title, String content, int second, Notification.Type type) {
-      if (!mc.isWindowFocused()) {
+      if (!mc.isWindowActive()) {
          this.nativeNotification(content, title);
       }
 
       this.notifications.add(new Notification(title, content, type, second * 1000));
    }
 
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       boolean notificationsEnabled = ModuleManager.notifications.isEnabled();
-      float startY = isDefault() ? mc.getWindow().getScaledHeight() - 36.0F : mc.getWindow().getScaledHeight() / 2.0F + 25.0F;
+      float startY = isDefault() ? mc.getWindow().getGuiScaledHeight() - 36.0F : mc.getWindow().getGuiScaledHeight() / 2.0F + 25.0F;
       if (this.notifications.size() > 8) {
          this.notifications.removeFirst();
       }
@@ -69,8 +69,8 @@ public class NotificationManager implements IManager {
          }
 
          startY = (float)(startY - n.getHeight() - 3.0);
-         n.renderShaders(context.getMatrices(), startY + (isDefault() ? 0 : this.notifications.size() * 16));
-         n.render(context.getMatrices(), startY + (isDefault() ? 0 : this.notifications.size() * 16));
+         n.renderShaders(context.pose(), startY + (isDefault() ? 0 : this.notifications.size() * 16));
+         n.render(context.pose(), startY + (isDefault() ? 0 : this.notifications.size() * 16));
       }
    }
 

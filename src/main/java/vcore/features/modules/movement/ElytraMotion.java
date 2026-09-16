@@ -1,17 +1,17 @@
 package vcore.features.modules.movement;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventMove;
 import vcore.features.modules.Module;
@@ -44,7 +44,7 @@ public class ElytraMotion extends Module {
    private boolean safeMotionWaitingAtSafe;
    private long safeMotionSafeUntil;
    private ElytraMotion.SafeMotionPath safeMotionLockedPath;
-   private Vec3d safeMotionAttackDirection;
+   private Vec3 safeMotionAttackDirection;
    private int safeMotionAttackTargetId = -1;
    private int safeMotionTargetId = -1;
 
@@ -149,7 +149,7 @@ public class ElytraMotion extends Module {
       }
    }
 
-   public Vec3d getSafeMotionControlPoint(LivingEntity target) {
+   public Vec3 getSafeMotionControlPoint(LivingEntity target) {
       if (!this.isSafeMotionActive(target)) {
          this.resetSafeMotion();
          return null;
@@ -205,7 +205,7 @@ public class ElytraMotion extends Module {
       return this.isSafeMotionSettingEnabled()
          && !this.shouldYieldToElytraTargetPredict(target)
          && mc.player != null
-         && mc.world != null
+         && mc.level != null
          && mc.player.isFallFlying()
          && target != null
          && this.isTargetWithinElytraMotionBps(target)
@@ -227,10 +227,10 @@ public class ElytraMotion extends Module {
    }
 
    private ElytraMotion.SafeMotionPath buildSafeMotionPath(LivingEntity target) {
-      if (mc.player != null && mc.world != null && target != null) {
-         Box targetBox = target.getBoundingBox();
-         Vec3d targetEye = target.getEyePos();
-         Vec3d playerCenter = mc.player.getBoundingBox().getCenter();
+      if (mc.player != null && mc.level != null && target != null) {
+         AABB targetBox = target.getBoundingBox();
+         Vec3 targetEye = target.getEyePosition();
+         Vec3 playerCenter = mc.player.getBoundingBox().getCenter();
          double elytraRange = Math.max(0.0, ModuleManager.aura.elytraAttackRange.getValue().floatValue());
          double safeAttackRange = elytraRange - 1.0 - 0.8;
          double safeHorizontalDistance = Math.max(this.safeRange.getValue().floatValue(), 0.1);
@@ -252,16 +252,16 @@ public class ElytraMotion extends Module {
             return approachPath;
          }
 
-         Vec3d targetLookDirection = this.getTargetLookDirection(target);
+         Vec3 targetLookDirection = this.getTargetLookDirection(target);
          ElytraMotion.SafeMotionPath bestPath = null;
          ElytraMotion.SafeMotionPath bestDangerousPath = null;
          double bestScore = Double.MAX_VALUE;
          double bestDangerousScore = Double.MAX_VALUE;
 
          for (double yaw = -180.0; yaw <= 180.0; yaw += 10.0) {
-            Vec3d direction = this.getHorizontalDirection(Math.toRadians(yaw));
-            Vec3d safePoint = this.getSafeMotionPoint(targetEye, direction, safeHorizontalDistance);
-            Vec3d attackPoint = this.findAttackPoint(targetEye, direction, targetBox, safeAttackRange, safeHorizontalDistance);
+            Vec3 direction = this.getHorizontalDirection(Math.toRadians(yaw));
+            Vec3 safePoint = this.getSafeMotionPoint(targetEye, direction, safeHorizontalDistance);
+            Vec3 attackPoint = this.findAttackPoint(targetEye, direction, targetBox, safeAttackRange, safeHorizontalDistance);
             if (attackPoint != null
                && this.isSafeMotionLineClear(targetEye, safePoint)
                && this.isPlayerBoxClearAt(attackPoint)
@@ -292,7 +292,7 @@ public class ElytraMotion extends Module {
       }
    }
 
-   private Vec3d updateSafeMotionSafePhase(ElytraMotion.SafeMotionPath path) {
+   private Vec3 updateSafeMotionSafePhase(ElytraMotion.SafeMotionPath path) {
       long now = System.currentTimeMillis();
       if (this.safeMotionWaitingAtSafe && !this.hasPlayerReachedSafePoint(path, 1.6)) {
          this.safeMotionWaitingAtSafe = false;
@@ -320,8 +320,8 @@ public class ElytraMotion extends Module {
       return Math.max(0L, 550L - travelMs * 2L);
    }
 
-   private long getSafeMotionTravelMs(Vec3d from, Vec3d to) {
-      Vec3d delta = to.subtract(from);
+   private long getSafeMotionTravelMs(Vec3 from, Vec3 to) {
+      Vec3 delta = to.subtract(from);
       double horizontalDistance = Math.hypot(delta.x, delta.z);
       double verticalDistance = Math.abs(delta.y);
       double yawSpeedBps = ModuleManager.elytraBoost != null ? ModuleManager.elytraBoost.getControlYawSpeedBps() : 39.5;
@@ -331,22 +331,22 @@ public class ElytraMotion extends Module {
       return Math.round(Math.max(horizontalSeconds, verticalSeconds) * 1000.0);
    }
 
-   private double getSafeMotionCandidateScore(ElytraMotion.SafeMotionPath path, Vec3d playerCenter) {
-      Vec3d currentGoal = this.safeMotionPhase == ElytraMotion.SafeMotionPhase.Safe ? path.safePoint() : path.attackPoint();
-      return currentGoal.squaredDistanceTo(playerCenter);
+   private double getSafeMotionCandidateScore(ElytraMotion.SafeMotionPath path, Vec3 playerCenter) {
+      Vec3 currentGoal = this.safeMotionPhase == ElytraMotion.SafeMotionPhase.Safe ? path.safePoint() : path.attackPoint();
+      return currentGoal.distanceToSqr(playerCenter);
    }
 
-   private Vec3d getHorizontalDirection(double yaw) {
-      return new Vec3d(Math.cos(yaw), 0.0, Math.sin(yaw)).normalize();
+   private Vec3 getHorizontalDirection(double yaw) {
+      return new Vec3(Math.cos(yaw), 0.0, Math.sin(yaw)).normalize();
    }
 
-   private Vec3d getSafeMotionPoint(Vec3d targetEye, Vec3d horizontalDirection, double horizontalDistance) {
-      Vec3d horizontalOffset = horizontalDirection.multiply(horizontalDistance);
+   private Vec3 getSafeMotionPoint(Vec3 targetEye, Vec3 horizontalDirection, double horizontalDistance) {
+      Vec3 horizontalOffset = horizontalDirection.scale(horizontalDistance);
       return targetEye.add(horizontalOffset.x, horizontalDistance * SAFE_MOTION_VERTICAL_FACTOR, horizontalOffset.z);
    }
 
    private ElytraMotion.SafeMotionPath buildAttackApproachPath(
-      LivingEntity target, Vec3d targetEye, Box targetBox, double safeAttackRange, double safeHorizontalDistance
+      LivingEntity target, Vec3 targetEye, AABB targetBox, double safeAttackRange, double safeHorizontalDistance
    ) {
       if (this.safeMotionPhase == ElytraMotion.SafeMotionPhase.Attack
          && this.safeMotionAttackDirection != null
@@ -376,10 +376,10 @@ public class ElytraMotion extends Module {
    }
 
    private ElytraMotion.SafeMotionPath buildPathForDirection(
-      Vec3d targetEye, Box targetBox, Vec3d direction, double safeAttackRange, double safeHorizontalDistance
+      Vec3 targetEye, AABB targetBox, Vec3 direction, double safeAttackRange, double safeHorizontalDistance
    ) {
-      Vec3d safePoint = this.getSafeMotionPoint(targetEye, direction, safeHorizontalDistance);
-      Vec3d attackPoint = this.findAttackPoint(targetEye, direction, targetBox, safeAttackRange, safeHorizontalDistance);
+      Vec3 safePoint = this.getSafeMotionPoint(targetEye, direction, safeHorizontalDistance);
+      Vec3 attackPoint = this.findAttackPoint(targetEye, direction, targetBox, safeAttackRange, safeHorizontalDistance);
       if (attackPoint == null || !this.isSafeMotionLineClear(targetEye, safePoint)) {
          return null;
       } else {
@@ -418,32 +418,32 @@ public class ElytraMotion extends Module {
       this.safeMotionAttackTargetId = -1;
    }
 
-   private Vec3d getTargetLookDirection(LivingEntity target) {
-      Vec3d look = target.getRotationVec(1.0F);
-      Vec3d horizontalLook = new Vec3d(look.x, 0.0, look.z);
-      return horizontalLook.lengthSquared() <= 1.0E-8 ? null : horizontalLook.normalize();
+   private Vec3 getTargetLookDirection(LivingEntity target) {
+      Vec3 look = target.getViewVector(1.0F);
+      Vec3 horizontalLook = new Vec3(look.x, 0.0, look.z);
+      return horizontalLook.lengthSqr() <= 1.0E-8 ? null : horizontalLook.normalize();
    }
 
-   private boolean isDirectionDangerous(Vec3d direction, Vec3d targetLookDirection) {
+   private boolean isDirectionDangerous(Vec3 direction, Vec3 targetLookDirection) {
       if (targetLookDirection == null) {
          return false;
       }
 
-      double dot = Math.max(-1.0, Math.min(1.0, direction.dotProduct(targetLookDirection)));
+      double dot = Math.max(-1.0, Math.min(1.0, direction.dot(targetLookDirection)));
       return Math.toDegrees(Math.acos(dot)) <= 55.0;
    }
 
-   private boolean isPlayerBoxClearAt(Vec3d point) {
-      Vec3d currentCenter = mc.player.getBoundingBox().getCenter();
-      Box movedBox = mc.player.getBoundingBox().offset(point.subtract(currentCenter));
-      return !mc.world.getBlockCollisions(mc.player, movedBox).iterator().hasNext();
+   private boolean isPlayerBoxClearAt(Vec3 point) {
+      Vec3 currentCenter = mc.player.getBoundingBox().getCenter();
+      AABB movedBox = mc.player.getBoundingBox().move(point.subtract(currentCenter));
+      return !mc.level.getBlockCollisions(mc.player, movedBox).iterator().hasNext();
    }
 
-   private Vec3d findAttackPoint(Vec3d targetEye, Vec3d horizontalDirection, Box targetBox, double safeAttackRange, double safeHorizontalDistance) {
+   private Vec3 findAttackPoint(Vec3 targetEye, Vec3 horizontalDirection, AABB targetBox, double safeAttackRange, double safeHorizontalDistance) {
       double maxAttackDistance = Math.max(0.05, safeHorizontalDistance - 0.05);
 
       for (double distance = maxAttackDistance; distance >= 0.05; distance -= 0.05) {
-         Vec3d attackPoint = this.getSafeMotionPoint(targetEye, horizontalDirection, distance);
+         Vec3 attackPoint = this.getSafeMotionPoint(targetEye, horizontalDirection, distance);
          if (this.isAttackPointInRange(attackPoint, targetBox, safeAttackRange)) {
             return attackPoint;
          }
@@ -452,26 +452,26 @@ public class ElytraMotion extends Module {
       return null;
    }
 
-   private boolean isAttackPointInRange(Vec3d attackPoint, Box targetBox, double elytraRange) {
+   private boolean isAttackPointInRange(Vec3 attackPoint, AABB targetBox, double elytraRange) {
       double eyeOffset = mc.player.getEyeY() - mc.player.getBoundingBox().getCenter().y;
-      Vec3d simulatedEye = attackPoint.add(0.0, eyeOffset, 0.0);
+      Vec3 simulatedEye = attackPoint.add(0.0, eyeOffset, 0.0);
       return this.squaredDistanceToBox(simulatedEye, targetBox) <= elytraRange * elytraRange;
    }
 
-   private boolean isSafeMotionLineClear(Vec3d targetEye, Vec3d safePoint) {
-      RaycastContext context = new RaycastContext(targetEye, safePoint, ShapeType.COLLIDER, FluidHandling.NONE, mc.player);
-      return mc.world.raycast(context).getType() == Type.MISS;
+   private boolean isSafeMotionLineClear(Vec3 targetEye, Vec3 safePoint) {
+      ClipContext context = new ClipContext(targetEye, safePoint, Block.COLLIDER, Fluid.NONE, mc.player);
+      return mc.level.clip(context).getType() == Type.MISS;
    }
 
-   private double squaredDistanceToBox(Vec3d point, Box box) {
+   private double squaredDistanceToBox(Vec3 point, AABB box) {
       double dx = Math.max(Math.max(box.minX - point.x, 0.0), point.x - box.maxX);
       double dy = Math.max(Math.max(box.minY - point.y, 0.0), point.y - box.maxY);
       double dz = Math.max(Math.max(box.minZ - point.z, 0.0), point.z - box.maxZ);
       return dx * dx + dy * dy + dz * dz;
    }
 
-   private boolean isPlayerNear(Vec3d point, double epsilon) {
-      return mc.player.getBoundingBox().getCenter().squaredDistanceTo(point) <= epsilon * epsilon;
+   private boolean isPlayerNear(Vec3 point, double epsilon) {
+      return mc.player.getBoundingBox().getCenter().distanceToSqr(point) <= epsilon * epsilon;
    }
 
    private boolean hasPlayerReachedSafePoint(ElytraMotion.SafeMotionPath path, double epsilon) {
@@ -480,22 +480,22 @@ public class ElytraMotion extends Module {
             return true;
          }
 
-         Vec3d travel = path.safePoint().subtract(path.attackPoint());
-         if (travel.lengthSquared() <= 1.0E-8) {
+         Vec3 travel = path.safePoint().subtract(path.attackPoint());
+         if (travel.lengthSqr() <= 1.0E-8) {
             return false;
          }
 
-         Vec3d travelDirection = travel.normalize();
-         Vec3d playerCenter = mc.player.getBoundingBox().getCenter();
-         Vec3d fromSafe = playerCenter.subtract(path.safePoint());
-         double passedDistance = fromSafe.dotProduct(travelDirection);
+         Vec3 travelDirection = travel.normalize();
+         Vec3 playerCenter = mc.player.getBoundingBox().getCenter();
+         Vec3 fromSafe = playerCenter.subtract(path.safePoint());
+         double passedDistance = fromSafe.dot(travelDirection);
          if (passedDistance < 0.0) {
             return false;
          }
 
-         Vec3d projected = path.safePoint().add(travelDirection.multiply(passedDistance));
+         Vec3 projected = path.safePoint().add(travelDirection.scale(passedDistance));
          double lateralLimit = epsilon * 1.5;
-         return playerCenter.squaredDistanceTo(projected) <= lateralLimit * lateralLimit;
+         return playerCenter.distanceToSqr(projected) <= lateralLimit * lateralLimit;
       } else {
          return false;
       }
@@ -509,9 +509,9 @@ public class ElytraMotion extends Module {
    }
 
    private boolean isPlayerActuallyFalling() {
-      double deltaY = mc.player.getY() - mc.player.prevY;
-      double velocityY = mc.player.getVelocity().y;
-      return !mc.player.isOnGround() && (deltaY < -1.0E-4 || velocityY < -1.0E-4);
+      double deltaY = mc.player.getY() - mc.player.yo;
+      double velocityY = mc.player.getDeltaMovement().y;
+      return !mc.player.onGround() && (deltaY < -1.0E-4 || velocityY < -1.0E-4);
    }
 
    @Override
@@ -526,8 +526,8 @@ public class ElytraMotion extends Module {
    }
 
    private void useFirework() {
-      if (mc.player != null && mc.interactionManager != null) {
-         if (!mc.player.getItemCooldownManager().isCoolingDown(Items.FIREWORK_ROCKET)) {
+      if (mc.player != null && mc.gameMode != null) {
+         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
             if (ClientSettings.fireWorkMode.is(ClientSettings.FireWorkMode.OffHand)) {
                this.useFireworkOffhand();
             } else {
@@ -538,38 +538,38 @@ public class ElytraMotion extends Module {
    }
 
    private void useFireworkMainHand() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          this.useFireworkOffhandPacket();
       } else {
          SearchInvResult fireWorkResult = InventoryUtility.findItemInInventory(Items.FIREWORK_ROCKET);
          if (fireWorkResult.found()) {
-            int currentSlot = mc.player.getInventory().selectedSlot;
+            int currentSlot = mc.player.getInventory().selected;
             int hotbarSlot = currentSlot % 8 + 1;
             int itemSlot = fireWorkResult.slot();
-            if (mc.player.isUsingItem() && mc.player.getActiveHand() == Hand.MAIN_HAND) {
+            if (mc.player.isUsingItem() && mc.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
                this.useFireworkWithOffhandSwap(itemSlot);
             } else if (itemSlot >= 36) {
                this.useFireworkFromHotbar(itemSlot - 36, currentSlot);
             } else {
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, itemSlot, hotbarSlot, SlotActionType.SWAP, mc.player);
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, itemSlot, hotbarSlot, ClickType.SWAP, mc.player);
                this.useFireworkFromHotbar(hotbarSlot, currentSlot);
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, itemSlot, hotbarSlot, SlotActionType.SWAP, mc.player);
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, itemSlot, hotbarSlot, ClickType.SWAP, mc.player);
             }
          }
       }
    }
 
    private void useFireworkOffhand() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          this.useFireworkOffhandPacket();
       } else {
          SearchInvResult fireWorkResult = InventoryUtility.findItemInInventory(Items.FIREWORK_ROCKET);
          if (fireWorkResult.found()) {
-            if (mc.player.currentScreenHandler == mc.player.playerScreenHandler) {
+            if (mc.player.containerMenu == mc.player.inventoryMenu) {
                int slotIndex = convertFireworkSlot(fireWorkResult.slot());
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
                this.useFireworkOffhandPacket();
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
             }
          }
       }
@@ -578,20 +578,20 @@ public class ElytraMotion extends Module {
    private void useFireworkFromHotbar(int fireworkSlot, int returnSlot) {
       InventoryUtility.switchToSilent(fireworkSlot);
       float[] rotation = this.getUseRotation();
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, rotation[0], rotation[1]));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, rotation[0], rotation[1]));
       InventoryUtility.switchToSilent(returnSlot);
    }
 
    private void useFireworkWithOffhandSwap(int itemSlot) {
       int slotIndex = convertFireworkSlot(itemSlot);
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
       this.useFireworkOffhandPacket();
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
    }
 
    private void useFireworkOffhandPacket() {
       float[] rotation = this.getUseRotation();
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.OFF_HAND, id, rotation[0], rotation[1]));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.OFF_HAND, id, rotation[0], rotation[1]));
    }
 
    private static int convertFireworkSlot(int slotIndex) {
@@ -599,8 +599,8 @@ public class ElytraMotion extends Module {
    }
 
    private float[] getUseRotation() {
-      float yaw = mc.player.getYaw();
-      float pitch = mc.player.getPitch();
+      float yaw = mc.player.getYRot();
+      float pitch = mc.player.getXRot();
       if (ModuleManager.aura.isEnabled() && Aura.target != null) {
          yaw = ModuleManager.aura.rotationYaw;
          pitch = ModuleManager.aura.rotationPitch;
@@ -614,9 +614,9 @@ public class ElytraMotion extends Module {
          return 0.0;
       }
 
-      double dx = entity.getX() - entity.prevX;
-      double dy = entity.getY() - entity.prevY;
-      double dz = entity.getZ() - entity.prevZ;
+      double dx = entity.getX() - entity.xo;
+      double dy = entity.getY() - entity.yo;
+      double dz = entity.getZ() - entity.zo;
       return Math.sqrt(dx * dx + dy * dy + dz * dz) * 20.0;
    }
 
@@ -625,7 +625,7 @@ public class ElytraMotion extends Module {
       Motion;
    }
 
-   private record SafeMotionPath(Vec3d attackPoint, Vec3d safePoint, Vec3d direction) {
+   private record SafeMotionPath(Vec3 attackPoint, Vec3 safePoint, Vec3 direction) {
    }
 
    private enum SafeMotionPhase {

@@ -1,8 +1,8 @@
 package vcore.setting.impl;
 
 import java.util.List;
-import net.minecraft.block.Block;
-import net.minecraft.item.Item;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 
 public class ItemSelectSetting {
    private List<String> itemsById;
@@ -28,27 +28,27 @@ public class ItemSelectSetting {
    }
 
    public void add(Block b) {
-      this.add(b.getTranslationKey().replace("block.minecraft.", ""));
+      this.add(b.getDescriptionId().replace("block.minecraft.", ""));
    }
 
    public void add(Item i) {
-      this.add(i.getTranslationKey().replace("item.minecraft.", ""));
+      this.add(i.getDescriptionId().replace("item.minecraft.", ""));
    }
 
    public void remove(Block b) {
-      this.remove(b.getTranslationKey().replace("block.minecraft.", ""));
+      this.remove(b.getDescriptionId().replace("block.minecraft.", ""));
    }
 
    public void remove(Item i) {
-      this.remove(i.getTranslationKey().replace("item.minecraft.", ""));
+      this.remove(i.getDescriptionId().replace("item.minecraft.", ""));
    }
 
    public boolean contains(Block b) {
-      return this.contains(b.getTranslationKey().replace("block.minecraft.", ""));
+      return this.contains(b.getDescriptionId().replace("block.minecraft.", ""));
    }
 
    public boolean contains(Item i) {
-      return this.contains(i.getTranslationKey().replace("item.minecraft.", ""));
+      return this.contains(i.getDescriptionId().replace("item.minecraft.", ""));
    }
 
    public void clear() {

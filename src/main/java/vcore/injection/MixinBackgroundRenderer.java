@@ -1,10 +1,10 @@
 package vcore.injection;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.render.BackgroundRenderer;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.BackgroundRenderer.FogType;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.FogRenderer;
+import net.minecraft.client.renderer.FogRenderer.FogMode;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,11 +13,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.render.WorldTweaks;
 
-@Mixin(BackgroundRenderer.class)
+@Mixin(FogRenderer.class)
 public class MixinBackgroundRenderer {
-   @Inject(method = "applyFog", at = @At("TAIL"))
-   private static void onApplyFog(Camera camera, FogType fogType, float viewDistance, boolean thickFog, float tickDelta, CallbackInfo info) {
-      if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.fog.getValue() && fogType == FogType.FOG_TERRAIN) {
+   @Inject(method = "setupFog", at = @At("TAIL"))
+   private static void onApplyFog(Camera camera, FogMode fogType, float viewDistance, boolean thickFog, float tickDelta, CallbackInfo info) {
+      if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.fog.getValue() && fogType == FogMode.FOG_TERRAIN) {
          RenderSystem.setShaderFogStart(viewDistance * 4.0F);
          RenderSystem.setShaderFogEnd(viewDistance * 4.25F);
       }
@@ -32,7 +32,7 @@ public class MixinBackgroundRenderer {
    }
 
    @Inject(
-      method = "getFogModifier(Lnet/minecraft/entity/Entity;F)Lnet/minecraft/client/render/BackgroundRenderer$StatusEffectFogModifier;",
+      method = "getPriorityFogFunction(Lnet/minecraft/world/entity/Entity;F)Lnet/minecraft/client/renderer/FogRenderer$MobEffectFogFunction;",
       at = @At("HEAD"),
       cancellable = true
    )

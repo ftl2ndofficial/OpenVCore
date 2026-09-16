@@ -1,18 +1,18 @@
 package vcore.features.modules.movement;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.gui.screen.ingame.SignEditScreen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.SignEditScreen;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import vcore.events.impl.EventClickSlot;
 import vcore.events.impl.EventKeyboardInput;
 import vcore.events.impl.EventPostSync;
@@ -24,12 +24,12 @@ import vcore.utility.player.MovementUtility;
 
 public class GuiMove extends Module {
    private final Setting<GuiMove.Bypass> clickBypass = new Setting<>("Bypass", GuiMove.Bypass.None);
-   private final Queue<ClickSlotC2SPacket> grimPacketQueue = new ConcurrentLinkedQueue<>();
-   private final Queue<ClickSlotC2SPacket> grimOldPacketQueue = new ConcurrentLinkedQueue<>();
-   private final Set<ClickSlotC2SPacket> sendingPackets = new HashSet<>();
-   private final Set<ClickSlotC2SPacket> grimOldSendingPackets = new HashSet<>();
+   private final Queue<ServerboundContainerClickPacket> grimPacketQueue = new ConcurrentLinkedQueue<>();
+   private final Queue<ServerboundContainerClickPacket> grimOldPacketQueue = new ConcurrentLinkedQueue<>();
+   private final Set<ServerboundContainerClickPacket> sendingPackets = new HashSet<>();
+   private final Set<ServerboundContainerClickPacket> grimOldSendingPackets = new HashSet<>();
    private final TimerUtil grimOldTimer = new TimerUtil();
-   private CloseHandledScreenC2SPacket pendingClosePacket;
+   private ServerboundContainerClosePacket pendingClosePacket;
    private boolean wasGrimOldInventoryOpen;
    private boolean stopInputQueued;
    private boolean stopInputApplied;
@@ -41,10 +41,10 @@ public class GuiMove extends Module {
 
    @Override
    public void onUpdate() {
-      KeyBinding[] keys = this.getMovementKeys();
-      if (mc.currentScreen instanceof ChatScreen || mc.currentScreen instanceof SignEditScreen) {
-         for (KeyBinding key : keys) {
-            key.setPressed(false);
+      KeyMapping[] keys = this.getMovementKeys();
+      if (mc.screen instanceof ChatScreen || mc.screen instanceof SignEditScreen) {
+         for (KeyMapping key : keys) {
+            key.setDown(false);
          }
       } else if (this.isGrimOld()) {
          this.clearGrimState();
@@ -68,7 +68,7 @@ public class GuiMove extends Module {
 
    @EventHandler
    public void onClickSlot(EventClickSlot e) {
-      if (this.clickBypass.is(GuiMove.Bypass.DisableClicks) && (MovementUtility.isMoving() || mc.options.jumpKey.isPressed())) {
+      if (this.clickBypass.is(GuiMove.Bypass.DisableClicks) && (MovementUtility.isMoving() || mc.options.keyJump.isDown())) {
          e.cancel();
       }
    }
@@ -93,62 +93,62 @@ public class GuiMove extends Module {
 
    @EventHandler
    public void onPacketSend(PacketEvent.Send e) {
-      if (this.isGrim() && e.getPacket() instanceof CloseHandledScreenC2SPacket closePacket) {
+      if (this.isGrim() && e.getPacket() instanceof ServerboundContainerClosePacket closePacket) {
          if (this.sendingClosePacket) {
             this.sendingClosePacket = false;
             return;
          }
 
-         if (mc.currentScreen instanceof InventoryScreen && this.isGrimActionInputActive()) {
+         if (mc.screen instanceof InventoryScreen && this.isGrimActionInputActive()) {
             this.pendingClosePacket = closePacket;
             e.cancel();
             return;
          }
       }
 
-      if (this.isGrim() && e.getPacket() instanceof ClickSlotC2SPacket click) {
+      if (this.isGrim() && e.getPacket() instanceof ServerboundContainerClickPacket click) {
          if (this.sendingPackets.remove(click)) {
             return;
          }
 
-         if (click.getSyncId() == 0 && mc.currentScreen instanceof InventoryScreen && this.isGrimActionInputActive()) {
+         if (click.getContainerId() == 0 && mc.screen instanceof InventoryScreen && this.isGrimActionInputActive()) {
             this.grimPacketQueue.add(click);
             e.cancel();
             return;
          }
       }
 
-      if (this.isGrimOld() && e.getPacket() instanceof ClickSlotC2SPacket click) {
+      if (this.isGrimOld() && e.getPacket() instanceof ServerboundContainerClickPacket click) {
          if (this.grimOldSendingPackets.remove(click)) {
             return;
          }
 
-         if (click.getSyncId() == 0 && MovementUtility.isMoving() && mc.currentScreen instanceof HandledScreen) {
+         if (click.getContainerId() == 0 && MovementUtility.isMoving() && mc.screen instanceof AbstractContainerScreen) {
             this.grimOldPacketQueue.add(click);
             e.cancel();
             return;
          }
       }
 
-      if (MovementUtility.isMoving() && mc.options.jumpKey.isPressed()) {
-         if (this.clickBypass.is(GuiMove.Bypass.DisableClicks) && e.getPacket() instanceof ClickSlotC2SPacket) {
+      if (MovementUtility.isMoving() && mc.options.keyJump.isDown()) {
+         if (this.clickBypass.is(GuiMove.Bypass.DisableClicks) && e.getPacket() instanceof ServerboundContainerClickPacket) {
             e.cancel();
          }
       }
    }
 
-   private void updateKeyBindingState(KeyBinding[] keys) {
-      for (KeyBinding key : keys) {
-         key.setPressed(this.isKeyPressed(InputUtil.fromTranslationKey(key.getBoundKeyTranslationKey()).getCode()));
+   private void updateKeyBindingState(KeyMapping[] keys) {
+      for (KeyMapping key : keys) {
+         key.setDown(this.isKeyPressed(InputConstants.getKey(key.saveString()).getValue()));
       }
    }
 
-   private void handleGrimOldUpdate(KeyBinding[] keys) {
+   private void handleGrimOldUpdate(KeyMapping[] keys) {
       if (!this.grimOldPacketQueue.isEmpty() && !this.grimOldTimer.hasTimeElapsed(100L)) {
          this.setKeyBindingState(keys, false);
       } else {
          this.updateKeyBindingState(keys);
-         boolean inventoryOpen = mc.currentScreen instanceof InventoryScreen;
+         boolean inventoryOpen = mc.screen instanceof InventoryScreen;
          if (inventoryOpen) {
             this.wasGrimOldInventoryOpen = true;
          } else if (this.wasGrimOldInventoryOpen) {
@@ -159,14 +159,14 @@ public class GuiMove extends Module {
       }
    }
 
-   private void setKeyBindingState(KeyBinding[] keys, boolean pressed) {
-      for (KeyBinding key : keys) {
-         key.setPressed(pressed);
+   private void setKeyBindingState(KeyMapping[] keys, boolean pressed) {
+      for (KeyMapping key : keys) {
+         key.setDown(pressed);
       }
    }
 
-   private KeyBinding[] getMovementKeys() {
-      return new KeyBinding[]{mc.options.forwardKey, mc.options.backKey, mc.options.leftKey, mc.options.rightKey, mc.options.jumpKey, mc.options.sprintKey};
+   private KeyMapping[] getMovementKeys() {
+      return new KeyMapping[]{mc.options.keyUp, mc.options.keyDown, mc.options.keyLeft, mc.options.keyRight, mc.options.keyJump, mc.options.keySprint};
    }
 
    private void queueStopInputBeforeGrimAction() {
@@ -179,21 +179,21 @@ public class GuiMove extends Module {
    }
 
    private void flushQueuedClicks() {
-      if (mc.getNetworkHandler() != null) {
+      if (mc.getConnection() != null) {
          while (!this.grimPacketQueue.isEmpty()) {
-            ClickSlotC2SPacket packet = this.grimPacketQueue.poll();
+            ServerboundContainerClickPacket packet = this.grimPacketQueue.poll();
             if (packet != null) {
                this.sendingPackets.add(packet);
-               mc.getNetworkHandler().sendPacket(packet);
+               mc.getConnection().send(packet);
             }
          }
       }
    }
 
    private void flushPendingClose() {
-      if (mc.getNetworkHandler() != null && this.pendingClosePacket != null) {
+      if (mc.getConnection() != null && this.pendingClosePacket != null) {
          this.sendingClosePacket = true;
-         mc.getNetworkHandler().sendPacket(this.pendingClosePacket);
+         mc.getConnection().send(this.pendingClosePacket);
          this.pendingClosePacket = null;
       }
    }
@@ -219,15 +219,15 @@ public class GuiMove extends Module {
    }
 
    private void flushQueuedGrimOldPackets() {
-      if (mc.getNetworkHandler() == null) {
+      if (mc.getConnection() == null) {
          this.grimOldPacketQueue.clear();
          this.grimOldSendingPackets.clear();
       } else {
          while (!this.grimOldPacketQueue.isEmpty()) {
-            ClickSlotC2SPacket packet = this.grimOldPacketQueue.poll();
+            ServerboundContainerClickPacket packet = this.grimOldPacketQueue.poll();
             if (packet != null) {
                this.grimOldSendingPackets.add(packet);
-               mc.getNetworkHandler().sendPacket(packet);
+               mc.getConnection().send(packet);
             }
          }
       }
@@ -248,14 +248,14 @@ public class GuiMove extends Module {
    }
 
    private boolean isGrimActionInputActive() {
-      return mc.options.forwardKey.isPressed()
-         || mc.options.backKey.isPressed()
-         || mc.options.leftKey.isPressed()
-         || mc.options.rightKey.isPressed()
-         || mc.options.jumpKey.isPressed()
-         || mc.options.sneakKey.isPressed()
-         || mc.options.sprintKey.isPressed()
-         || mc.player != null && (mc.player.isSprinting() || mc.player.isSneaking());
+      return mc.options.keyUp.isDown()
+         || mc.options.keyDown.isDown()
+         || mc.options.keyLeft.isDown()
+         || mc.options.keyRight.isDown()
+         || mc.options.keyJump.isDown()
+         || mc.options.keyShift.isDown()
+         || mc.options.keySprint.isDown()
+         || mc.player != null && (mc.player.isSprinting() || mc.player.isShiftKeyDown());
    }
 
    public boolean shouldSuppressSprint() {

@@ -1,8 +1,8 @@
 package vcore.features.modules.misc;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
@@ -22,9 +22,9 @@ public final class AutoAuth extends Module {
 
    @Override
    public void onEnable() {
-      String warningMsg = Formatting.RED
+      String warningMsg = ChatFormatting.RED
          + "Attention! "
-         + Formatting.RESET
+         + ChatFormatting.RESET
          + "Passwords are stored in the config. Before sharing your configs, disable this module.";
       this.sendMessage(warningMsg);
    }
@@ -37,7 +37,7 @@ public final class AutoAuth extends Module {
 
    @EventHandler
    public void onPacketReceive(PacketEvent.@NotNull Receive event) {
-      if (event.getPacket() instanceof GameMessageS2CPacket pac && mc.getNetworkHandler() != null) {
+      if (event.getPacket() instanceof ClientboundSystemChatPacket pac && mc.getConnection() != null) {
          String password = "";
          switch ((AutoAuth.Mode)this.mode.getValue()) {
             case Default:
@@ -49,21 +49,21 @@ public final class AutoAuth extends Module {
             case Custom:
                password = this.cpass.getValue();
                if (password.isEmpty()) {
-                  this.sendMessage(Formatting.RED + "Registration error: Password is empty!");
+                  this.sendMessage(ChatFormatting.RED + "Registration error: Password is empty!");
                   return;
                }
          }
 
          String m = pac.content().getString().toLowerCase();
          if (m.contains("/register") || m.contains("/reg") || m.contains("dk")) {
-            mc.getNetworkHandler().sendChatCommand("register " + password + " " + password);
+            mc.getConnection().sendCommand("register " + password + " " + password);
             if (this.show.getValue()) {
-               this.sendMessage("Your password: " + Formatting.RED + password);
+               this.sendMessage("Your password: " + ChatFormatting.RED + password);
             }
 
             Managers.NOTIFICATION.publicity("AutoAuth", "Registration completed!", 4, Notification.Type.SUCCESS);
          } else if (m.contains("/login") || m.contains("/l") || m.contains("/dn")) {
-            mc.getNetworkHandler().sendChatCommand("login " + password);
+            mc.getConnection().sendCommand("login " + password);
             Managers.NOTIFICATION.publicity("AutoAuth", "Logged in!", 4, Notification.Type.SUCCESS);
          }
       }

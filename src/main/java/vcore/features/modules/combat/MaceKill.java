@@ -2,18 +2,18 @@ package vcore.features.modules.combat;
 
 import java.util.List;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.data.DataTracker.SerializedEntry;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.OnGroundOnly;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.PositionAndOnGround;
-import net.minecraft.network.packet.s2c.play.EntityTrackerUpdateS2CPacket;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.StatusOnly;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
+import net.minecraft.network.syncher.SynchedEntityData.DataValue;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
@@ -49,7 +49,7 @@ public class MaceKill extends Module {
    @EventHandler
    private void onPacketSend(PacketEvent.Send event) {
       if (!fullNullCheck() && !this.sendingDelayedAttack) {
-         if (event.getPacket() instanceof PlayerInteractEntityC2SPacket packet) {
+         if (event.getPacket() instanceof ServerboundInteractPacket packet) {
             if (Criticals.getInteractType(packet) == Criticals.InteractType.ATTACK) {
                if (this.isHoldingMace()) {
                   int height = this.determineHeight();
@@ -69,9 +69,9 @@ public class MaceKill extends Module {
    private void onPacketReceive(PacketEvent.Receive event) {
       if (!fullNullCheck() && this.mineRuaBypass.getValue()) {
          if (this.isBlockingMineRuaSpoofSync()) {
-            if (event.getPacket() instanceof EntityTrackerUpdateS2CPacket packet) {
+            if (event.getPacket() instanceof ClientboundSetEntityDataPacket packet) {
                if (packet.id() == mc.player.getId()) {
-                  if (this.containsLocalStateSync(packet.trackedValues())) {
+                  if (this.containsLocalStateSync(packet.packedItems())) {
                      event.cancel();
                   }
                }
@@ -90,23 +90,23 @@ public class MaceKill extends Module {
             }
          } else {
             for (int i = 0; i < 2; i++) {
-               this.warp(null, mc.player.isOnGround());
+               this.warp(null, mc.player.onGround());
             }
          }
 
-         Vec3d playerPos = mc.player.getPos();
+         Vec3 playerPos = mc.player.position();
          this.warp(playerPos.add(0.0, height, 0.0), false);
          this.warp(playerPos, false);
       }
    }
 
    private int determineHeight() {
-      if (mc.player != null && mc.world != null) {
-         Box boundingBox = mc.player.getBoundingBox();
+      if (mc.player != null && mc.level != null) {
+         AABB boundingBox = mc.player.getBoundingBox();
 
          for (int i = this.fallHeight.getValue(); i >= 1; i--) {
-            Box movedBox = boundingBox.offset(0.0, i, 0.0);
-            if (!mc.world.getBlockCollisions(mc.player, movedBox).iterator().hasNext()) {
+            AABB movedBox = boundingBox.move(0.0, i, 0.0);
+            if (!mc.level.getBlockCollisions(mc.player, movedBox).iterator().hasNext()) {
                return i;
             }
          }
@@ -117,18 +117,18 @@ public class MaceKill extends Module {
       }
    }
 
-   private void warp(Vec3d pos, boolean onGround) {
+   private void warp(Vec3 pos, boolean onGround) {
       if (mc.player != null) {
          if (pos == null) {
-            this.sendPacket(new OnGroundOnly(onGround));
+            this.sendPacket(new StatusOnly(onGround));
          } else {
-            this.sendPacket(new PositionAndOnGround(pos.x, pos.y, pos.z, onGround));
+            this.sendPacket(new Pos(pos.x, pos.y, pos.z, onGround));
          }
       }
    }
 
-   private void performMineRuaBypassAttack(PlayerInteractEntityC2SPacket originalPacket, int height) {
-      if (mc.player != null && mc.world != null) {
+   private void performMineRuaBypassAttack(ServerboundInteractPacket originalPacket, int height) {
+      if (mc.player != null && mc.level != null) {
          if (Criticals.getEntity(originalPacket) instanceof LivingEntity livingEntity && livingEntity.isAlive()) {
             if (this.ensureWearingElytra()) {
                this.sendAirborneStatePacket();
@@ -140,7 +140,7 @@ public class MaceKill extends Module {
                   }
                }
 
-               this.sendFakeFallAttack(livingEntity, originalPacket.isPlayerSneaking(), height);
+               this.sendFakeFallAttack(livingEntity, originalPacket.isUsingSecondaryAction(), height);
             }
          }
       }
@@ -162,24 +162,24 @@ public class MaceKill extends Module {
 
    private void sendElytraFlyingPacket() {
       if (mc.player != null) {
-         this.sendPacketSilent(new ClientCommandC2SPacket(mc.player, Mode.START_FALL_FLYING));
+         this.sendPacketSilent(new ServerboundPlayerCommandPacket(mc.player, Action.START_FALL_FLYING));
       }
    }
 
    private void sendCancelElytraFlyingPacket() {
       if (mc.player != null) {
-         Vec3d pos = mc.player.getPos();
-         this.sendPacketSilent(new PositionAndOnGround(pos.x, pos.y, pos.z, true));
+         Vec3 pos = mc.player.position();
+         this.sendPacketSilent(new Pos(pos.x, pos.y, pos.z, true));
       }
    }
 
    private void sendFakeFallAttack(LivingEntity livingEntity, boolean sneaking, int height) {
-      if (mc.player != null && mc.world != null && livingEntity.isAlive() && this.isHoldingMace()) {
+      if (mc.player != null && mc.level != null && livingEntity.isAlive() && this.isHoldingMace()) {
          this.sendingDelayedAttack = true;
 
          try {
             this.spoofLiquidFallHeight(height);
-            this.sendPacket(PlayerInteractEntityC2SPacket.attack(livingEntity, sneaking));
+            this.sendPacket(ServerboundInteractPacket.createAttackPacket(livingEntity, sneaking));
             this.restoreServerElytraFlyingState();
          } finally {
             this.sendingDelayedAttack = false;
@@ -189,8 +189,8 @@ public class MaceKill extends Module {
 
    private void sendAirborneStatePacket() {
       if (mc.player != null) {
-         Vec3d pos = mc.player.getPos();
-         this.sendPacketSilent(new PositionAndOnGround(pos.x, pos.y, pos.z, false));
+         Vec3 pos = mc.player.position();
+         this.sendPacketSilent(new Pos(pos.x, pos.y, pos.z, false));
       }
    }
 
@@ -210,7 +210,7 @@ public class MaceKill extends Module {
          SearchInvResult elytra = InventoryUtility.findItemInInventory(Items.ELYTRA);
          if (!elytra.found()) {
             return false;
-         } else if (mc.currentScreen == null && mc.player.currentScreenHandler == mc.player.playerScreenHandler) {
+         } else if (mc.screen == null && mc.player.containerMenu == mc.player.inventoryMenu) {
             clickSlot(elytra.slot());
             clickSlot(6);
             clickSlot(elytra.slot());
@@ -235,12 +235,12 @@ public class MaceKill extends Module {
       return System.currentTimeMillis() <= this.mineRuaSpoofSyncBlockUntil;
    }
 
-   private boolean containsLocalStateSync(List<SerializedEntry<?>> values) {
+   private boolean containsLocalStateSync(List<DataValue<?>> values) {
       if (values.isEmpty()) {
          return false;
       }
 
-      for (SerializedEntry<?> value : values) {
+      for (DataValue<?> value : values) {
          if (value.id() == 0) {
             return true;
          }
@@ -254,10 +254,10 @@ public class MaceKill extends Module {
    }
 
    private boolean isHoldingMace() {
-      return mc.player != null && mc.player.getMainHandStack().isOf(Items.MACE);
+      return mc.player != null && mc.player.getMainHandItem().is(Items.MACE);
    }
 
    private boolean isWearingElytra() {
-      return mc.player != null && mc.player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA);
+      return mc.player != null && mc.player.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA);
    }
 }

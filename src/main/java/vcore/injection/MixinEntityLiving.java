@@ -2,11 +2,11 @@ package vcore.injection;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.block.FluidBlock;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.MovementType;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -26,11 +26,11 @@ import vcore.utility.interfaces.IEntityLiving;
 @Mixin(LivingEntity.class)
 public class MixinEntityLiving implements IEntityLiving {
    @Shadow
-   protected double serverX;
+   protected double lerpX;
    @Shadow
-   protected double serverY;
+   protected double lerpY;
    @Shadow
-   protected double serverZ;
+   protected double lerpZ;
    @Unique
    double prevServerX;
    @Unique
@@ -47,20 +47,20 @@ public class MixinEntityLiving implements IEntityLiving {
       return this.positonHistory;
    }
 
-   @Inject(method = "getHandSwingDuration", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "getCurrentSwingDuration", at = @At("HEAD"), cancellable = true)
    private void getArmSwingAnimationEnd(CallbackInfoReturnable<Integer> info) {
       if ((LivingEntity)(Object)this == Module.mc.player && ModuleManager.animations.shouldChangeAnimationDuration()) {
          info.setReturnValue(ModuleManager.animations.getHandSwingDuration());
       }
    }
 
-   @Inject(method = "updateTrackedPositionAndAngles", at = @At("HEAD"))
+   @Inject(method = "lerpTo", at = @At("HEAD"))
    private void updateTrackedPositionAndAnglesHook(double x, double y, double z, float yaw, float pitch, int interpolationSteps, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
-         this.prevServerX = this.serverX;
-         this.prevServerY = this.serverY;
-         this.prevServerZ = this.serverZ;
-         this.positonHistory.add(new Aura.Position(this.serverX, this.serverY, this.serverZ));
+         this.prevServerX = this.lerpX;
+         this.prevServerY = this.lerpY;
+         this.prevServerZ = this.lerpZ;
+         this.positonHistory.add(new Aura.Position(this.lerpX, this.lerpY, this.lerpZ));
          this.positonHistory.removeIf(Aura.Position::shouldRemove);
       }
    }
@@ -85,13 +85,13 @@ public class MixinEntityLiving implements IEntityLiving {
    }
 
    @Inject(method = "travel", at = @At("HEAD"), cancellable = true)
-   public void travelHook(Vec3d movementInput, CallbackInfo ci) {
+   public void travelHook(Vec3 movementInput, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          if ((LivingEntity)(Object)this == Module.mc.player) {
-            EventTravel event = new EventTravel(Module.mc.player.getVelocity(), true);
+            EventTravel event = new EventTravel(Module.mc.player.getDeltaMovement(), true);
             Vcore.EVENT_BUS.post(event);
             if (event.isCancelled()) {
-               Module.mc.player.move(MovementType.SELF, event.getmVec());
+               Module.mc.player.move(MoverType.SELF, event.getmVec());
                ci.cancel();
             }
          }
@@ -99,13 +99,13 @@ public class MixinEntityLiving implements IEntityLiving {
    }
 
    @Inject(method = "travel", at = @At("RETURN"), cancellable = true)
-   public void travelPostHook(Vec3d movementInput, CallbackInfo ci) {
+   public void travelPostHook(Vec3 movementInput, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          if ((LivingEntity)(Object)this == Module.mc.player) {
             EventTravel event = new EventTravel(movementInput, false);
             Vcore.EVENT_BUS.post(event);
             if (event.isCancelled()) {
-               Module.mc.player.move(MovementType.SELF, Module.mc.player.getVelocity());
+               Module.mc.player.move(MoverType.SELF, Module.mc.player.getDeltaMovement());
                ci.cancel();
             }
          }
@@ -115,11 +115,11 @@ public class MixinEntityLiving implements IEntityLiving {
    @ModifyVariable(method = "setSprinting", at = @At("HEAD"), ordinal = 0, argsOnly = true)
    private boolean setSprintingHook(boolean sprinting) {
       return Module.mc.player == null
-            || Module.mc.world == null
+            || Module.mc.level == null
             || !ModuleManager.waterSpeed.isEnabled()
             || !ModuleManager.waterSpeed.mode.is(WaterSpeed.Mode.CancelResurface)
-            || !Module.mc.player.isTouchingWater()
-               && !(Module.mc.world.getBlockState(BlockPos.ofFloored(Module.mc.player.getPos().add(0.0, -0.5, 0.0))).getBlock() instanceof FluidBlock)
+            || !Module.mc.player.isInWater()
+               && !(Module.mc.level.getBlockState(BlockPos.containing(Module.mc.player.position().add(0.0, -0.5, 0.0))).getBlock() instanceof LiquidBlock)
          ? sprinting
          : true;
    }

@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.BooleanSupplier;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.Managers;
 import vcore.injection.accesors.IClientPlayerEntity;
 import vcore.utility.Timer;
@@ -36,7 +36,7 @@ public final class FragDeathMemory {
    }
 
    public void controllingAddingMemoryToEntity(LivingEntity baseTo, boolean mobDetect) {
-      if (baseTo != null && !(baseTo instanceof ClientPlayerEntity) && baseTo.age >= 2 && baseTo.isAlive()) {
+      if (baseTo != null && !(baseTo instanceof LocalPlayer) && baseTo.tickCount >= 2 && baseTo.isAlive()) {
          FragDeathMemory.EntityDeathMemory searchedMemory = null;
 
          for (FragDeathMemory.EntityDeathMemory memory : this.deathMemories) {
@@ -48,7 +48,7 @@ public final class FragDeathMemory {
 
          if (searchedMemory != null) {
             searchedMemory.resetMemory(baseTo, this.maxTimeMemory);
-         } else if ((mobDetect || baseTo instanceof PlayerEntity) && this.deathMemories.isEmpty()) {
+         } else if ((mobDetect || baseTo instanceof Player) && this.deathMemories.isEmpty()) {
             this.deathMemories.add(new FragDeathMemory.EntityDeathMemory(baseTo, this.maxTimeMemory, this.memoryDeathTrigger));
          }
       }
@@ -87,32 +87,32 @@ public final class FragDeathMemory {
    }
 
    private void rotateCameraToKilled(LivingEntity living) {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (this.rotateToKilled.getAsBoolean() && living != null && mc.player != null) {
-         float[] rotation = this.getRotationTo(mc.player.getEyePos(), living.getEyePos());
+         float[] rotation = this.getRotationTo(mc.player.getEyePosition(), living.getEyePosition());
          this.applyClientRotation(rotation[0], rotation[1]);
       }
    }
 
-   private float[] getRotationTo(Vec3d from, Vec3d to) {
+   private float[] getRotationTo(Vec3 from, Vec3 to) {
       double diffX = to.x - from.x;
       double diffY = to.y - from.y;
       double diffZ = to.z - from.z;
       double diffXZ = Math.sqrt(diffX * diffX + diffZ * diffZ);
-      float yaw = MathHelper.wrapDegrees((float)Math.toDegrees(Math.atan2(diffZ, diffX)) - 90.0F);
-      float pitch = MathHelper.clamp((float)(-Math.toDegrees(Math.atan2(diffY, diffXZ))), -90.0F, 90.0F);
+      float yaw = Mth.wrapDegrees((float)Math.toDegrees(Math.atan2(diffZ, diffX)) - 90.0F);
+      float pitch = Mth.clamp((float)(-Math.toDegrees(Math.atan2(diffY, diffXZ))), -90.0F, 90.0F);
       return new float[]{yaw, pitch};
    }
 
    private void applyClientRotation(float yaw, float pitch) {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.player != null) {
-         mc.player.setYaw(yaw);
-         mc.player.setPitch(pitch);
-         mc.player.prevYaw = yaw;
-         mc.player.prevPitch = pitch;
-         mc.player.setHeadYaw(yaw);
-         mc.player.setBodyYaw(yaw);
+         mc.player.setYRot(yaw);
+         mc.player.setXRot(pitch);
+         mc.player.yRotO = yaw;
+         mc.player.xRotO = pitch;
+         mc.player.setYHeadRot(yaw);
+         mc.player.setYBodyRot(yaw);
          IClientPlayerEntity playerAccessor = (IClientPlayerEntity)mc.player;
          playerAccessor.setLastYaw(yaw);
          playerAccessor.setLastPitch(pitch);

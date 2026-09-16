@@ -1,5 +1,7 @@
 package vcore.features.modules;
 
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,16 +13,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.network.PendingUpdateManager;
-import net.minecraft.client.network.SequencedPacketCreator;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler;
+import net.minecraft.client.multiplayer.prediction.PredictiveAction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.world.inventory.ClickType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -42,7 +42,7 @@ public abstract class Module {
    private final String displayName;
    private static boolean silentToggle = false;
    private final List<String> ignoreSoundList = Arrays.asList("ClickGui", "HudEditor");
-   public static final MinecraftClient mc = MinecraftClient.getInstance();
+   public static final Minecraft mc = Minecraft.getInstance();
 
    public Module(@NotNull String name, @NotNull Module.Category category) {
       this(name, "No description provided.", category);
@@ -69,10 +69,10 @@ public abstract class Module {
    public void onUpdate() {
    }
 
-   public void onRender2D(DrawContext event) {
+   public void onRender2D(GuiGraphics event) {
    }
 
-   public void onRender3D(MatrixStack event) {
+   public void onRender3D(PoseStack event) {
    }
 
    public void onUnload() {
@@ -83,26 +83,26 @@ public abstract class Module {
    }
 
    protected void sendPacket(Packet<?> packet) {
-      if (mc.getNetworkHandler() != null) {
-         mc.getNetworkHandler().sendPacket(packet);
+      if (mc.getConnection() != null) {
+         mc.getConnection().send(packet);
       }
    }
 
    protected void sendPacketSilent(Packet<?> packet) {
-      if (mc.getNetworkHandler() != null) {
+      if (mc.getConnection() != null) {
          Vcore.core.silentPackets.add(packet);
          Vcore.core.silentPostPackets.add(packet);
-         mc.getNetworkHandler().sendPacket(packet);
+         mc.getConnection().send(packet);
       }
    }
 
-   protected void sendSequencedPacket(SequencedPacketCreator packetCreator) {
-      if (mc.getNetworkHandler() != null && mc.world != null) {
-         PendingUpdateManager pendingUpdateManager = mc.world.getPendingUpdateManager().incrementSequence();
+   protected void sendSequencedPacket(PredictiveAction packetCreator) {
+      if (mc.getConnection() != null && mc.level != null) {
+         BlockStatePredictionHandler pendingUpdateManager = mc.level.getBlockStatePredictionHandler().startPredicting();
 
          try {
-            int i = pendingUpdateManager.getSequence();
-            mc.getNetworkHandler().sendPacket(packetCreator.predict(i));
+            int i = pendingUpdateManager.currentSequence();
+            mc.getConnection().send(packetCreator.predict(i));
          } catch (Throwable var6) {
             if (pendingUpdateManager != null) {
                try {
@@ -241,7 +241,7 @@ public abstract class Module {
    }
 
    public static boolean fullNullCheck() {
-      return mc.player == null || mc.world == null || ModuleManager.unHook.isEnabled();
+      return mc.player == null || mc.level == null || ModuleManager.unHook.isEnabled();
    }
 
    public String getName() {
@@ -288,52 +288,52 @@ public abstract class Module {
    }
 
    public static void clickSlot(int id) {
-      if (id != -1 && mc.interactionManager != null && mc.player != null) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, id, 0, SlotActionType.PICKUP, mc.player);
+      if (id != -1 && mc.gameMode != null && mc.player != null) {
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, id, 0, ClickType.PICKUP, mc.player);
       }
    }
 
-   public static void clickSlot(int id, SlotActionType type) {
-      if (id != -1 && mc.interactionManager != null && mc.player != null) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, id, 0, type, mc.player);
+   public static void clickSlot(int id, ClickType type) {
+      if (id != -1 && mc.gameMode != null && mc.player != null) {
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, id, 0, type, mc.player);
       }
    }
 
-   public static void clickSlot(int id, int button, SlotActionType type) {
-      if (id != -1 && mc.interactionManager != null && mc.player != null) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, id, button, type, mc.player);
+   public static void clickSlot(int id, int button, ClickType type) {
+      if (id != -1 && mc.gameMode != null && mc.player != null) {
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, id, button, type, mc.player);
       }
    }
 
    public void sendMessage(String message) {
       if (!fullNullCheck() && ClientSettings.clientMessages.getValue() && !ModuleManager.unHook.isEnabled()) {
-         if (mc.isOnThread()) {
+         if (mc.isSameThread()) {
             mc.player
-               .sendMessage(
-                  Text.of(
+               .sendSystemMessage(
+                  Component.nullToEmpty(
                      CommandManager.getClientMessage()
                         + " "
-                        + Formatting.GRAY
+                        + ChatFormatting.GRAY
                         + "["
-                        + Formatting.DARK_PURPLE
+                        + ChatFormatting.DARK_PURPLE
                         + this.getDisplayName()
-                        + Formatting.GRAY
+                        + ChatFormatting.GRAY
                         + "] "
                         + message
                   )
                );
          } else {
-            mc.executeSync(
+            mc.executeIfPossible(
                () -> mc.player
-                  .sendMessage(
-                     Text.of(
+                  .sendSystemMessage(
+                     Component.nullToEmpty(
                         CommandManager.getClientMessage()
                            + " "
-                           + Formatting.GRAY
+                           + ChatFormatting.GRAY
                            + "["
-                           + Formatting.DARK_PURPLE
+                           + ChatFormatting.DARK_PURPLE
                            + this.getDisplayName()
-                           + Formatting.GRAY
+                           + ChatFormatting.GRAY
                            + "] "
                            + message
                      )
@@ -345,45 +345,45 @@ public abstract class Module {
 
    public void sendChatMessage(String message) {
       if (!fullNullCheck()) {
-         mc.getNetworkHandler().sendChatMessage(message);
+         mc.getConnection().sendChat(message);
       }
    }
 
    public void sendChatCommand(String command) {
       if (!fullNullCheck()) {
-         mc.getNetworkHandler().sendChatCommand(command);
+         mc.getConnection().sendCommand(command);
       }
    }
 
    public void debug(String message) {
       if (!fullNullCheck() && ClientSettings.debug.getValue()) {
-         if (mc.isOnThread()) {
+         if (mc.isSameThread()) {
             mc.player
-               .sendMessage(
-                  Text.of(
+               .sendSystemMessage(
+                  Component.nullToEmpty(
                      CommandManager.getClientMessage()
                         + " "
-                        + Formatting.GRAY
+                        + ChatFormatting.GRAY
                         + "["
-                        + Formatting.DARK_PURPLE
+                        + ChatFormatting.DARK_PURPLE
                         + this.getDisplayName()
-                        + Formatting.GRAY
+                        + ChatFormatting.GRAY
                         + "] [\ud83d\udd27] "
                         + message
                   )
                );
          } else {
-            mc.executeSync(
+            mc.executeIfPossible(
                () -> mc.player
-                  .sendMessage(
-                     Text.of(
+                  .sendSystemMessage(
+                     Component.nullToEmpty(
                         CommandManager.getClientMessage()
                            + " "
-                           + Formatting.GRAY
+                           + ChatFormatting.GRAY
                            + "["
-                           + Formatting.DARK_PURPLE
+                           + ChatFormatting.DARK_PURPLE
                            + this.getDisplayName()
-                           + Formatting.GRAY
+                           + ChatFormatting.GRAY
                            + "] [\ud83d\udd27] "
                            + message
                      )
@@ -399,7 +399,7 @@ public abstract class Module {
             Managers.MODULE.activeMouseKeys.clear();
             return true;
          } else {
-            return button < 10 ? false : InputUtil.isKeyPressed(mc.getWindow().getHandle(), button);
+            return button < 10 ? false : InputConstants.isKeyDown(mc.getWindow().getWindow(), button);
          }
       } else {
          return false;
@@ -414,8 +414,8 @@ public abstract class Module {
       if (bind != null && bind.getValue() != null && bind.getValue().getKey() != -1 && !ModuleManager.unHook.isEnabled()) {
          Bind value = bind.getValue();
          return value.isMouse()
-            ? GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), value.getKey()) == 1
-            : InputUtil.isKeyPressed(mc.getWindow().getHandle(), value.getKey());
+            ? GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), value.getKey()) == 1
+            : InputConstants.isKeyDown(mc.getWindow().getWindow(), value.getKey());
       } else {
          return false;
       }

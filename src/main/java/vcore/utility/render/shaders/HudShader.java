@@ -1,9 +1,9 @@
 package vcore.utility.render.shaders;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
 import vcore.utility.render.shaders.satin.api.managed.ManagedCoreShader;
@@ -25,16 +25,16 @@ public class HudShader {
    private Uniform4f color3;
    private Uniform4f color4;
    public static final ManagedCoreShader HUD_SHADER = ShaderEffectManager.getInstance()
-      .manageCoreShader(Identifier.of("vcore", "hudshader"), VertexFormats.POSITION);
+      .manageCoreShader(ResourceLocation.fromNamespaceAndPath("vcore", "hudshader"), DefaultVertexFormat.POSITION);
 
    public HudShader() {
       this.setup();
    }
 
    public void setParameters(float x, float y, float width, float height, float r, float externalAlpha, float internalAlpha) {
-      float i = (float)Module.mc.getWindow().getScaleFactor();
+      float i = (float)Module.mc.getWindow().getGuiScale();
       this.radius.set(r * i);
-      this.uLocation.set(x * i, -y * i + Module.mc.getWindow().getScaledHeight() * i - height * i);
+      this.uLocation.set(x * i, -y * i + Module.mc.getWindow().getGuiScaledHeight() * i - height * i);
       this.uSize.set(width * i, height * i);
       Color c1 = HudEditor.getColor(270);
       Color c2 = HudEditor.getColor(0);

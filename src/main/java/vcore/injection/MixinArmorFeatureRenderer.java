@@ -1,22 +1,22 @@
 package vcore.injection;
 
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.feature.ArmorFeatureRenderer;
-import net.minecraft.client.render.entity.model.BipedEntityModel;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.core.manager.client.ModuleManager;
 
-@Mixin(ArmorFeatureRenderer.class)
-public class MixinArmorFeatureRenderer<T extends LivingEntity, M extends BipedEntityModel<T>, A extends BipedEntityModel<T>> {
-   @Inject(method = "renderArmor", at = @At("HEAD"), cancellable = true)
+@Mixin(HumanoidArmorLayer.class)
+public class MixinArmorFeatureRenderer<T extends LivingEntity, M extends HumanoidModel<T>, A extends HumanoidModel<T>> {
+   @Inject(method = "renderArmorPiece", at = @At("HEAD"), cancellable = true)
    private void onRenderArmor(
-      MatrixStack matrices, VertexConsumerProvider vertexConsumers, T livingEntity, EquipmentSlot equipmentSlot, int i, A bipedEntityModel, CallbackInfo ci
+      PoseStack matrices, MultiBufferSource vertexConsumers, T livingEntity, EquipmentSlot equipmentSlot, int i, A bipedEntityModel, CallbackInfo ci
    ) {
       if (ModuleManager.customModel != null && ModuleManager.customModel.shouldHideArmorSlotRender(livingEntity)) {
          ci.cancel();

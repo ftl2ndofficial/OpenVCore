@@ -1,7 +1,7 @@
 package vcore.features.modules.player;
 
-import net.minecraft.client.gui.screen.DeathScreen;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.DeathScreen;
 import vcore.core.Managers;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -26,23 +26,23 @@ public class AutoRespawn extends Module {
             this.timer.reset();
          }
 
-         if (mc.currentScreen instanceof DeathScreen) {
+         if (mc.screen instanceof DeathScreen) {
             if (this.flag) {
                if (this.deathcoords.getValue()) {
                   this.sendMessage(
-                     Formatting.GOLD + "[PlayerDeath] " + Formatting.YELLOW + (int)mc.player.getX() + " " + (int)mc.player.getY() + " " + (int)mc.player.getZ()
+                     ChatFormatting.GOLD + "[PlayerDeath] " + ChatFormatting.YELLOW + (int)mc.player.getX() + " " + (int)mc.player.getY() + " " + (int)mc.player.getZ()
                   );
                }
 
-               mc.player.requestRespawn();
+               mc.player.respawn();
                mc.setScreen(null);
                Managers.ASYNC.run(() -> {
                   if (this.autokit.getValue() && mc.player != null) {
-                     mc.player.networkHandler.sendChatCommand("kit " + this.kit.getValue());
+                     mc.player.connection.sendCommand("kit " + this.kit.getValue());
                   }
 
                   if (this.autohome.getValue() && mc.player != null) {
-                     mc.player.networkHandler.sendChatCommand("home");
+                     mc.player.connection.sendCommand("home");
                   }
                }, 1000L);
                this.flag = false;

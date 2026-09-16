@@ -1,10 +1,10 @@
 package vcore.features.modules.render;
 
 import com.google.common.collect.Lists;
+import com.mojang.math.Axis;
 import java.awt.Color;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.entity.player.Player;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
@@ -31,50 +31,50 @@ public class Arrows extends Module {
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       if (!fullNullCheck()) {
          float middleW = ModuleManager.crosshair.getAnimatedPosX();
          float middleH = ModuleManager.crosshair.getAnimatedPosY();
          int color = 0;
-         context.getMatrices().push();
-         context.getMatrices().translate(middleW, middleH, 0.0F);
-         context.getMatrices()
-            .multiply(RotationAxis.POSITIVE_X.rotationDegrees(90.0F / Math.abs(90.0F / MathUtility.clamp(mc.player.getPitch(), 42.0F, 90.0F)) - 102.0F));
-         context.getMatrices().translate(-middleW, -middleH, 0.0F);
-         this.smoothYaw = AnimationUtility.fast(this.smoothYaw, mc.player.getYaw(), 13.0F);
+         context.pose().pushPose();
+         context.pose().translate(middleW, middleH, 0.0F);
+         context.pose()
+            .mulPose(Axis.XP.rotationDegrees(90.0F / Math.abs(90.0F / MathUtility.clamp(mc.player.getXRot(), 42.0F, 90.0F)) - 102.0F));
+         context.pose().translate(-middleW, -middleH, 0.0F);
+         this.smoothYaw = AnimationUtility.fast(this.smoothYaw, mc.player.getYRot(), 13.0F);
 
-         for (PlayerEntity e : Lists.newArrayList(mc.world.getPlayers())) {
+         for (Player e : Lists.newArrayList(mc.level.players())) {
             if (e != mc.player && (!ModuleManager.antiBot.isEnabled() || ModuleManager.antiBot.mode.getValue() != AntiBot.Mode.Matrix || !AntiBot.isBot(e))) {
-               context.getMatrices().push();
+               context.pose().pushPose();
                float yaw = this.getRotations(e) - this.smoothYaw;
-               context.getMatrices().translate(middleW, middleH, 0.0F);
-               context.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(yaw));
-               context.getMatrices().translate(-middleW, -middleH, 0.0F);
+               context.pose().translate(middleW, middleH, 0.0F);
+               context.pose().mulPose(Axis.ZP.rotationDegrees(yaw));
+               context.pose().translate(-middleW, -middleH, 0.0F);
                if (Managers.FRIEND.isFriend(e)) {
                   color = FRIEND_COLOR.getRGB();
                } else {
                   color = TRACER_COLOR.getRGB();
                }
 
-               Render2DEngine.drawTracerPointer(context.getMatrices(), middleW, middleH - 80.0F, 6.0F, 0.0F, 3.63F, true, false, color);
-               context.getMatrices().translate(middleW, middleH, 0.0F);
-               context.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-yaw));
-               context.getMatrices().translate(-middleW, -middleH, 0.0F);
-               context.getMatrices().pop();
+               Render2DEngine.drawTracerPointer(context.pose(), middleW, middleH - 80.0F, 6.0F, 0.0F, 3.63F, true, false, color);
+               context.pose().translate(middleW, middleH, 0.0F);
+               context.pose().mulPose(Axis.ZP.rotationDegrees(-yaw));
+               context.pose().translate(-middleW, -middleH, 0.0F);
+               context.pose().popPose();
             }
          }
 
-         context.getMatrices().pop();
+         context.pose().popPose();
       }
    }
 
-   private float getRotations(PlayerEntity entity) {
+   private float getRotations(Player entity) {
       if (mc.player == null) {
          return 0.0F;
       }
 
-      double x = this.interp(entity.getPos().x, entity.prevX) - this.interp(mc.player.getPos().x, mc.player.prevX);
-      double z = this.interp(entity.getPos().z, entity.prevZ) - this.interp(mc.player.getPos().z, mc.player.prevZ);
+      double x = this.interp(entity.position().x, entity.xo) - this.interp(mc.player.position().x, mc.player.xo);
+      double z = this.interp(entity.position().z, entity.zo) - this.interp(mc.player.position().z, mc.player.zo);
       return (float)(-(Math.atan2(x, z) * (180.0 / Math.PI)));
    }
 

@@ -4,8 +4,8 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.command.CommandSource;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import vcore.features.cmd.Command;
 
@@ -17,7 +17,7 @@ public class StaffCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(literal("reset").executes(context -> {
          staffNames.clear();
          sendMessage("staff list got reset.");
@@ -26,13 +26,13 @@ public class StaffCommand extends Command {
       builder.then(literal("add").then(arg("name", StringArgumentType.word()).executes(context -> {
          String name = (String)context.getArgument("name", String.class);
          staffNames.add(name);
-         sendMessage(Formatting.GREEN + name + " added to staff list");
+         sendMessage(ChatFormatting.GREEN + name + " added to staff list");
          return 1;
       })));
       builder.then(literal("del").then(arg("name", StringArgumentType.word()).executes(context -> {
          String name = (String)context.getArgument("name", String.class);
          staffNames.remove(name);
-         sendMessage(Formatting.GREEN + name + " removed from staff list");
+         sendMessage(ChatFormatting.GREEN + name + " removed from staff list");
          return 1;
       })));
       builder.executes(context -> {

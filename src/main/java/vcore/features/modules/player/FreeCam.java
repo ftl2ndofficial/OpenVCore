@@ -1,8 +1,8 @@
 package vcore.features.modules.player;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.entity.LivingEntity;
 import vcore.events.impl.EventAttack;
 import vcore.events.impl.EventKeyboardInput;
 import vcore.events.impl.EventMouse;
@@ -39,10 +39,10 @@ public class FreeCam extends Module {
 
    @Override
    public void onEnable() {
-      mc.chunkCullingEnabled = false;
+      mc.smartCull = false;
       this.trackEntity = null;
-      this.fakePitch = mc.player.getPitch();
-      this.fakeYaw = mc.player.getYaw();
+      this.fakePitch = mc.player.getXRot();
+      this.fakeYaw = mc.player.getYRot();
       this.prevFakePitch = this.fakePitch;
       this.prevFakeYaw = this.fakeYaw;
       this.fakeX = mc.player.getX();
@@ -63,7 +63,7 @@ public class FreeCam extends Module {
    @Override
    public void onDisable() {
       if (!fullNullCheck()) {
-         mc.chunkCullingEnabled = true;
+         mc.smartCull = true;
       }
    }
 
@@ -76,8 +76,8 @@ public class FreeCam extends Module {
       }
 
       if (this.trackEntity != null) {
-         this.fakeYaw = this.trackEntity.getYaw();
-         this.fakePitch = this.trackEntity.getPitch();
+         this.fakeYaw = this.trackEntity.getYRot();
+         this.fakePitch = this.trackEntity.getXRot();
          this.prevFakeX = this.fakeX;
          this.prevFakeY = this.fakeY;
          this.prevFakeZ = this.fakeZ;
@@ -85,8 +85,8 @@ public class FreeCam extends Module {
          this.fakeY = this.trackEntity.getY() + this.trackEntity.getEyeHeight(this.trackEntity.getPose());
          this.fakeZ = this.trackEntity.getZ();
       } else {
-         this.fakeYaw = mc.player.getYaw();
-         this.fakePitch = mc.player.getPitch();
+         this.fakeYaw = mc.player.getYRot();
+         this.fakePitch = mc.player.getXRot();
       }
    }
 
@@ -100,19 +100,19 @@ public class FreeCam extends Module {
             this.prevFakeZ = this.fakeZ;
             this.fakeX = this.fakeX + motion[0];
             this.fakeZ = this.fakeZ + motion[1];
-            if (mc.options.jumpKey.isPressed()) {
+            if (mc.options.keyJump.isDown()) {
                this.fakeY = this.fakeY + this.hspeed.getValue().floatValue();
             }
 
-            if (mc.options.sneakKey.isPressed()) {
+            if (mc.options.keyShift.isDown()) {
                this.fakeY = this.fakeY - this.hspeed.getValue().floatValue();
             }
          }
 
-         mc.player.input.movementForward = 0.0F;
-         mc.player.input.movementSideways = 0.0F;
+         mc.player.input.forwardImpulse = 0.0F;
+         mc.player.input.leftImpulse = 0.0F;
          mc.player.input.jumping = false;
-         mc.player.input.sneaking = false;
+         mc.player.input.shiftKeyDown = false;
       }
    }
 
@@ -128,7 +128,7 @@ public class FreeCam extends Module {
 
    @EventHandler
    public void onPacketSend(PacketEvent.Send e) {
-      if (this.freeze.getValue() && e.getPacket() instanceof PlayerMoveC2SPacket) {
+      if (this.freeze.getValue() && e.getPacket() instanceof ServerboundMovePlayerPacket) {
          e.cancel();
       }
    }

@@ -1,6 +1,6 @@
 package vcore.utility.player;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import vcore.features.modules.Module;
 
@@ -17,7 +17,7 @@ public record SearchInvResult(int slot, boolean found, ItemStack stack) {
    }
 
    public boolean isHolding() {
-      return Module.mc.player == null ? false : Module.mc.player.getInventory().selectedSlot == this.slot;
+      return Module.mc.player == null ? false : Module.mc.player.getInventory().selected == this.slot;
    }
 
    public boolean isInHotBar() {

@@ -9,8 +9,8 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.command.CommandSource;
-import net.minecraft.text.Text;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 import vcore.core.Managers;
 import vcore.core.manager.client.MacroManager;
 
@@ -24,14 +24,14 @@ public class MacroArgumentType implements ArgumentType<MacroManager.Macro> {
    public MacroManager.Macro parse(StringReader reader) throws CommandSyntaxException {
       MacroManager.Macro macro = Managers.MACRO.getMacroByName(reader.readString());
       if (macro == null) {
-         throw new DynamicCommandExceptionType(name -> Text.literal("Macro with name " + name + " does not exists(")).create(reader.readString());
+         throw new DynamicCommandExceptionType(name -> Component.literal("Macro with name " + name + " does not exists(")).create(reader.readString());
       } else {
          return macro;
       }
    }
 
    public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-      return CommandSource.suggestMatching(Managers.MACRO.getMacros().stream().map(MacroManager.Macro::getName), builder);
+      return SharedSuggestionProvider.suggest(Managers.MACRO.getMacros().stream().map(MacroManager.Macro::getName), builder);
    }
 
    public Collection<String> getExamples() {

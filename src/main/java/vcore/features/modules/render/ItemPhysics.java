@@ -1,21 +1,21 @@
 package vcore.features.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.model.BakedModel;
-import net.minecraft.client.render.model.BakedQuad;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 import vcore.features.modules.Module;
 
 public class ItemPhysics extends Module {
@@ -34,40 +34,40 @@ public class ItemPhysics extends Module {
    }
 
    public void onRenderItemEntity(
-      ItemEntity entity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, List<BakedQuad> quads
+      ItemEntity entity, PoseStack matrices, MultiBufferSource vertexConsumers, int light, float tickDelta, List<BakedQuad> quads
    ) {
       if (quads != null) {
          ItemPhysics.ModelInfo info = this.getInfo(quads);
-         matrices.push();
+         matrices.pushPose();
          this.offsetInFluidOrBlock(matrices, entity, info);
          boolean isFlat = info.flat;
          boolean isBlock = !isFlat;
-         MinecraftClient mc = MinecraftClient.getInstance();
-         ItemStack stack = entity.getStack();
-         BakedModel model = mc.getItemRenderer().getModel(stack, mc.world, null, entity.getId());
+         Minecraft mc = Minecraft.getInstance();
+         ItemStack stack = entity.getItem();
+         BakedModel model = mc.getItemRenderer().getModel(stack, mc.level, null, entity.getId());
          ItemPhysics.RotationPair rotation = this.getRotationPair(entity, tickDelta, isBlock);
          double centerOffsetX = (entity.getBoundingBox().maxX + entity.getBoundingBox().minX) / 2.0 - entity.getX();
          double centerOffsetY = (entity.getBoundingBox().maxY + entity.getBoundingBox().minY) / 2.0 - entity.getY();
          double centerOffsetZ = (entity.getBoundingBox().maxZ + entity.getBoundingBox().minZ) / 2.0 - entity.getZ();
          matrices.translate(centerOffsetX, centerOffsetY, centerOffsetZ);
-         if (entity.isOnGround() && !entity.isTouchingWater() && !entity.isInLava()) {
+         if (entity.onGround() && !entity.isInWater() && !entity.isInLava()) {
             if (isFlat) {
-               matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90.0F));
-               float groundYaw = groundYawMap.getOrDefault(entity.getUuid(), 0.0F);
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(groundYaw));
+               matrices.mulPose(Axis.XP.rotationDegrees(90.0F));
+               float groundYaw = groundYawMap.getOrDefault(entity.getUUID(), 0.0F);
+               matrices.mulPose(Axis.ZP.rotationDegrees(groundYaw));
             } else {
-               matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(0.0F));
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(0.0F));
+               matrices.mulPose(Axis.XP.rotationDegrees(0.0F));
+               matrices.mulPose(Axis.YP.rotationDegrees(0.0F));
             }
          } else if (isFlat) {
-            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90.0F));
-            if (!entity.isTouchingWater() && !entity.isInLava()) {
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rotation.rotZ));
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation.rotY));
+            matrices.mulPose(Axis.XP.rotationDegrees(90.0F));
+            if (!entity.isInWater() && !entity.isInLava()) {
+               matrices.mulPose(Axis.ZP.rotationDegrees(rotation.rotZ));
+               matrices.mulPose(Axis.YP.rotationDegrees(rotation.rotY));
             }
          } else {
-            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(rotation.rotX));
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation.rotY));
+            matrices.mulPose(Axis.XP.rotationDegrees(rotation.rotX));
+            matrices.mulPose(Axis.YP.rotationDegrees(rotation.rotY));
          }
 
          matrices.translate(-centerOffsetX, -centerOffsetY, -centerOffsetZ);
@@ -75,30 +75,30 @@ public class ItemPhysics extends Module {
          int renderedAmount = count > 48 ? 5 : (count > 32 ? 4 : (count > 16 ? 3 : (count > 1 ? 2 : 1)));
 
          for (int j = 0; j < renderedAmount; j++) {
-            matrices.push();
-            this.random.setSeed(entity.getUuid().getMostSignificantBits() + j);
-            if ((entity.isOnGround() && !entity.isTouchingWater() && !entity.isInLava() || entity.isTouchingWater() || entity.isInLava()) && j > 0) {
+            matrices.pushPose();
+            this.random.setSeed(entity.getUUID().getMostSignificantBits() + j);
+            if ((entity.onGround() && !entity.isInWater() && !entity.isInLava() || entity.isInWater() || entity.isInLava()) && j > 0) {
                float x = (this.random.nextFloat() * 2.0F - 1.0F) * 0.015F;
                float z = (this.random.nextFloat() * 2.0F - 1.0F) * 0.015F;
                float y = j * 0.015F;
                matrices.translate(x, y, z);
             }
 
-            mc.getItemRenderer().renderItem(stack, ModelTransformationMode.GROUND, false, matrices, vertexConsumers, light, OverlayTexture.DEFAULT_UV, model);
-            matrices.pop();
+            mc.getItemRenderer().render(stack, ItemDisplayContext.GROUND, false, matrices, vertexConsumers, light, OverlayTexture.NO_OVERLAY, model);
+            matrices.popPose();
          }
 
-         matrices.pop();
+         matrices.popPose();
       }
    }
 
    private ItemPhysics.RotationPair getRotationPair(ItemEntity entity, float tickDelta, boolean isBlock) {
-      UUID id = entity.getUuid();
+      UUID id = entity.getUUID();
       float rotY = rotationMapY.getOrDefault(id, 0.0F);
       float rotX = rotationMapX.getOrDefault(id, 0.0F);
       float rotZ = rotY;
-      boolean inWater = entity.isTouchingWater() || entity.isInLava();
-      boolean onGround = entity.isOnGround();
+      boolean inWater = entity.isInWater() || entity.isInLava();
+      boolean onGround = entity.onGround();
       if (!inWater && onGround) {
          groundYawMap.computeIfAbsent(id, uuid -> {
             Random r = new Random(uuid.getMostSignificantBits() ^ uuid.getLeastSignificantBits());
@@ -132,12 +132,12 @@ public class ItemPhysics extends Module {
       return tickDelta * 3.0F * 0.5F;
    }
 
-   private void offsetInFluidOrBlock(MatrixStack matrices, ItemEntity entity, ItemPhysics.ModelInfo info) {
-      if (entity.isTouchingWater()) {
+   private void offsetInFluidOrBlock(PoseStack matrices, ItemEntity entity, ItemPhysics.ModelInfo info) {
+      if (entity.isInWater()) {
          if (!info.flat) {
             matrices.translate(0.0F, 0.025F, 0.0F);
          }
-      } else if (info.flat && !entity.isOnGround()) {
+      } else if (info.flat && !entity.onGround()) {
          matrices.translate(0.0F, info.offsetY, 0.0F);
       }
    }
@@ -152,10 +152,10 @@ public class ItemPhysics extends Module {
 
       for (BakedQuad _quad : quads) {
          for (int i = 0; i < 4; i++) {
-            Direction face = _quad.getFace();
-            float vx = Float.intBitsToFloat(_quad.getVertexData()[i * 8]);
-            float vy = Float.intBitsToFloat(_quad.getVertexData()[i * 8 + 1]);
-            float vz = Float.intBitsToFloat(_quad.getVertexData()[i * 8 + 2]);
+            Direction face = _quad.getDirection();
+            float vx = Float.intBitsToFloat(_quad.getVertices()[i * 8]);
+            float vy = Float.intBitsToFloat(_quad.getVertices()[i * 8 + 1]);
+            float vz = Float.intBitsToFloat(_quad.getVertices()[i * 8 + 2]);
             switch (face) {
                case DOWN:
                   minY = Math.min(minY, vy);

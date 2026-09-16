@@ -6,36 +6,35 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ChargedProjectilesComponent;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.ArrowEntity;
-import net.minecraft.item.ArrowItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ArrowItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ChargedProjectiles;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import vcore.core.InputBlocker;
@@ -113,7 +112,7 @@ public class AutoCart extends Module {
    }
 
    private void runOnClientThreadAndWait(Runnable action) {
-      if (mc.isOnThread()) {
+      if (mc.isSameThread()) {
          action.run();
       } else {
          CountDownLatch latch = new CountDownLatch(1);
@@ -176,8 +175,8 @@ public class AutoCart extends Module {
    public void onSync(EventSync e) {
       if (!fullNullCheck()) {
          if (this.rotating && this.silentRotation != null) {
-            mc.player.setYaw(this.silentRotation[0]);
-            mc.player.setPitch(this.silentRotation[1]);
+            mc.player.setYRot(this.silentRotation[0]);
+            mc.player.setXRot(this.silentRotation[1]);
          }
       }
    }
@@ -194,22 +193,22 @@ public class AutoCart extends Module {
    public void onKeyboardInput(EventKeyboardInput event) {
       float[] rotation = this.getAutoCartMoveFixRotation();
       if (rotation != null) {
-         float moveForward = mc.player.input.movementForward;
-         float moveSideways = mc.player.input.movementSideways;
-         float delta = (mc.player.getYaw() - rotation[0]) * (float) (Math.PI / 180.0);
-         float cos = MathHelper.cos(delta);
-         float sin = MathHelper.sin(delta);
-         mc.player.input.movementSideways = Math.round(moveSideways * cos - moveForward * sin);
-         mc.player.input.movementForward = Math.round(moveForward * cos + moveSideways * sin);
+         float moveForward = mc.player.input.forwardImpulse;
+         float moveSideways = mc.player.input.leftImpulse;
+         float delta = (mc.player.getYRot() - rotation[0]) * (float) (Math.PI / 180.0);
+         float cos = Mth.cos(delta);
+         float sin = Mth.sin(delta);
+         mc.player.input.leftImpulse = Math.round(moveSideways * cos - moveForward * sin);
+         mc.player.input.forwardImpulse = Math.round(moveForward * cos + moveSideways * sin);
       }
    }
 
    @EventHandler
    public void onPacketSendPost(PacketEvent.@NotNull SendPost event) {
       if (!fullNullCheck() && this.mode.is(AutoCart.Mode.Bow)) {
-         if (event.getPacket() instanceof PlayerActionC2SPacket action
+         if (event.getPacket() instanceof ServerboundPlayerActionPacket action
             && action.getAction() == Action.RELEASE_USE_ITEM
-            && mc.player.getMainHandStack().getItem() == Items.BOW) {
+            && mc.player.getMainHandItem().getItem() == Items.BOW) {
             this.executeBowMode();
          }
       }
@@ -218,7 +217,7 @@ public class AutoCart extends Module {
    @EventHandler(priority = 200)
    public void onPacketReceive(PacketEvent.@NotNull Receive event) {
       if (!fullNullCheck() && this.mode.is(AutoCart.Mode.CrossBow) && this.cartAura.getValue()) {
-         if (event.getPacket() instanceof EntityStatusS2CPacket packet && packet.getStatus() == 35 && packet.getEntity(mc.world) instanceof PlayerEntity player
+         if (event.getPacket() instanceof ClientboundEntityEventPacket packet && packet.getEventId() == 35 && packet.getEntity(mc.level) instanceof Player player
             )
           {
             this.handleCartAuraPop(player);
@@ -247,8 +246,8 @@ public class AutoCart extends Module {
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
-      if (!fullNullCheck() && this.mode.is(AutoCart.Mode.CrossBow) && !mc.options.hudHidden) {
+   public void onRender2D(GuiGraphics context) {
+      if (!fullNullCheck() && this.mode.is(AutoCart.Mode.CrossBow) && !mc.options.hideGui) {
          if (this.hasCrossbowDebugBaseRequirements()) {
             this.renderCrossbowDebug(context);
          }
@@ -258,9 +257,9 @@ public class AutoCart extends Module {
    private void handleRefill() {
       if (this.reFill.is(AutoCart.ReFillMode.None)) {
          this.clearRefillState();
-      } else if (!this.scheduledRefillSwap && mc.currentScreen == null && mc.player.currentScreenHandler == mc.player.playerScreenHandler) {
+      } else if (!this.scheduledRefillSwap && mc.screen == null && mc.player.containerMenu == mc.player.inventoryMenu) {
          int targetHotbarSlot = this.refillSlot.getValue() - 1;
-         if (mc.player.getInventory().getStack(targetHotbarSlot).getItem() != Items.TNT_MINECART) {
+         if (mc.player.getInventory().getItem(targetHotbarSlot).getItem() != Items.TNT_MINECART) {
             SearchInvResult cartResult = InventoryUtility.findItemInInventory(Items.TNT_MINECART);
             if (cartResult.found()) {
                if (this.reFill.is(AutoCart.ReFillMode.Legit)) {
@@ -305,9 +304,9 @@ public class AutoCart extends Module {
 
    private void performRefillSwap(int inventorySlot, int hotbarSlot) {
       if (inventorySlot != -1 && hotbarSlot >= 0 && hotbarSlot <= 8) {
-         if (mc.currentScreen == null && mc.player.currentScreenHandler == mc.player.playerScreenHandler) {
-            if (mc.player.getInventory().getStack(hotbarSlot).getItem() != Items.TNT_MINECART) {
-               clickSlot(inventorySlot, hotbarSlot, SlotActionType.SWAP);
+         if (mc.screen == null && mc.player.containerMenu == mc.player.inventoryMenu) {
+            if (mc.player.getInventory().getItem(hotbarSlot).getItem() != Items.TNT_MINECART) {
+               clickSlot(inventorySlot, hotbarSlot, ClickType.SWAP);
             }
          }
       }
@@ -326,7 +325,7 @@ public class AutoCart extends Module {
       this.handleCartAuraPop(event.getEntity());
    }
 
-   private void handleCartAuraPop(PlayerEntity popTarget) {
+   private void handleCartAuraPop(Player popTarget) {
       if (!fullNullCheck()) {
          if (this.mode.is(AutoCart.Mode.CrossBow) && this.cartAura.getValue() && !this.cartAuraExecuting) {
             if (popTarget != null && popTarget != mc.player) {
@@ -334,7 +333,7 @@ public class AutoCart extends Module {
                boolean isAuraTarget = this.cartAuraTarget.getValue() && this.isRememberedAuraTarget(popTarget);
                boolean isOtherPlayer = false;
                if (this.cartOtherPlayer.getValue()) {
-                  isOtherPlayer = !Managers.FRIEND.isFriend(popTarget) && mc.player.getPos().distanceTo(popTarget.getPos()) <= 6.0;
+                  isOtherPlayer = !Managers.FRIEND.isFriend(popTarget) && mc.player.position().distanceTo(popTarget.position()) <= 6.0;
                }
 
                if (isAuraTarget || isOtherPlayer) {
@@ -357,7 +356,7 @@ public class AutoCart extends Module {
       }
    }
 
-   private void executeCartAura(PlayerEntity target) {
+   private void executeCartAura(Player target) {
       this.cartAuraExecuting = true;
       int delayMs = this.delay.getValue();
       int startDelayMs = this.cartAuraDelay.getValue() * 50;
@@ -379,7 +378,7 @@ public class AutoCart extends Module {
 
                AutoCart.CartAuraPlan createdPlan = this.createCartAuraPlan(target);
                if (mc.player != null) {
-                  prevSlotRef[0] = mc.player.getInventory().selectedSlot;
+                  prevSlotRef[0] = mc.player.getInventory().selected;
                }
 
                return createdPlan;
@@ -388,12 +387,12 @@ public class AutoCart extends Module {
                BlockPos basePos = plan.basePos();
                int prevSlot = prevSlotRef[0];
                ModuleManager.aura.externalPause = true;
-               Vec3d placeVec = new Vec3d(basePos.getX() + 0.5, basePos.up().getY(), basePos.getZ() + 0.5);
+               Vec3 placeVec = new Vec3(basePos.getX() + 0.5, basePos.above().getY(), basePos.getZ() + 0.5);
                this.runOnClientThreadAndWait(() -> this.applyRotation(InteractionUtility.calculateAngle(placeVec)));
                AsyncManager.sleep(delayMs);
                if (!plan.railExists()) {
                   this.runOnClientThreadAndWait(() -> {
-                     if (!this.isRailBlock(mc.world.getBlockState(basePos.up()).getBlock())) {
+                     if (!this.isRailBlock(mc.level.getBlockState(basePos.above()).getBlock())) {
                         this.selectHotbarLegit(plan.railResult().slot());
                         this.placeRailOn(basePos);
                      }
@@ -410,7 +409,7 @@ public class AutoCart extends Module {
                   BlockPos firePos = this.findFirePosition(basePos);
                   if (firePos != null) {
                      this.runOnClientThreadAndWait(() -> {
-                        Vec3d fireVec = new Vec3d(firePos.getX() + 0.5, firePos.getY() + 1.0, firePos.getZ() + 0.5);
+                        Vec3 fireVec = new Vec3(firePos.getX() + 0.5, firePos.getY() + 1.0, firePos.getZ() + 0.5);
                         this.applyRotation(InteractionUtility.calculateAngle(fireVec));
                         this.selectHotbarLegit(plan.flintResult().slot());
                         BlockHitResult fireHit = new BlockHitResult(fireVec, Direction.UP, firePos, false);
@@ -421,12 +420,12 @@ public class AutoCart extends Module {
                }
 
                this.runOnClientThreadAndWait(() -> {
-                  Vec3d minecartCenter = new Vec3d(basePos.getX() + 0.5, basePos.getY() + 1.5, basePos.getZ() + 0.5);
+                  Vec3 minecartCenter = new Vec3(basePos.getX() + 0.5, basePos.getY() + 1.5, basePos.getZ() + 0.5);
                   float[] shootAngle = InteractionUtility.calculateAngle(minecartCenter);
                   this.applyRotation(shootAngle);
                   this.selectHotbarLegit(plan.crossbowResult().slot());
                   this.interactWithItem();
-                  mc.player.swingHand(Hand.MAIN_HAND);
+                  mc.player.swing(InteractionHand.MAIN_HAND);
                });
                AsyncManager.sleep(delayMs);
                this.runOnClientThreadAndWait(() -> {
@@ -447,15 +446,15 @@ public class AutoCart extends Module {
 
    private void updateCartAuraTargetMemory() {
       if (this.isCartAuraEnabled() && this.cartAuraTarget.getValue()) {
-         if (Aura.target instanceof PlayerEntity player && player != mc.player && !player.isRemoved()) {
-            this.lastAuraTargetUuid = player.getUuid();
+         if (Aura.target instanceof Player player && player != mc.player && !player.isRemoved()) {
+            this.lastAuraTargetUuid = player.getUUID();
             this.lastAuraTargetId = player.getId();
             this.lastAuraTargetAt = System.currentTimeMillis();
          }
       }
    }
 
-   private boolean isRememberedAuraTarget(PlayerEntity player) {
+   private boolean isRememberedAuraTarget(Player player) {
       if (player == null) {
          return false;
       } else if (this.isSameAuraTarget(Aura.target, player)) {
@@ -464,15 +463,15 @@ public class AutoCart extends Module {
          return true;
       } else {
          return this.lastAuraTargetUuid != null && System.currentTimeMillis() - this.lastAuraTargetAt <= 1000L
-            ? player.getUuid().equals(this.lastAuraTargetUuid) || player.getId() == this.lastAuraTargetId
+            ? player.getUUID().equals(this.lastAuraTargetUuid) || player.getId() == this.lastAuraTargetId
             : false;
       }
    }
 
-   private boolean isSameAuraTarget(Entity auraTarget, PlayerEntity player) {
-      return !(auraTarget instanceof PlayerEntity auraPlayer)
+   private boolean isSameAuraTarget(Entity auraTarget, Player player) {
+      return !(auraTarget instanceof Player auraPlayer)
          ? false
-         : auraPlayer == player || auraPlayer.getId() == player.getId() || auraPlayer.getUuid().equals(player.getUuid());
+         : auraPlayer == player || auraPlayer.getId() == player.getId() || auraPlayer.getUUID().equals(player.getUUID());
    }
 
    private void executeBowMode() {
@@ -480,12 +479,12 @@ public class AutoCart extends Module {
          SearchInvResult bowResult = InventoryUtility.findItemInHotBar(Items.BOW);
          SearchInvResult cartResult = InventoryUtility.findItemInHotBar(Items.TNT_MINECART);
          if (bowResult.found() && cartResult.found()) {
-            BlockPos targetPos = this.calcBowTrajectory(mc.player.getYaw());
+            BlockPos targetPos = this.calcBowTrajectory(mc.player.getYRot());
             if (targetPos != null) {
                BlockPos basePos = this.getCartBasePos(targetPos);
-               boolean railExists = this.isRailBlock(mc.world.getBlockState(basePos.up()).getBlock());
+               boolean railExists = this.isRailBlock(mc.level.getBlockState(basePos.above()).getBlock());
                if (railExists || this.findRailInHotBar().found()) {
-                  float distSq = PlayerUtility.squaredDistanceFromEyes(basePos.up().toCenterPos());
+                  float distSq = PlayerUtility.squaredDistanceFromEyes(basePos.above().getCenter());
                   float maxDistSq = this.maxDistance.getValue() * this.maxDistance.getValue();
                   float safeDistSq = 4.0F;
                   if (!(distSq > maxDistSq) && !(distSq < safeDistSq)) {
@@ -500,19 +499,19 @@ public class AutoCart extends Module {
    private void executeBowPlacement(@NotNull BlockPos targetPos) {
       if (!fullNullCheck() && this.mode.is(AutoCart.Mode.Bow)) {
          BlockPos basePos = this.getCartBasePos(targetPos);
-         boolean railExists = this.isRailBlock(mc.world.getBlockState(basePos.up()).getBlock());
+         boolean railExists = this.isRailBlock(mc.level.getBlockState(basePos.above()).getBlock());
          SearchInvResult railResult = this.findRailInHotBar();
          SearchInvResult cartResult = InventoryUtility.findItemInHotBar(Items.TNT_MINECART);
          if (cartResult.found()) {
             if (railExists || railResult.found()) {
-               int prevSlot = mc.player.getInventory().selectedSlot;
+               int prevSlot = mc.player.getInventory().selected;
                int delayMs = this.delay.getValue();
-               Vec3d placeVec = new Vec3d(basePos.getX() + 0.5, basePos.up().getY(), basePos.getZ() + 0.5);
-               mc.executeSync(() -> this.applyRotation(InteractionUtility.calculateAngle(placeVec)));
+               Vec3 placeVec = new Vec3(basePos.getX() + 0.5, basePos.above().getY(), basePos.getZ() + 0.5);
+               mc.executeIfPossible(() -> this.applyRotation(InteractionUtility.calculateAngle(placeVec)));
                AsyncManager.sleep(delayMs);
                if (!railExists) {
-                  mc.executeSync(() -> {
-                     if (!this.isRailBlock(mc.world.getBlockState(basePos.up()).getBlock())) {
+                  mc.executeIfPossible(() -> {
+                     if (!this.isRailBlock(mc.level.getBlockState(basePos.above()).getBlock())) {
                         this.selectHotbarLegit(railResult.slot());
                         this.placeRailOn(basePos);
                      }
@@ -520,12 +519,12 @@ public class AutoCart extends Module {
                   AsyncManager.sleep(delayMs);
                }
 
-               mc.executeSync(() -> {
+               mc.executeIfPossible(() -> {
                   this.selectHotbarLegit(cartResult.slot());
                   this.placeMinecartOn(basePos);
                });
                AsyncManager.sleep(delayMs);
-               mc.executeSync(() -> {
+               mc.executeIfPossible(() -> {
                   if (this.swapBack.getValue()) {
                      this.selectHotbarLegit(prevSlot);
                   }
@@ -539,15 +538,15 @@ public class AutoCart extends Module {
 
    @NotNull
    private BlockPos getCartBasePos(@NotNull BlockPos targetPos) {
-      BlockState targetState = mc.world.getBlockState(targetPos);
-      return !this.isRailBlock(targetState.getBlock()) && !targetState.isReplaceable() ? targetPos : targetPos.down();
+      BlockState targetState = mc.level.getBlockState(targetPos);
+      return !this.isRailBlock(targetState.getBlock()) && !targetState.canBeReplaced() ? targetPos : targetPos.below();
    }
 
    private boolean hasBasicCartAuraResources() {
       SearchInvResult crossbowResult = this.findLoadedCrossbowInHotBar();
       SearchInvResult cartResult = InventoryUtility.findItemInHotBar(Items.TNT_MINECART);
       if (crossbowResult.found() && cartResult.found()) {
-         boolean hasFlame = this.hasFlameEnchant(mc.player.getInventory().getStack(crossbowResult.slot()));
+         boolean hasFlame = this.hasFlameEnchant(mc.player.getInventory().getItem(crossbowResult.slot()));
          return hasFlame || InventoryUtility.findItemInHotBar(Items.FLINT_AND_STEEL).found();
       } else {
          return false;
@@ -555,7 +554,7 @@ public class AutoCart extends Module {
    }
 
    @Nullable
-   private AutoCart.CartAuraPlan createCartAuraPlan(PlayerEntity target) {
+   private AutoCart.CartAuraPlan createCartAuraPlan(Player target) {
       if (!this.isValidCartAuraTarget(target)) {
          return null;
       }
@@ -568,13 +567,13 @@ public class AutoCart extends Module {
       SearchInvResult crossbowResult = this.findLoadedCrossbowInHotBar();
       SearchInvResult cartResult = InventoryUtility.findItemInHotBar(Items.TNT_MINECART);
       if (crossbowResult.found() && cartResult.found()) {
-         boolean hasFlame = this.hasFlameEnchant(mc.player.getInventory().getStack(crossbowResult.slot()));
+         boolean hasFlame = this.hasFlameEnchant(mc.player.getInventory().getItem(crossbowResult.slot()));
          SearchInvResult flintResult = InventoryUtility.findItemInHotBar(Items.FLINT_AND_STEEL);
          if (!hasFlame && !flintResult.found()) {
             return null;
          }
 
-         boolean railExists = this.isRailBlock(mc.world.getBlockState(basePos.up()).getBlock());
+         boolean railExists = this.isRailBlock(mc.level.getBlockState(basePos.above()).getBlock());
          SearchInvResult railResult = this.findRailInHotBar();
          return !railExists && !railResult.found()
             ? null
@@ -584,12 +583,12 @@ public class AutoCart extends Module {
       }
    }
 
-   private boolean isValidCartAuraTarget(PlayerEntity target) {
+   private boolean isValidCartAuraTarget(Player target) {
       return target != null && target != mc.player && !target.isRemoved();
    }
 
-   private boolean isHoldingTotem(PlayerEntity player) {
-      return player.getMainHandStack().getItem() == Items.TOTEM_OF_UNDYING || player.getOffHandStack().getItem() == Items.TOTEM_OF_UNDYING;
+   private boolean isHoldingTotem(Player player) {
+      return player.getMainHandItem().getItem() == Items.TOTEM_OF_UNDYING || player.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
    }
 
    private void executeCrossBowMode() {
@@ -598,16 +597,16 @@ public class AutoCart extends Module {
          SearchInvResult railResult = this.findRailInHotBar();
          SearchInvResult cartResult = InventoryUtility.findItemInHotBar(Items.TNT_MINECART);
          if (crossbowResult.found() && railResult.found() && cartResult.found()) {
-            boolean hasFlame = this.hasFlameEnchant(mc.player.getInventory().getStack(crossbowResult.slot()));
+            boolean hasFlame = this.hasFlameEnchant(mc.player.getInventory().getItem(crossbowResult.slot()));
             SearchInvResult flintResult = InventoryUtility.findItemInHotBar(Items.FLINT_AND_STEEL);
             if (hasFlame || flintResult.found()) {
                BlockHitResult rayResult = this.rayTraceFromEyes(4.5);
                if (rayResult != null && rayResult.getType() == Type.BLOCK) {
                   BlockPos hitPos = rayResult.getBlockPos();
-                  if (!(PlayerUtility.squaredDistanceFromEyes(hitPos.toCenterPos()) > 20.25F)) {
+                  if (!(PlayerUtility.squaredDistanceFromEyes(hitPos.getCenter()) > 20.25F)) {
                      BlockPos basePos;
-                     if (mc.world.getBlockState(hitPos).isReplaceable()) {
-                        basePos = hitPos.down();
+                     if (mc.level.getBlockState(hitPos).canBeReplaced()) {
+                        basePos = hitPos.below();
                      } else {
                         basePos = hitPos;
                      }
@@ -621,27 +620,27 @@ public class AutoCart extends Module {
                      }
 
                      BlockPos finalFireBlockPos = fireBlockPos;
-                     int prevSlot = mc.player.getInventory().selectedSlot;
+                     int prevSlot = mc.player.getInventory().selected;
                      int delayMs = this.delay.getValue();
                      Managers.ASYNC.run(() -> {
-                        Vec3d placeVec = new Vec3d(basePos.getX() + 0.5, basePos.up().getY(), basePos.getZ() + 0.5);
-                        mc.executeSync(() -> this.applyRotation(InteractionUtility.calculateAngle(placeVec)));
+                        Vec3 placeVec = new Vec3(basePos.getX() + 0.5, basePos.above().getY(), basePos.getZ() + 0.5);
+                        mc.executeIfPossible(() -> this.applyRotation(InteractionUtility.calculateAngle(placeVec)));
                         AsyncManager.sleep(delayMs);
-                        mc.executeSync(() -> {
-                           if (!this.isRailBlock(mc.world.getBlockState(basePos.up()).getBlock())) {
+                        mc.executeIfPossible(() -> {
+                           if (!this.isRailBlock(mc.level.getBlockState(basePos.above()).getBlock())) {
                               this.selectHotbarLegit(railResult.slot());
                               this.placeRailOn(basePos);
                            }
                         });
                         AsyncManager.sleep(delayMs);
-                        mc.executeSync(() -> {
+                        mc.executeIfPossible(() -> {
                            this.selectHotbarLegit(cartResult.slot());
                            this.placeMinecartOn(basePos);
                         });
                         AsyncManager.sleep(delayMs);
                         if (!hasFlame && finalFireBlockPos != null) {
-                           mc.executeSync(() -> {
-                              Vec3d fireVec = new Vec3d(finalFireBlockPos.getX() + 0.5, finalFireBlockPos.getY() + 1.0, finalFireBlockPos.getZ() + 0.5);
+                           mc.executeIfPossible(() -> {
+                              Vec3 fireVec = new Vec3(finalFireBlockPos.getX() + 0.5, finalFireBlockPos.getY() + 1.0, finalFireBlockPos.getZ() + 0.5);
                               this.applyRotation(InteractionUtility.calculateAngle(fireVec));
                               this.selectHotbarLegit(flintResult.slot());
                               BlockHitResult fireHit = new BlockHitResult(fireVec, Direction.UP, finalFireBlockPos, false);
@@ -650,16 +649,16 @@ public class AutoCart extends Module {
                            AsyncManager.sleep(delayMs);
                         }
 
-                        mc.executeSync(() -> {
-                           Vec3d minecartCenter = new Vec3d(basePos.getX() + 0.5, basePos.getY() + 1.5, basePos.getZ() + 0.5);
+                        mc.executeIfPossible(() -> {
+                           Vec3 minecartCenter = new Vec3(basePos.getX() + 0.5, basePos.getY() + 1.5, basePos.getZ() + 0.5);
                            float[] shootAngle = InteractionUtility.calculateAngle(minecartCenter);
                            this.applyRotation(shootAngle);
                            this.selectHotbarLegit(crossbowResult.slot());
                            this.interactWithItem();
-                           mc.player.swingHand(Hand.MAIN_HAND);
+                           mc.player.swing(InteractionHand.MAIN_HAND);
                         });
                         AsyncManager.sleep(delayMs);
-                        mc.executeSync(() -> {
+                        mc.executeIfPossible(() -> {
                            if (this.swapBack.getValue()) {
                               this.selectHotbarLegit(prevSlot);
                            }
@@ -676,8 +675,8 @@ public class AutoCart extends Module {
 
    private void applyRotation(float[] angle) {
       if (this.changeLook.getValue()) {
-         mc.player.setYaw(angle[0]);
-         mc.player.setPitch(angle[1]);
+         mc.player.setYRot(angle[0]);
+         mc.player.setXRot(angle[1]);
       } else {
          this.silentRotation = angle;
          this.rotating = true;
@@ -696,41 +695,41 @@ public class AutoCart extends Module {
    @Nullable
    private float[] getAutoCartMoveFixRotation() {
       float[] rotation = this.silentRotation;
-      return this.isOn() && !fullNullCheck() && !this.changeLook.getValue() && this.rotating && rotation != null && !mc.player.isRiding() ? rotation : null;
+      return this.isOn() && !fullNullCheck() && !this.changeLook.getValue() && this.rotating && rotation != null && !mc.player.isHandsBusy() ? rotation : null;
    }
 
-   private Vec3d fixMovement(float yaw, Vec3d movementInput, float speed) {
-      double lengthSquared = movementInput.lengthSquared();
+   private Vec3 fixMovement(float yaw, Vec3 movementInput, float speed) {
+      double lengthSquared = movementInput.lengthSqr();
       if (lengthSquared < 1.0E-7) {
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       }
 
-      Vec3d movement = (lengthSquared > 1.0 ? movementInput.normalize() : movementInput).multiply(speed);
-      float sin = MathHelper.sin(yaw * (float) (Math.PI / 180.0));
-      float cos = MathHelper.cos(yaw * (float) (Math.PI / 180.0));
-      return new Vec3d(movement.x * cos - movement.z * sin, movement.y, movement.z * cos + movement.x * sin);
+      Vec3 movement = (lengthSquared > 1.0 ? movementInput.normalize() : movementInput).scale(speed);
+      float sin = Mth.sin(yaw * (float) (Math.PI / 180.0));
+      float cos = Mth.cos(yaw * (float) (Math.PI / 180.0));
+      return new Vec3(movement.x * cos - movement.z * sin, movement.y, movement.z * cos + movement.x * sin);
    }
 
    private void selectHotbarLegit(int slot) {
-      if (mc.player != null && mc.interactionManager != null && slot >= 0 && slot <= 8) {
-         mc.player.getInventory().selectedSlot = slot;
-         ((IInteractionManager)mc.interactionManager).syncSlot();
+      if (mc.player != null && mc.gameMode != null && slot >= 0 && slot <= 8) {
+         mc.player.getInventory().selected = slot;
+         ((IInteractionManager)mc.gameMode).syncSlot();
       }
    }
 
    private void runWithInteractionRotation(@Nullable float[] angle, Runnable action) {
       if (mc.player != null) {
          if (!this.changeLook.getValue() && angle != null) {
-            float prevYaw = mc.player.getYaw();
-            float prevPitch = mc.player.getPitch();
-            mc.player.setYaw(angle[0]);
-            mc.player.setPitch(angle[1]);
+            float prevYaw = mc.player.getYRot();
+            float prevPitch = mc.player.getXRot();
+            mc.player.setYRot(angle[0]);
+            mc.player.setXRot(angle[1]);
 
             try {
                action.run();
             } finally {
-               mc.player.setYaw(prevYaw);
-               mc.player.setPitch(prevPitch);
+               mc.player.setYRot(prevYaw);
+               mc.player.setXRot(prevPitch);
             }
          } else {
             action.run();
@@ -739,44 +738,44 @@ public class AutoCart extends Module {
    }
 
    private void interactWithItem() {
-      if (mc.player != null && mc.interactionManager != null) {
-         this.runWithInteractionRotation(this.silentRotation, () -> mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND));
+      if (mc.player != null && mc.gameMode != null) {
+         this.runWithInteractionRotation(this.silentRotation, () -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
       }
    }
 
    private void placeRailOn(BlockPos basePos) {
-      if (mc.world != null && mc.player != null && mc.interactionManager != null) {
-         BlockHitResult hitResult = new BlockHitResult(new Vec3d(basePos.getX() + 0.5, basePos.up().getY(), basePos.getZ() + 0.5), Direction.UP, basePos, false);
+      if (mc.level != null && mc.player != null && mc.gameMode != null) {
+         BlockHitResult hitResult = new BlockHitResult(new Vec3(basePos.getX() + 0.5, basePos.above().getY(), basePos.getZ() + 0.5), Direction.UP, basePos, false);
          this.interactWithBlock(hitResult);
       }
    }
 
    private void placeMinecartOn(BlockPos basePos) {
-      if (mc.world != null && mc.player != null && mc.interactionManager != null) {
+      if (mc.level != null && mc.player != null && mc.gameMode != null) {
          BlockHitResult hitResult = new BlockHitResult(
-            new Vec3d(basePos.getX() + 0.5, basePos.up().getY() + 0.125, basePos.getZ() + 0.5), Direction.UP, basePos.up(), false
+            new Vec3(basePos.getX() + 0.5, basePos.above().getY() + 0.125, basePos.getZ() + 0.5), Direction.UP, basePos.above(), false
          );
          this.interactWithBlock(hitResult);
       }
    }
 
    private void interactWithBlock(BlockHitResult hitResult) {
-      this.runWithInteractionRotation(this.silentRotation, () -> mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hitResult));
-      mc.player.swingHand(Hand.MAIN_HAND);
+      this.runWithInteractionRotation(this.silentRotation, () -> mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hitResult));
+      mc.player.swing(InteractionHand.MAIN_HAND);
    }
 
    @Nullable
    private BlockPos calcBowTrajectory(float yaw) {
-      if (mc.player != null && mc.world != null) {
-         double x = Render2DEngine.interpolate(mc.player.prevX, mc.player.getX(), Render3DEngine.getTickDelta());
-         double y = Render2DEngine.interpolate(mc.player.prevY, mc.player.getY(), Render3DEngine.getTickDelta());
-         double z = Render2DEngine.interpolate(mc.player.prevZ, mc.player.getZ(), Render3DEngine.getTickDelta());
+      if (mc.player != null && mc.level != null) {
+         double x = Render2DEngine.interpolate(mc.player.xo, mc.player.getX(), Render3DEngine.getTickDelta());
+         double y = Render2DEngine.interpolate(mc.player.yo, mc.player.getY(), Render3DEngine.getTickDelta());
+         double z = Render2DEngine.interpolate(mc.player.zo, mc.player.getZ(), Render3DEngine.getTickDelta());
          y += mc.player.getEyeHeight(mc.player.getPose()) - 0.1000000014901161;
-         float pitch = mc.player.getPitch();
-         double motionX = -MathHelper.sin(yaw / 180.0F * (float) Math.PI) * MathHelper.cos(pitch / 180.0F * (float) Math.PI);
-         double motionY = -MathHelper.sin(pitch / 180.0F * (float) Math.PI);
-         double motionZ = MathHelper.cos(yaw / 180.0F * (float) Math.PI) * MathHelper.cos(pitch / 180.0F * (float) Math.PI);
-         float power = mc.player.getItemUseTime() / 20.0F;
+         float pitch = mc.player.getXRot();
+         double motionX = -Mth.sin(yaw / 180.0F * (float) Math.PI) * Mth.cos(pitch / 180.0F * (float) Math.PI);
+         double motionY = -Mth.sin(pitch / 180.0F * (float) Math.PI);
+         double motionZ = Mth.cos(yaw / 180.0F * (float) Math.PI) * Mth.cos(pitch / 180.0F * (float) Math.PI);
+         float power = mc.player.getTicksUsingItem() / 20.0F;
          power = (power * power + power * 2.0F) / 3.0F;
          if (power > 1.0F) {
             power = 1.0F;
@@ -786,7 +785,7 @@ public class AutoCart extends Module {
             return null;
          }
 
-         float dist = MathHelper.sqrt((float)(motionX * motionX + motionY * motionY + motionZ * motionZ));
+         float dist = Mth.sqrt((float)(motionX * motionX + motionY * motionY + motionZ * motionZ));
          motionX /= dist;
          motionY /= dist;
          motionZ /= dist;
@@ -794,12 +793,12 @@ public class AutoCart extends Module {
          motionX *= pow;
          motionY *= pow;
          motionZ *= pow;
-         if (!mc.player.isOnGround()) {
-            motionY += mc.player.getVelocity().getY();
+         if (!mc.player.onGround()) {
+            motionY += mc.player.getDeltaMovement().y();
          }
 
          for (int i = 0; i < 300; i++) {
-            Vec3d lastPos = new Vec3d(x, y, z);
+            Vec3 lastPos = new Vec3(x, y, z);
             x += motionX;
             y += motionY;
             z += motionZ;
@@ -808,16 +807,16 @@ public class AutoCart extends Module {
             motionZ *= 0.99;
             motionY -= 0.05F;
 
-            for (Entity ent : mc.world.getEntities()) {
-               if (!(ent instanceof ArrowEntity)
+            for (Entity ent : mc.level.entitiesForRendering()) {
+               if (!(ent instanceof Arrow)
                   && !ent.equals(mc.player)
-                  && ent.getBoundingBox().intersects(new Box(x - 0.3, y - 0.3, z - 0.3, x + 0.3, y + 0.3, z + 0.3))) {
+                  && ent.getBoundingBox().intersects(new AABB(x - 0.3, y - 0.3, z - 0.3, x + 0.3, y + 0.3, z + 0.3))) {
                   return null;
                }
             }
 
-            Vec3d pos = new Vec3d(x, y, z);
-            BlockHitResult bhr = mc.world.raycast(new RaycastContext(lastPos, pos, ShapeType.OUTLINE, FluidHandling.NONE, mc.player));
+            Vec3 pos = new Vec3(x, y, z);
+            BlockHitResult bhr = mc.level.clip(new ClipContext(lastPos, pos, Block.OUTLINE, Fluid.NONE, mc.player));
             if (bhr != null && bhr.getType() == Type.BLOCK) {
                return bhr.getBlockPos();
             }
@@ -835,11 +834,11 @@ public class AutoCart extends Module {
 
    @Nullable
    private BlockPos findCartAuraPosition(Entity target) {
-      if (mc.player != null && mc.world != null) {
-         Vec3d playerEyes = InteractionUtility.getEyesPos(mc.player);
-         Box targetBox = target.getBoundingBox();
-         Vec3d targetFeet = new Vec3d(target.getX(), targetBox.minY, target.getZ());
-         BlockPos targetBlockPos = target.getBlockPos();
+      if (mc.player != null && mc.level != null) {
+         Vec3 playerEyes = InteractionUtility.getEyesPos(mc.player);
+         AABB targetBox = target.getBoundingBox();
+         Vec3 targetFeet = new Vec3(target.getX(), targetBox.minY, target.getZ());
+         BlockPos targetBlockPos = target.blockPosition();
          int r = 4;
          BlockPos bestPos = null;
          double bestDist = Double.MAX_VALUE;
@@ -848,20 +847,20 @@ public class AutoCart extends Module {
             for (int z = targetBlockPos.getZ() - r; z <= targetBlockPos.getZ() + r; z++) {
                for (int y = targetBlockPos.getY() - r; y <= targetBlockPos.getY(); y++) {
                   BlockPos bp = new BlockPos(x, y, z);
-                  if (mc.world.getBlockState(bp).isSolid() && !(bp.getY() + 1 > targetBox.minY)) {
-                     BlockState aboveState = mc.world.getBlockState(bp.up());
-                     if (aboveState.isReplaceable() || this.isRailBlock(aboveState.getBlock())) {
-                        Vec3d surfacePos = new Vec3d(bp.getX() + 0.5, bp.getY() + 1.0, bp.getZ() + 0.5);
+                  if (mc.level.getBlockState(bp).isSolid() && !(bp.getY() + 1 > targetBox.minY)) {
+                     BlockState aboveState = mc.level.getBlockState(bp.above());
+                     if (aboveState.canBeReplaced() || this.isRailBlock(aboveState.getBlock())) {
+                        Vec3 surfacePos = new Vec3(bp.getX() + 0.5, bp.getY() + 1.0, bp.getZ() + 0.5);
                         if (!(PlayerUtility.squaredDistanceFromEyes(surfacePos) > 20.25F)) {
-                           BlockHitResult blockCheck = mc.world
-                              .raycast(new RaycastContext(playerEyes, surfacePos, ShapeType.COLLIDER, FluidHandling.NONE, mc.player));
+                           BlockHitResult blockCheck = mc.level
+                              .clip(new ClipContext(playerEyes, surfacePos, Block.COLLIDER, Fluid.NONE, mc.player));
                            if ((blockCheck == null || blockCheck.getType() != Type.BLOCK || blockCheck.getBlockPos().equals(bp))
                               && this.isPathClearOfPlayers(playerEyes, surfacePos, target)) {
-                              Vec3d cartCenter = new Vec3d(bp.getX() + 0.5, bp.getY() + 1.5, bp.getZ() + 0.5);
-                              BlockHitResult damageCheck = mc.world
-                                 .raycast(new RaycastContext(cartCenter, targetFeet, ShapeType.COLLIDER, FluidHandling.NONE, mc.player));
+                              Vec3 cartCenter = new Vec3(bp.getX() + 0.5, bp.getY() + 1.5, bp.getZ() + 0.5);
+                              BlockHitResult damageCheck = mc.level
+                                 .clip(new ClipContext(cartCenter, targetFeet, Block.COLLIDER, Fluid.NONE, mc.player));
                               if (damageCheck == null || damageCheck.getType() != Type.BLOCK) {
-                                 double distToTarget = cartCenter.squaredDistanceTo(targetFeet);
+                                 double distToTarget = cartCenter.distanceToSqr(targetFeet);
                                  if (distToTarget < bestDist) {
                                     bestDist = distToTarget;
                                     bestPos = bp;
@@ -881,13 +880,13 @@ public class AutoCart extends Module {
       }
    }
 
-   private boolean isPathClearOfPlayers(Vec3d from, Vec3d to, Entity exclude) {
-      if (mc.world == null) {
+   private boolean isPathClearOfPlayers(Vec3 from, Vec3 to, Entity exclude) {
+      if (mc.level == null) {
          return true;
       }
 
-      for (PlayerEntity player : mc.world.getPlayers()) {
-         if (player != mc.player && player != exclude && player.getBoundingBox().raycast(from, to).isPresent()) {
+      for (Player player : mc.level.players()) {
+         if (player != mc.player && player != exclude && player.getBoundingBox().clip(from, to).isPresent()) {
             return false;
          }
       }
@@ -899,16 +898,16 @@ public class AutoCart extends Module {
       return InventoryUtility.findItemInHotBar(Items.RAIL, Items.ACTIVATOR_RAIL, Items.DETECTOR_RAIL, Items.POWERED_RAIL);
    }
 
-   private void renderCrossbowDebug(DrawContext context) {
-      int hotbarLeft = mc.getWindow().getScaledWidth() / 2 - 91;
-      int hotbarTop = mc.getWindow().getScaledHeight() - 22;
+   private void renderCrossbowDebug(GuiGraphics context) {
+      int hotbarLeft = mc.getWindow().getGuiScaledWidth() / 2 - 91;
+      int hotbarTop = mc.getWindow().getGuiScaledHeight() - 22;
 
       for (int slot = 0; slot < 9; slot++) {
-         ItemStack stack = mc.player.getInventory().getStack(slot);
+         ItemStack stack = mc.player.getInventory().getItem(slot);
          if (this.isCrossbowDebugCandidate(stack)) {
             float slotX = hotbarLeft + slot * 20 + 1;
             float slotY = hotbarTop + 1;
-            Render2DEngine.drawRect(context.getMatrices(), slotX, slotY, 20.0F, 20.0F, CROSSBOW_DEBUG_FILL);
+            Render2DEngine.drawRect(context.pose(), slotX, slotY, 20.0F, 20.0F, CROSSBOW_DEBUG_FILL);
          }
       }
    }
@@ -920,7 +919,7 @@ public class AutoCart extends Module {
          }
 
          for (int slot = 0; slot < 9; slot++) {
-            if (this.isCrossbowDebugCandidate(mc.player.getInventory().getStack(slot))) {
+            if (this.isCrossbowDebugCandidate(mc.player.getInventory().getItem(slot))) {
                return true;
             }
          }
@@ -936,13 +935,13 @@ public class AutoCart extends Module {
    }
 
    private boolean hasArrowAmmoInInventory() {
-      for (ItemStack stack : mc.player.getInventory().main) {
+      for (ItemStack stack : mc.player.getInventory().items) {
          if (this.isArrowStack(stack)) {
             return true;
          }
       }
 
-      for (ItemStack stack : mc.player.getInventory().offHand) {
+      for (ItemStack stack : mc.player.getInventory().offhand) {
          if (this.isArrowStack(stack)) {
             return true;
          }
@@ -961,34 +960,34 @@ public class AutoCart extends Module {
 
    private boolean isCrossbowCharged(ItemStack stack) {
       return stack.getItem() == Items.CROSSBOW
-         && stack.get(DataComponentTypes.CHARGED_PROJECTILES) != null
-         && !((ChargedProjectilesComponent)stack.get(DataComponentTypes.CHARGED_PROJECTILES)).isEmpty();
+         && stack.get(DataComponents.CHARGED_PROJECTILES) != null
+         && !((ChargedProjectiles)stack.get(DataComponents.CHARGED_PROJECTILES)).isEmpty();
    }
 
    private SearchInvResult findLoadedCrossbowInHotBar() {
       return InventoryUtility.findInHotBar(this::isCrossbowCharged);
    }
 
-   private boolean isRailBlock(Block block) {
+   private boolean isRailBlock(net.minecraft.world.level.block.Block block) {
       return block == Blocks.RAIL || block == Blocks.POWERED_RAIL || block == Blocks.DETECTOR_RAIL || block == Blocks.ACTIVATOR_RAIL;
    }
 
    private boolean hasFlameEnchant(ItemStack stack) {
-      return mc.world == null
+      return mc.level == null
          ? false
-         : EnchantmentHelper.getLevel(
-               (RegistryEntry)mc.world.getRegistryManager().get(Enchantments.FLAME.getRegistryRef()).getEntry(Enchantments.FLAME).get(), stack
+         : EnchantmentHelper.getItemEnchantmentLevel(
+               (Holder)mc.level.registryAccess().registryOrThrow(Enchantments.FLAME.registryKey()).getHolder(Enchantments.FLAME).get(), stack
             )
             > 0;
    }
 
    @Nullable
    private BlockHitResult rayTraceFromEyes(double maxRange) {
-      if (mc.player != null && mc.world != null) {
-         Vec3d eyePos = mc.player.getEyePos();
-         Vec3d lookVec = mc.player.getRotationVec(1.0F);
-         Vec3d endPos = eyePos.add(lookVec.multiply(maxRange));
-         return mc.world.raycast(new RaycastContext(eyePos, endPos, ShapeType.OUTLINE, FluidHandling.NONE, mc.player));
+      if (mc.player != null && mc.level != null) {
+         Vec3 eyePos = mc.player.getEyePosition();
+         Vec3 lookVec = mc.player.getViewVector(1.0F);
+         Vec3 endPos = eyePos.add(lookVec.scale(maxRange));
+         return mc.level.clip(new ClipContext(eyePos, endPos, Block.OUTLINE, Fluid.NONE, mc.player));
       } else {
          return null;
       }
@@ -996,24 +995,24 @@ public class AutoCart extends Module {
 
    @Nullable
    private BlockPos findFirePosition(BlockPos targetPos) {
-      if (mc.player != null && mc.world != null) {
-         Vec3d eyePos = mc.player.getEyePos();
-         Vec3d minecartPos = new Vec3d(targetPos.getX() + 0.5, targetPos.getY() + 1.5, targetPos.getZ() + 0.5);
-         Vec3d dir = minecartPos.subtract(eyePos).normalize();
+      if (mc.player != null && mc.level != null) {
+         Vec3 eyePos = mc.player.getEyePosition();
+         Vec3 minecartPos = new Vec3(targetPos.getX() + 0.5, targetPos.getY() + 1.5, targetPos.getZ() + 0.5);
+         Vec3 dir = minecartPos.subtract(eyePos).normalize();
          Direction[] horizontals = new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST};
          BlockPos bestPos = null;
          double bestScore = Double.MAX_VALUE;
 
          for (Direction d : horizontals) {
-            BlockPos candidate = targetPos.offset(d);
-            if (mc.world.getBlockState(candidate).isSolid() && mc.world.isAir(candidate.up())) {
-               Vec3d fireCenter = new Vec3d(candidate.getX() + 0.5, candidate.getY() + 1.0, candidate.getZ() + 0.5);
-               Vec3d eyeToFire = fireCenter.subtract(eyePos);
-               double t = eyeToFire.dotProduct(dir);
+            BlockPos candidate = targetPos.relative(d);
+            if (mc.level.getBlockState(candidate).isSolid() && mc.level.isEmptyBlock(candidate.above())) {
+               Vec3 fireCenter = new Vec3(candidate.getX() + 0.5, candidate.getY() + 1.0, candidate.getZ() + 0.5);
+               Vec3 eyeToFire = fireCenter.subtract(eyePos);
+               double t = eyeToFire.dot(dir);
                if (!(t <= 0.0)) {
-                  double eyeToMinecart = minecartPos.subtract(eyePos).dotProduct(dir);
+                  double eyeToMinecart = minecartPos.subtract(eyePos).dot(dir);
                   if (!(t >= eyeToMinecart)) {
-                     Vec3d closest = eyePos.add(dir.multiply(t));
+                     Vec3 closest = eyePos.add(dir.scale(t));
                      double distToLine = closest.distanceTo(fireCenter);
                      if (distToLine < bestScore) {
                         bestScore = distToLine;
@@ -1026,8 +1025,8 @@ public class AutoCart extends Module {
 
          if (bestPos == null) {
             for (Direction d : horizontals) {
-               BlockPos adj = targetPos.offset(d);
-               if (mc.world.getBlockState(adj).isSolid() && mc.world.isAir(adj.up())) {
+               BlockPos adj = targetPos.relative(d);
+               if (mc.level.getBlockState(adj).isSolid() && mc.level.isEmptyBlock(adj.above())) {
                   return adj;
                }
             }

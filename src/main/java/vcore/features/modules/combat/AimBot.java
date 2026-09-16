@@ -1,19 +1,19 @@
 package vcore.features.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BowItem;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
@@ -65,16 +65,16 @@ public final class AimBot extends Module {
    @EventHandler
    public void onPlayerUpdate(PlayerUpdateEvent event) {
       if (this.mode.getValue() == AimBot.Mode.BowAim) {
-         if (!(mc.player.getActiveItem().getItem() instanceof BowItem)) {
+         if (!(mc.player.getUseItem().getItem() instanceof BowItem)) {
             return;
          }
 
-         PlayerEntity nearestTarget = Managers.COMBAT.getTargetByFOV(128.0F);
+         Player nearestTarget = Managers.COMBAT.getTargetByFOV(128.0F);
          if (nearestTarget == null) {
             return;
          }
 
-         float currentDuration = (mc.player.getActiveItem().getMaxUseTime(mc.player) - mc.player.getItemUseTime()) / 20.0F;
+         float currentDuration = (mc.player.getUseItem().getUseDuration(mc.player) - mc.player.getTicksUsingItem()) / 20.0F;
          currentDuration = (currentDuration * currentDuration + currentDuration * 2.0F) / 3.0F;
          if (currentDuration >= 1.0F) {
             currentDuration = 1.0F;
@@ -85,9 +85,9 @@ public final class AimBot extends Module {
             return;
          }
 
-         PlayerEntity predictedEntity = PredictUtility.predictPlayer(nearestTarget, this.predictTicks.getValue());
-         double iX = predictedEntity.getX() - predictedEntity.prevX;
-         double iZ = predictedEntity.getZ() - predictedEntity.prevZ;
+         Player predictedEntity = PredictUtility.predictPlayer(nearestTarget, this.predictTicks.getValue());
+         double iX = predictedEntity.getX() - predictedEntity.xo;
+         double iZ = predictedEntity.getZ() - predictedEntity.zo;
          double distance = mc.player.distanceTo(predictedEntity);
          distance -= distance % 2.0;
          iX = distance / 2.0 * iX * (mc.player.isSprinting() ? 1.3 : 1.1);
@@ -98,7 +98,7 @@ public final class AimBot extends Module {
       } else if (this.mode.getValue() == AimBot.Mode.CSAim) {
          this.calcThread();
       } else {
-         if (mc.crosshairTarget.getType() == Type.ENTITY) {
+         if (mc.hitResult.getType() == Type.ENTITY) {
             this.aimTicks++;
          } else {
             this.aimTicks = 0;
@@ -109,10 +109,10 @@ public final class AimBot extends Module {
             return;
          }
 
-         PlayerEntity nearestTarget = Managers.COMBAT.getNearestTarget(5.0F);
+         Player nearestTarget = Managers.COMBAT.getNearestTarget(5.0F);
          this.assistAcceleration = this.assistAcceleration + this.aimStrength.getValue().intValue() / 10000.0F;
          if (nearestTarget != null) {
-            if (!mc.player.canSee(nearestTarget) && !this.ignoreWalls.getValue()) {
+            if (!mc.player.hasLineOfSight(nearestTarget) && !this.ignoreWalls.getValue()) {
                this.visibleTime.reset();
             }
 
@@ -122,12 +122,12 @@ public final class AimBot extends Module {
             }
 
             if (Float.isNaN(this.rotationYaw)) {
-               this.rotationYaw = mc.player.getYaw();
+               this.rotationYaw = mc.player.getYRot();
             }
 
-            float delta_yaw = MathHelper.wrapDegrees(
-               (float)MathHelper.wrapDegrees(
-                     Math.toDegrees(Math.atan2(nearestTarget.getEyePos().z - mc.player.getZ(), nearestTarget.getEyePos().x - mc.player.getX())) - 90.0
+            float delta_yaw = Mth.wrapDegrees(
+               (float)Mth.wrapDegrees(
+                     Math.toDegrees(Math.atan2(nearestTarget.getEyePosition().z - mc.player.getZ(), nearestTarget.getEyePosition().x - mc.player.getX())) - 90.0
                   )
                   - this.rotationYaw
             );
@@ -135,9 +135,9 @@ public final class AimBot extends Module {
                delta_yaw -= 180.0F;
             }
 
-            float deltaYaw = MathHelper.clamp(MathHelper.abs(delta_yaw), -this.aimSmooth.getValue(), this.aimSmooth.getValue().intValue());
+            float deltaYaw = Mth.clamp(Mth.abs(delta_yaw), -this.aimSmooth.getValue(), this.aimSmooth.getValue().intValue());
             float newYaw = this.rotationYaw + (delta_yaw > 0.0F ? deltaYaw : -deltaYaw);
-            double gcdFix = Math.pow((Double)mc.options.getMouseSensitivity().getValue() * 0.6 + 0.2, 3.0) * 1.2;
+            double gcdFix = Math.pow((Double)mc.options.sensitivity().get() * 0.6 + 0.2, 3.0) * 1.2;
             this.rotationYaw = (float)(newYaw - (newYaw - this.rotationYaw) % gcdFix);
          } else {
             this.rotationYaw = Float.NaN;
@@ -153,22 +153,22 @@ public final class AimBot extends Module {
    public void onSync(EventSync event) {
       if (!this.mode.is(AimBot.Mode.AimAssist)) {
          if (this.mode.is(AimBot.Mode.CSAim)) {
-            if (this.target != null && (mc.player.canSee(this.target) || this.ignoreWalls.getValue())) {
-               if (mc.player.age % this.delay.getValue() == 0) {
+            if (this.target != null && (mc.player.hasLineOfSight(this.target) || this.ignoreWalls.getValue())) {
+               if (mc.player.tickCount % this.delay.getValue() == 0) {
                   event.addPostAction(
-                     () -> this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, mc.player.getYaw(), mc.player.getPitch()))
+                     () -> this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, mc.player.getYRot(), mc.player.getXRot()))
                   );
                }
             } else {
-               this.rotationYaw = mc.player.getYaw();
-               this.rotationPitch = mc.player.getPitch();
+               this.rotationYaw = mc.player.getYRot();
+               this.rotationPitch = mc.player.getXRot();
             }
          }
 
-         if ((this.target != null || this.mode.getValue() == AimBot.Mode.BowAim && mc.player.getActiveItem().getItem() instanceof BowItem)
+         if ((this.target != null || this.mode.getValue() == AimBot.Mode.BowAim && mc.player.getUseItem().getItem() instanceof BowItem)
             && this.rotation.getValue() == AimBot.Rotation.Silent) {
-            mc.player.setYaw(this.rotationYaw);
-            mc.player.setPitch(this.rotationPitch);
+            mc.player.setYRot(this.rotationYaw);
+            mc.player.setXRot(this.rotationPitch);
          }
       }
    }
@@ -176,37 +176,37 @@ public final class AimBot extends Module {
    @Override
    public void onEnable() {
       this.target = null;
-      this.rotationYaw = mc.player.getYaw();
-      this.rotationPitch = mc.player.getPitch();
+      this.rotationYaw = mc.player.getYRot();
+      this.rotationPitch = mc.player.getXRot();
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       if (this.mode.getValue() == AimBot.Mode.AimAssist) {
          if (!Float.isNaN(this.rotationYaw)) {
-            mc.player.setYaw((float)Render2DEngine.interpolate(mc.player.getYaw(), this.rotationYaw, this.assistAcceleration));
+            mc.player.setYRot((float)Render2DEngine.interpolate(mc.player.getYRot(), this.rotationYaw, this.assistAcceleration));
          }
       } else {
-         if (this.target != null && (mc.player.canSee(this.target) || this.ignoreWalls.getValue())) {
+         if (this.target != null && (mc.player.hasLineOfSight(this.target) || this.ignoreWalls.getValue())) {
             if (this.rotation.getValue() == AimBot.Rotation.Client) {
-               mc.player.setYaw((float)Render2DEngine.interpolate(mc.player.prevYaw, this.rotationYaw, Render3DEngine.getTickDelta()));
-               mc.player.setPitch((float)Render2DEngine.interpolate(mc.player.prevPitch, this.rotationPitch, Render3DEngine.getTickDelta()));
+               mc.player.setYRot((float)Render2DEngine.interpolate(mc.player.yRotO, this.rotationYaw, Render3DEngine.getTickDelta()));
+               mc.player.setXRot((float)Render2DEngine.interpolate(mc.player.xRotO, this.rotationPitch, Render3DEngine.getTickDelta()));
             }
          } else if (this.mode.getValue() == AimBot.Mode.CSAim) {
-            this.rotationYaw = mc.player.getYaw();
-            this.rotationPitch = mc.player.getPitch();
+            this.rotationYaw = mc.player.getYRot();
+            this.rotationPitch = mc.player.getXRot();
          }
 
          if (this.rotation.getValue() == AimBot.Rotation.Client
             && this.mode.getValue() == AimBot.Mode.BowAim
-            && mc.player.getActiveItem().getItem() instanceof BowItem) {
-            mc.player.setYaw((float)Render2DEngine.interpolate(mc.player.prevYaw, this.rotationYaw, Render3DEngine.getTickDelta()));
-            mc.player.setPitch((float)Render2DEngine.interpolate(mc.player.prevPitch, this.rotationPitch, Render3DEngine.getTickDelta()));
+            && mc.player.getUseItem().getItem() instanceof BowItem) {
+            mc.player.setYRot((float)Render2DEngine.interpolate(mc.player.yRotO, this.rotationYaw, Render3DEngine.getTickDelta()));
+            mc.player.setXRot((float)Render2DEngine.interpolate(mc.player.xRotO, this.rotationPitch, Render3DEngine.getTickDelta()));
          }
       }
    }
 
-   private float calculateArc(@NotNull PlayerEntity target, double duration) {
+   private float calculateArc(@NotNull Player target, double duration) {
       double yArc = target.getY() + target.getEyeHeight(target.getPose()) - (mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()));
       double dX = target.getX() - mc.player.getX();
       double dZ = target.getZ() - mc.player.getZ();
@@ -230,16 +230,16 @@ public final class AimBot extends Module {
       } else if (this.skipEntity(this.target)) {
          this.target = null;
       } else {
-         Vec3d targetVec = this.getResolvedPos(this.target).add(0.0, this.part.getValue().getH(), 0.0);
+         Vec3 targetVec = this.getResolvedPos(this.target).add(0.0, this.part.getValue().getH(), 0.0);
          if (targetVec != null) {
-            float delta_yaw = MathHelper.wrapDegrees(
-               (float)MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(targetVec.z - mc.player.getZ(), targetVec.x - mc.player.getX())) - 90.0)
+            float delta_yaw = Mth.wrapDegrees(
+               (float)Mth.wrapDegrees(Math.toDegrees(Math.atan2(targetVec.z - mc.player.getZ(), targetVec.x - mc.player.getX())) - 90.0)
                   - this.rotationYaw
             );
             float delta_pitch = (float)(
                   -Math.toDegrees(
                      Math.atan2(
-                        targetVec.y - (mc.player.getPos().y + mc.player.getEyeHeight(mc.player.getPose())),
+                        targetVec.y - (mc.player.position().y + mc.player.getEyeHeight(mc.player.getPose())),
                         Math.sqrt(Math.pow(targetVec.x - mc.player.getX(), 2.0) + Math.pow(targetVec.z - mc.player.getZ(), 2.0))
                      )
                   )
@@ -249,15 +249,15 @@ public final class AimBot extends Module {
                delta_yaw -= 180.0F;
             }
 
-            float deltaYaw = MathHelper.clamp(MathHelper.abs(delta_yaw), MathUtility.random(-40.0F, -60.0F), MathUtility.random(40.0F, 60.0F));
+            float deltaYaw = Mth.clamp(Mth.abs(delta_yaw), MathUtility.random(-40.0F, -60.0F), MathUtility.random(40.0F, 60.0F));
             float newYaw = this.rotationYaw
                + (delta_yaw > 0.0F ? deltaYaw : -deltaYaw)
                + MathUtility.random(-this.rotYawRandom.getValue(), this.rotYawRandom.getValue());
-            float newPitch = MathHelper.clamp(
-                  this.rotationPitch + MathHelper.clamp(delta_pitch, MathUtility.random(-10.0F, -20.0F), MathUtility.random(10.0F, 20.0F)), -90.0F, 90.0F
+            float newPitch = Mth.clamp(
+                  this.rotationPitch + Mth.clamp(delta_pitch, MathUtility.random(-10.0F, -20.0F), MathUtility.random(10.0F, 20.0F)), -90.0F, 90.0F
                )
                + MathUtility.random(-this.rotPitchRandom.getValue(), this.rotPitchRandom.getValue());
-            double gcdFix = Math.pow((Double)mc.options.getMouseSensitivity().getValue() * 0.6 + 0.2, 3.0) * 8.0 * 0.15F;
+            double gcdFix = Math.pow((Double)mc.options.sensitivity().get() * 0.6 + 0.2, 3.0) * 8.0 * 0.15F;
             this.rotationYaw = (float)(newYaw - (newYaw - this.rotationYaw) % gcdFix);
             this.rotationPitch = (float)(newPitch - (newPitch - this.rotationPitch) % gcdFix);
          }
@@ -267,7 +267,7 @@ public final class AimBot extends Module {
    public void findTarget() {
       List<Entity> first_stage = new CopyOnWriteArrayList<>();
 
-      for (Entity entity : mc.world.getEntities()) {
+      for (Entity entity : mc.level.entitiesForRendering()) {
          if (!this.skipEntity(entity)) {
             first_stage.add(entity);
          }
@@ -278,8 +278,8 @@ public final class AimBot extends Module {
 
       for (Entity ent : first_stage) {
          float temp_fov = Math.abs(
-            (float)MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(ent.getZ() - mc.player.getZ(), ent.getX() - mc.player.getX())) - 90.0)
-               - MathHelper.wrapDegrees(mc.player.getYaw())
+            (float)Mth.wrapDegrees(Math.toDegrees(Math.atan2(ent.getZ() - mc.player.getZ(), ent.getX() - mc.player.getX())) - 90.0)
+               - Mth.wrapDegrees(mc.player.getYRot())
          );
          if (temp_fov < best_fov) {
             best_entity = ent;
@@ -292,7 +292,7 @@ public final class AimBot extends Module {
 
    private boolean skipEntity(Entity entity) {
       if (entity instanceof LivingEntity ent) {
-         if (ent.isDead()) {
+         if (ent.isDeadOrDying()) {
             return true;
          }
 
@@ -300,7 +300,7 @@ public final class AimBot extends Module {
             return true;
          }
 
-         if (entity instanceof ArmorStandEntity) {
+         if (entity instanceof ArmorStand) {
             return true;
          }
 
@@ -308,7 +308,7 @@ public final class AimBot extends Module {
             return true;
          }
 
-         if (entity instanceof PlayerEntity pl) {
+         if (entity instanceof Player pl) {
             if (entity == mc.player) {
                return true;
             } else if (entity.isInvisible() && this.ignoreInvisible.getValue()) {
@@ -318,9 +318,9 @@ public final class AimBot extends Module {
             } else if (Math.abs(this.getYawToEntityNew(entity)) > this.fov.getValue().intValue()) {
                return true;
             } else {
-               return pl.getTeamColorValue() == mc.player.getTeamColorValue() && this.ignoreTeam.getValue() && mc.player.getTeamColorValue() != 16777215
+               return pl.getTeamColor() == mc.player.getTeamColor() && this.ignoreTeam.getValue() && mc.player.getTeamColor() != 16777215
                   ? true
-                  : mc.player.squaredDistanceTo(this.getResolvedPos(entity)) > this.aimRange.getPow2Value();
+                  : mc.player.distanceToSqr(this.getResolvedPos(entity)) > this.aimRange.getPow2Value();
             }
          } else {
             return true;
@@ -331,21 +331,21 @@ public final class AimBot extends Module {
    }
 
    public float getYawToEntityNew(@NotNull Entity entity) {
-      return this.getYawBetween(mc.player.getYaw(), mc.player.getX(), mc.player.getZ(), entity.getX(), entity.getZ());
+      return this.getYawBetween(mc.player.getYRot(), mc.player.getX(), mc.player.getZ(), entity.getX(), entity.getZ());
    }
 
    public float getYawBetween(float yaw, double srcX, double srcZ, double destX, double destZ) {
       double xDist = destX - srcX;
       double zDist = destZ - srcZ;
       float yaw1 = (float)(StrictMath.atan2(zDist, xDist) * 180.0 / Math.PI) - 90.0F;
-      return yaw + MathHelper.wrapDegrees(yaw1 - yaw);
+      return yaw + Mth.wrapDegrees(yaw1 - yaw);
    }
 
-   private Vec3d getResolvedPos(@NotNull Entity pl) {
-      return new Vec3d(
-         pl.getX() + (pl.getX() - pl.prevX) * this.predict.getValue().floatValue(),
+   private Vec3 getResolvedPos(@NotNull Entity pl) {
+      return new Vec3(
+         pl.getX() + (pl.getX() - pl.xo) * this.predict.getValue().floatValue(),
          pl.getY(),
-         pl.getZ() + (pl.getZ() - pl.prevZ) * this.predict.getValue().floatValue()
+         pl.getZ() + (pl.getZ() - pl.zo) * this.predict.getValue().floatValue()
       );
    }
 

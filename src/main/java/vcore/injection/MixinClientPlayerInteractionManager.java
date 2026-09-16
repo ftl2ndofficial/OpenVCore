@@ -1,20 +1,20 @@
 package vcore.injection;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.FenceBlock;
-import net.minecraft.block.FenceGateBlock;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.block.TrapdoorBlock;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FenceBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.phys.BlockHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -29,14 +29,14 @@ import vcore.events.impl.EventClickSlot;
 import vcore.features.modules.Module;
 import vcore.features.modules.player.NoInteract;
 
-@Mixin(ClientPlayerInteractionManager.class)
+@Mixin(MultiPlayerGameMode.class)
 public class MixinClientPlayerInteractionManager {
    @Shadow
-   private int blockBreakingCooldown;
+   private int destroyDelay;
 
-   @Inject(method = "interactBlock", at = @At("HEAD"), cancellable = true)
-   private void interactBlock(ClientPlayerEntity player, Hand hand, BlockHitResult hitResult, CallbackInfoReturnable<ActionResult> cir) {
-      Block bs = Module.mc.world.getBlockState(hitResult.getBlockPos()).getBlock();
+   @Inject(method = "useItemOn", at = @At("HEAD"), cancellable = true)
+   private void interactBlock(LocalPlayer player, InteractionHand hand, BlockHitResult hitResult, CallbackInfoReturnable<InteractionResult> cir) {
+      Block bs = Module.mc.level.getBlockState(hitResult.getBlockPos()).getBlock();
       if (ModuleManager.noInteract.isEnabled()
          && (
             bs == Blocks.CHEST
@@ -53,14 +53,14 @@ public class MixinClientPlayerInteractionManager {
                || bs instanceof ShulkerBoxBlock
                || bs instanceof FenceBlock
                || bs instanceof FenceGateBlock
-               || bs instanceof TrapdoorBlock
+               || bs instanceof TrapDoorBlock
          )
          && (ModuleManager.aura.isEnabled() || !NoInteract.onlyAura.getValue())) {
-         cir.setReturnValue(ActionResult.PASS);
+         cir.setReturnValue(InteractionResult.PASS);
       }
    }
 
-   @Inject(method = "attackBlock", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "startDestroyBlock", at = @At("HEAD"), cancellable = true)
    private void attackBlockHook(BlockPos pos, Direction direction, CallbackInfoReturnable<Boolean> cir) {
       if (!Module.fullNullCheck()) {
          EventAttackBlock event = new EventAttackBlock(pos, direction);
@@ -71,7 +71,7 @@ public class MixinClientPlayerInteractionManager {
       }
    }
 
-   @Inject(method = "breakBlock", at = @At("RETURN"), cancellable = true)
+   @Inject(method = "destroyBlock", at = @At("RETURN"), cancellable = true)
    public void breakBlockHook(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
       if (!Module.fullNullCheck()) {
          EventBreakBlock event = new EventBreakBlock(pos);
@@ -82,8 +82,8 @@ public class MixinClientPlayerInteractionManager {
       }
    }
 
-   @Inject(method = "clickSlot", at = @At("HEAD"), cancellable = true)
-   public void clickSlotHook(int syncId, int slotId, int button, SlotActionType actionType, PlayerEntity player, CallbackInfo ci) {
+   @Inject(method = "handleInventoryMouseClick", at = @At("HEAD"), cancellable = true)
+   public void clickSlotHook(int syncId, int slotId, int button, ClickType actionType, Player player, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          EventClickSlot event = new EventClickSlot(actionType, slotId, button, syncId);
          Vcore.EVENT_BUS.post(event);

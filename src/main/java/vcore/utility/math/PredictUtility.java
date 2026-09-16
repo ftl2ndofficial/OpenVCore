@@ -2,38 +2,38 @@ package vcore.utility.math;
 
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import vcore.features.modules.Module;
 
 public class PredictUtility {
-   public static PlayerEntity movePlayer(PlayerEntity entity, Vec3d newPos) {
+   public static Player movePlayer(Player entity, Vec3 newPos) {
       return entity != null && newPos != null ? equipAndReturn(entity, newPos) : null;
    }
 
-   public static PlayerEntity predictPlayer(PlayerEntity entity, int ticks) {
-      Vec3d posVec = predictPosition(entity, ticks);
+   public static Player predictPlayer(Player entity, int ticks) {
+      Vec3 posVec = predictPosition(entity, ticks);
       return posVec == null ? null : equipAndReturn(entity, posVec);
    }
 
-   public static Vec3d predictPosition(PlayerEntity entity, int ticks) {
+   public static Vec3 predictPosition(Player entity, int ticks) {
       if (entity == null) {
          return null;
       }
 
-      Vec3d posVec = new Vec3d(entity.getX(), entity.getY(), entity.getZ());
-      double motionX = entity.getVelocity().getX();
-      double motionZ = entity.getVelocity().getZ();
+      Vec3 posVec = new Vec3(entity.getX(), entity.getY(), entity.getZ());
+      double motionX = entity.getDeltaMovement().x();
+      double motionZ = entity.getDeltaMovement().z();
 
       for (int i = 0; i < ticks; i++) {
          float hbDeltaX = motionX > 0.0 ? 0.3F : -0.3F;
          float hbDeltaZ = motionZ > 0.0 ? 0.3F : -0.3F;
-         if (!Module.mc.world.isAir(BlockPos.ofFloored(posVec.add(motionX + hbDeltaX, 0.1, motionZ + hbDeltaZ)))
-            || !Module.mc.world.isAir(BlockPos.ofFloored(posVec.add(motionX + hbDeltaX, 1.0, motionZ + hbDeltaZ)))) {
+         if (!Module.mc.level.isEmptyBlock(BlockPos.containing(posVec.add(motionX + hbDeltaX, 0.1, motionZ + hbDeltaZ)))
+            || !Module.mc.level.isEmptyBlock(BlockPos.containing(posVec.add(motionX + hbDeltaX, 1.0, motionZ + hbDeltaZ)))) {
             motionX = 0.0;
             motionZ = 0.0;
          }
@@ -44,16 +44,16 @@ public class PredictUtility {
       return posVec;
    }
 
-   public static Box predictBox(PlayerEntity entity, int ticks) {
-      Vec3d posVec = predictPosition(entity, ticks);
+   public static AABB predictBox(Player entity, int ticks) {
+      Vec3 posVec = predictPosition(entity, ticks);
       return posVec == null ? null : createBox(posVec, entity);
    }
 
-   public static PlayerEntity equipAndReturn(PlayerEntity original, Vec3d posVec) {
-      PlayerEntity copyEntity = new PlayerEntity(
-         Module.mc.world,
-         original.getBlockPos(),
-         original.getYaw(),
+   public static Player equipAndReturn(Player original, Vec3 posVec) {
+      Player copyEntity = new Player(
+         Module.mc.level,
+         original.blockPosition(),
+         original.getYRot(),
          new GameProfile(UUID.fromString("66123666-1234-5432-6666-667563866600"), "PredictEntity339")
       ) {
          public boolean isSpectator() {
@@ -64,21 +64,21 @@ public class PredictUtility {
             return false;
          }
       };
-      copyEntity.setPosition(posVec);
+      copyEntity.setPos(posVec);
       copyEntity.setHealth(original.getHealth());
-      copyEntity.prevX = original.prevX;
-      copyEntity.prevZ = original.prevZ;
-      copyEntity.prevY = original.prevY;
-      copyEntity.getInventory().clone(original.getInventory());
+      copyEntity.xo = original.xo;
+      copyEntity.zo = original.zo;
+      copyEntity.yo = original.yo;
+      copyEntity.getInventory().replaceWith(original.getInventory());
 
-      for (StatusEffectInstance se : original.getStatusEffects()) {
-         copyEntity.addStatusEffect(se);
+      for (MobEffectInstance se : original.getActiveEffects()) {
+         copyEntity.addEffect(se);
       }
 
       return copyEntity;
    }
 
-   public static Box createBox(Vec3d vec, Entity entity) {
-      return entity.getBoundingBox().offset(entity.getPos().relativize(vec));
+   public static AABB createBox(Vec3 vec, Entity entity) {
+      return entity.getBoundingBox().move(entity.position().vectorTo(vec));
    }
 }

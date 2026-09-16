@@ -1,5 +1,6 @@
 package vcore.utility;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,9 +12,8 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Manifest;
 import net.fabricmc.loader.api.metadata.Person;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import vcore.Vcore;
 import vcore.core.manager.client.ConfigManager;
@@ -31,7 +31,7 @@ public final class VcoreUtility {
 
    public static String solveName(String notSolved) {
       AtomicReference<String> mb = new AtomicReference<>("FATAL ERROR");
-      Objects.requireNonNull(Module.mc.getNetworkHandler()).getListedPlayerListEntries().forEach(player -> {
+      Objects.requireNonNull(Module.mc.getConnection()).getListedOnlinePlayers().forEach(player -> {
          if (notSolved.contains(player.getProfile().getName())) {
             mb.set(player.getProfile().getName());
          }
@@ -39,12 +39,12 @@ public final class VcoreUtility {
       return mb.get();
    }
 
-   public static Identifier getCustomImg(String name) throws IOException {
+   public static ResourceLocation getCustomImg(String name) throws IOException {
       return Module.mc
          .getTextureManager()
-         .registerDynamicTexture(
+         .register(
             "vc-" + name + "-" + (int)MathUtility.random(0.0F, 1000.0F),
-            new NativeImageBackedTexture(NativeImage.read(new FileInputStream(ConfigManager.IMAGES_FOLDER + "/" + name + ".png")))
+            new DynamicTexture(NativeImage.read(new FileInputStream(ConfigManager.IMAGES_FOLDER + "/" + name + ".png")))
          );
    }
 

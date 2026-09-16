@@ -9,7 +9,7 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.command.CommandSource;
+import net.minecraft.commands.SharedSuggestionProvider;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
 
@@ -23,7 +23,7 @@ public class SettingArgumentType implements ArgumentType<String> {
    }
 
    public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-      return CommandSource.suggestMatching(getSettings((Module)context.getArgument("module", Module.class)), builder);
+      return SharedSuggestionProvider.suggest(getSettings((Module)context.getArgument("module", Module.class)), builder);
    }
 
    public static List<String> getSettings(Module module) {

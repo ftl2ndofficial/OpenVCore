@@ -1,5 +1,6 @@
 package vcore.features.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import io.netty.buffer.Unpooled;
 import java.awt.Color;
 import java.util.ArrayDeque;
@@ -8,31 +9,30 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityDimensions;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.passive.CatEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.common.ResourcePackStatusC2SPacket;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSignC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.Full;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.PositionAndOnGround;
-import net.minecraft.util.UseAction;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ServerboundResourcePackPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
@@ -58,7 +58,7 @@ public final class Criticals extends Module {
    );
    public static boolean cancelCrit;
    private static final boolean CANCEL_PACKETS = true;
-   private Vec3d freezePos = Vec3d.ZERO;
+   private Vec3 freezePos = Vec3.ZERO;
    private final Deque<Criticals.QueuedPacket> blinkPackets = new ArrayDeque<>();
    private final Object blinkPacketLock = new Object();
    private int nextBlinkDelay = this.getRandomBlinkDelay();
@@ -86,7 +86,7 @@ public final class Criticals extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       if (this.mode.is(Criticals.Mode.Blink) && this.blinkVisual.getValue() && this.hasBlinkPackets() && mc.player != null) {
          this.renderBlinkLine();
          this.renderBlinkEsp(stack);
@@ -95,12 +95,12 @@ public final class Criticals extends Module {
 
    @EventHandler
    public void onPacketSend(PacketEvent.@NotNull Send event) {
-      if (event.getPacket() instanceof PlayerMoveC2SPacket && this.isAirStuckActive()) {
+      if (event.getPacket() instanceof ServerboundMovePlayerPacket && this.isAirStuckActive()) {
          event.cancel();
       } else if (!this.handleBlinkPacket(event)) {
-         if (event.getPacket() instanceof PlayerInteractEntityC2SPacket packet && getInteractType(packet) == Criticals.InteractType.ATTACK) {
+         if (event.getPacket() instanceof ServerboundInteractPacket packet && getInteractType(packet) == Criticals.InteractType.ATTACK) {
             Entity ent = getEntity(packet);
-            if (ent == null || ent instanceof EndCrystalEntity || cancelCrit) {
+            if (ent == null || ent instanceof EndCrystal || cancelCrit) {
                return;
             }
 
@@ -121,35 +121,35 @@ public final class Criticals extends Module {
          if (!this.shouldAirStuck()) {
             this.resetAirStuck();
          } else {
-            if (this.freezePos == Vec3d.ZERO) {
-               this.freezePos = mc.player.getPos();
+            if (this.freezePos == Vec3.ZERO) {
+               this.freezePos = mc.player.position();
             }
 
-            ClientPlayerEntity player = mc.player;
+            LocalPlayer player = mc.player;
             if (player == null) {
                this.resetAirStuck();
             } else {
-               player.setVelocity(0.0, 0.0, 0.0);
+               player.setDeltaMovement(0.0, 0.0, 0.0);
                if (player.input != null) {
-                  player.input.movementForward = 0.0F;
-                  player.input.movementSideways = 0.0F;
+                  player.input.forwardImpulse = 0.0F;
+                  player.input.leftImpulse = 0.0F;
                }
 
-               player.setPos(player.getX(), this.freezePos.y, player.getZ());
+               player.setPosRaw(player.getX(), this.freezePos.y, player.getZ());
             }
          }
       }
    }
 
    public void doCrit() {
-      if (!this.isDisabled() && mc.player != null && mc.world != null) {
+      if (!this.isDisabled() && mc.player != null && mc.level != null) {
          if (!this.mode.is(Criticals.Mode.AirStuck) && !this.mode.is(Criticals.Mode.Blink)) {
-            if ((mc.player.isOnGround() || mc.player.getAbilities().flying || this.mode.is(Criticals.Mode.Grim))
+            if ((mc.player.onGround() || mc.player.getAbilities().flying || this.mode.is(Criticals.Mode.Grim))
                && !mc.player.isInLava()
-               && !mc.player.isSubmergedInWater()) {
+               && !mc.player.isUnderWater()) {
                switch ((Criticals.Mode)this.mode.getValue()) {
                   case Grim:
-                     if (!mc.player.isOnGround()) {
+                     if (!mc.player.onGround()) {
                         this.critPacket(-1.0E-6, true);
                      }
                   case AirStuck:
@@ -167,10 +167,10 @@ public final class Criticals extends Module {
 
    private void critPacket(double yDelta, boolean full) {
       if (!full) {
-         this.sendPacket(new PositionAndOnGround(mc.player.getX(), mc.player.getY() + yDelta, mc.player.getZ(), false));
+         this.sendPacket(new Pos(mc.player.getX(), mc.player.getY() + yDelta, mc.player.getZ(), false));
       } else {
          this.sendPacket(
-            new Full(
+            new PosRot(
                mc.player.getX(),
                mc.player.getY() + yDelta,
                mc.player.getZ(),
@@ -182,21 +182,21 @@ public final class Criticals extends Module {
       }
    }
 
-   public static Entity getEntity(@NotNull PlayerInteractEntityC2SPacket packet) {
-      PacketByteBuf packetBuf = new PacketByteBuf(Unpooled.buffer());
+   public static Entity getEntity(@NotNull ServerboundInteractPacket packet) {
+      FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.buffer());
       packet.write(packetBuf);
-      return mc.world.getEntityById(packetBuf.readVarInt());
+      return mc.level.getEntity(packetBuf.readVarInt());
    }
 
-   public static Criticals.InteractType getInteractType(@NotNull PlayerInteractEntityC2SPacket packet) {
-      PacketByteBuf packetBuf = new PacketByteBuf(Unpooled.buffer());
+   public static Criticals.InteractType getInteractType(@NotNull ServerboundInteractPacket packet) {
+      FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.buffer());
       packet.write(packetBuf);
       packetBuf.readVarInt();
-      return (Criticals.InteractType)packetBuf.readEnumConstant(Criticals.InteractType.class);
+      return (Criticals.InteractType)packetBuf.readEnum(Criticals.InteractType.class);
    }
 
    private boolean shouldAirStuck() {
-      if (!this.mode.is(Criticals.Mode.AirStuck) || mc.player == null || mc.world == null) {
+      if (!this.mode.is(Criticals.Mode.AirStuck) || mc.player == null || mc.level == null) {
          return false;
       } else if (!ModuleManager.aura.isEnabled() || Aura.target == null) {
          return false;
@@ -204,7 +204,7 @@ public final class Criticals extends Module {
          return false;
       } else if (mc.player.isFallFlying()) {
          return false;
-      } else if (mc.player.isOnGround()) {
+      } else if (mc.player.onGround()) {
          return false;
       } else {
          return mc.player.fallDistance <= 0.0F ? false : mc.player.distanceTo(Aura.target) <= ModuleManager.aura.attackRange.getValue();
@@ -212,24 +212,24 @@ public final class Criticals extends Module {
    }
 
    private boolean isAirStuckActive() {
-      return this.mode.is(Criticals.Mode.AirStuck) && this.freezePos != Vec3d.ZERO;
+      return this.mode.is(Criticals.Mode.AirStuck) && this.freezePos != Vec3.ZERO;
    }
 
    private void resetAirStuck() {
-      this.freezePos = Vec3d.ZERO;
+      this.freezePos = Vec3.ZERO;
    }
 
    private boolean isConsumingItem() {
       if (mc.player != null && mc.player.isUsingItem()) {
-         UseAction useAction = mc.player.getActiveItem().getUseAction();
-         return useAction == UseAction.EAT || useAction == UseAction.DRINK;
+         UseAnim useAction = mc.player.getUseItem().getUseAnimation();
+         return useAction == UseAnim.EAT || useAction == UseAnim.DRINK;
       } else {
          return false;
       }
    }
 
    private void updateBlinkState() {
-      if (this.mode.is(Criticals.Mode.Blink) && mc.player != null && mc.world != null) {
+      if (this.mode.is(Criticals.Mode.Blink) && mc.player != null && mc.level != null) {
          this.blinkEnemyInRange = this.hasBlinkEnemyInRange();
          boolean shouldQueue = this.shouldBlinkQueuePackets();
          boolean delayExpired = shouldQueue && this.isBlinkDelayExpired();
@@ -265,7 +265,7 @@ public final class Criticals extends Module {
          }
 
          return false;
-      } else if (mc.player != null && mc.world != null) {
+      } else if (mc.player != null && mc.level != null) {
          boolean shouldQueue = this.shouldBlinkQueuePackets();
          if (!shouldQueue) {
             this.blinkInState = false;
@@ -311,7 +311,7 @@ public final class Criticals extends Module {
    }
 
    private boolean canDoBlinkCriticalHit(boolean ignoreOnGround, boolean ignoreSprint) {
-      return this.allowsBlinkCriticalHit(ignoreOnGround) && mc.player.getAttackCooldownProgress(0.5F) > 0.9F && (!mc.player.isSprinting() || ignoreSprint);
+      return this.allowsBlinkCriticalHit(ignoreOnGround) && mc.player.getAttackStrengthScale(0.5F) > 0.9F && (!mc.player.isSprinting() || ignoreSprint);
    }
 
    private boolean allowsBlinkCriticalHit(boolean ignoreOnGround) {
@@ -319,27 +319,27 @@ public final class Criticals extends Module {
          ? false
          : !ModuleManager.flight.isEnabled()
             && !mc.player.isInLava()
-            && !mc.player.isTouchingWater()
-            && !mc.player.isSubmergedInWater()
-            && !mc.player.hasVehicle()
+            && !mc.player.isInWater()
+            && !mc.player.isUnderWater()
+            && !mc.player.isPassenger()
             && !Managers.PLAYER.isInWeb()
-            && !mc.player.hasStatusEffect(StatusEffects.LEVITATION)
-            && !mc.player.hasStatusEffect(StatusEffects.BLINDNESS)
-            && !mc.player.hasStatusEffect(StatusEffects.SLOW_FALLING)
-            && !mc.player.isClimbing()
-            && !mc.player.hasNoGravity()
+            && !mc.player.hasEffect(MobEffects.LEVITATION)
+            && !mc.player.hasEffect(MobEffects.BLINDNESS)
+            && !mc.player.hasEffect(MobEffects.SLOW_FALLING)
+            && !mc.player.onClimbable()
+            && !mc.player.isNoGravity()
             && !mc.player.isUsingItem()
             && !mc.player.getAbilities().flying
-            && (ignoreOnGround || !mc.player.isOnGround());
+            && (ignoreOnGround || !mc.player.onGround());
    }
 
    private boolean hasBlinkEnemyInRange() {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          if (this.isBlinkTargetInRange(Aura.target, this.blinkRange.getValue())) {
             return true;
          }
 
-         for (Entity entity : mc.world.getEntities()) {
+         for (Entity entity : mc.level.entitiesForRendering()) {
             if (this.isValidBlinkEnemy(entity) && this.isBlinkTargetInRange(entity, this.blinkRange.getValue())) {
                return true;
             }
@@ -353,12 +353,12 @@ public final class Criticals extends Module {
 
    private boolean isBlinkTargetInRange(Entity entity, float range) {
       if (entity != null && entity != mc.player && entity.isAlive()) {
-         Vec3d eyePos = mc.player.getEyePos();
-         Box box = entity.getBoundingBox();
-         Vec3d closestPoint = new Vec3d(
-            MathHelper.clamp(eyePos.x, box.minX, box.maxX), MathHelper.clamp(eyePos.y, box.minY, box.maxY), MathHelper.clamp(eyePos.z, box.minZ, box.maxZ)
+         Vec3 eyePos = mc.player.getEyePosition();
+         AABB box = entity.getBoundingBox();
+         Vec3 closestPoint = new Vec3(
+            Mth.clamp(eyePos.x, box.minX, box.maxX), Mth.clamp(eyePos.y, box.minY, box.maxY), Mth.clamp(eyePos.z, box.minZ, box.maxZ)
          );
-         return eyePos.squaredDistanceTo(closestPoint) <= range * range;
+         return eyePos.distanceToSqr(closestPoint) <= range * range;
       } else {
          return false;
       }
@@ -367,10 +367,10 @@ public final class Criticals extends Module {
    private boolean isValidBlinkEnemy(Entity entity) {
       if (!(entity instanceof LivingEntity) || entity == mc.player || !entity.isAlive()) {
          return false;
-      } else if (!(entity instanceof ArmorStandEntity) && !(entity instanceof CatEntity)) {
-         return entity instanceof PlayerEntity player && Managers.FRIEND.isFriend(player)
+      } else if (!(entity instanceof ArmorStand) && !(entity instanceof Cat)) {
+         return entity instanceof Player player && Managers.FRIEND.isFriend(player)
             ? false
-            : !(entity instanceof PlayerEntity p && p.isCreative());
+            : !(entity instanceof Player p && p.isCreative());
       } else {
          return false;
       }
@@ -388,12 +388,12 @@ public final class Criticals extends Module {
    }
 
    private boolean shouldPassBlinkPacket(Packet<?> packet) {
-      return packet instanceof PlayerInteractBlockC2SPacket
-         || packet instanceof PlayerActionC2SPacket
-         || packet instanceof UpdateSignC2SPacket
-         || packet instanceof PlayerInteractEntityC2SPacket
-         || packet instanceof HandSwingC2SPacket
-         || packet instanceof ResourcePackStatusC2SPacket;
+      return packet instanceof ServerboundUseItemOnPacket
+         || packet instanceof ServerboundPlayerActionPacket
+         || packet instanceof ServerboundSignUpdatePacket
+         || packet instanceof ServerboundInteractPacket
+         || packet instanceof ServerboundSwingPacket
+         || packet instanceof ServerboundResourcePackPacket;
    }
 
    private void flushBlinkPackets() {
@@ -411,7 +411,7 @@ public final class Criticals extends Module {
    private void renderBlinkLine() {
       Color color = this.blinkLineColor.getValue().getColorObject();
       if (color.getAlpha() > 0) {
-         List<Vec3d> positions = this.getQueuedBlinkPositions();
+         List<Vec3> positions = this.getQueuedBlinkPositions();
          if (positions.size() >= 2) {
             for (int i = 0; i < positions.size() - 1; i++) {
                Render3DEngine.drawLine(positions.get(i), positions.get(i + 1), color);
@@ -420,34 +420,34 @@ public final class Criticals extends Module {
       }
    }
 
-   private void renderBlinkEsp(MatrixStack stack) {
-      Vec3d pos = this.getFirstBlinkPosition();
+   private void renderBlinkEsp(PoseStack stack) {
+      Vec3 pos = this.getFirstBlinkPosition();
       if (pos != null) {
          Entity player = mc.player;
          EntityDimensions dimensions = player.getDimensions(player.getPose());
          double halfWidth = dimensions.width() / 2.0;
-         Box box = new Box(pos.x - halfWidth, pos.y, pos.z - halfWidth, pos.x + halfWidth, pos.y + dimensions.height(), pos.z + halfWidth).expand(0.05);
+         AABB box = new AABB(pos.x - halfWidth, pos.y, pos.z - halfWidth, pos.x + halfWidth, pos.y + dimensions.height(), pos.z + halfWidth).inflate(0.05);
          Render3DEngine.drawFilledBox(stack, box, this.blinkBoxColor.getValue().getColorObject());
       }
    }
 
    @NotNull
-   private List<Vec3d> getQueuedBlinkPositions() {
-      List<Vec3d> positions = new ArrayList<>();
+   private List<Vec3> getQueuedBlinkPositions() {
+      List<Vec3> positions = new ArrayList<>();
 
       for (Criticals.QueuedPacket snapshot : this.getBlinkPacketSnapshot()) {
-         if (snapshot.packet() instanceof PlayerMoveC2SPacket movePacket && movePacket.changesPosition()) {
-            positions.add(new Vec3d(movePacket.getX(mc.player.getX()), movePacket.getY(mc.player.getY()), movePacket.getZ(mc.player.getZ())));
+         if (snapshot.packet() instanceof ServerboundMovePlayerPacket movePacket && movePacket.hasPosition()) {
+            positions.add(new Vec3(movePacket.getX(mc.player.getX()), movePacket.getY(mc.player.getY()), movePacket.getZ(mc.player.getZ())));
          }
       }
 
       return positions;
    }
 
-   private Vec3d getFirstBlinkPosition() {
+   private Vec3 getFirstBlinkPosition() {
       for (Criticals.QueuedPacket snapshot : this.getBlinkPacketSnapshot()) {
-         if (snapshot.packet() instanceof PlayerMoveC2SPacket movePacket && movePacket.changesPosition()) {
-            return new Vec3d(movePacket.getX(mc.player.getX()), movePacket.getY(mc.player.getY()), movePacket.getZ(mc.player.getZ()));
+         if (snapshot.packet() instanceof ServerboundMovePlayerPacket movePacket && movePacket.hasPosition()) {
+            return new Vec3(movePacket.getX(mc.player.getX()), movePacket.getY(mc.player.getY()), movePacket.getZ(mc.player.getZ()));
          }
       }
 

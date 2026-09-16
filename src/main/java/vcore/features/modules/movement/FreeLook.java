@@ -1,8 +1,8 @@
 package vcore.features.modules.movement;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.Perspective;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.player.LocalPlayer;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventKeyPress;
 import vcore.events.impl.EventKeyRelease;
@@ -18,7 +18,7 @@ public class FreeLook extends Module {
    private final Setting<Bind> bind = new Setting<>("Bind", new Bind(-1, false, false));
    private final Setting<Boolean> toggle = new Setting<>("Toggle", true);
    private boolean active;
-   private Perspective previousPerspective;
+   private CameraType previousPerspective;
 
    public FreeLook() {
       super("FreeLook", "Free look camera.", Module.Category.MOVEMENT);
@@ -90,17 +90,17 @@ public class FreeLook extends Module {
          FreeLookState.setManualActive(value);
          if (mc.options != null) {
             if (this.active) {
-               if (mc.player instanceof ClientPlayerEntity && mc.player instanceof CameraOverriddenEntity camera) {
-                  camera.setCameraYaw(mc.player.getYaw());
-                  camera.setCameraPitch(mc.player.getPitch());
+               if (mc.player instanceof LocalPlayer && mc.player instanceof CameraOverriddenEntity camera) {
+                  camera.setCameraYaw(mc.player.getYRot());
+                  camera.setCameraPitch(mc.player.getXRot());
                }
 
-               this.previousPerspective = mc.options.getPerspective();
-               if (this.previousPerspective != Perspective.THIRD_PERSON_FRONT) {
-                  mc.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+               this.previousPerspective = mc.options.getCameraType();
+               if (this.previousPerspective != CameraType.THIRD_PERSON_FRONT) {
+                  mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
                }
             } else {
-               mc.options.setPerspective(this.previousPerspective != null ? this.previousPerspective : Perspective.FIRST_PERSON);
+               mc.options.setCameraType(this.previousPerspective != null ? this.previousPerspective : CameraType.FIRST_PERSON);
                this.previousPerspective = null;
             }
          }

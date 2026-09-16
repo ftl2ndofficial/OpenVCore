@@ -1,7 +1,7 @@
 package vcore.injection;
 
-import net.minecraft.client.input.Input;
-import net.minecraft.client.input.KeyboardInput;
+import net.minecraft.client.player.Input;
+import net.minecraft.client.player.KeyboardInput;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,7 +19,7 @@ public class MixinKeyboardInput {
 
    @Inject(
       method = "tick",
-      at = @At(value = "FIELD", target = "Lnet/minecraft/client/input/KeyboardInput;sneaking:Z", shift = Shift.BEFORE),
+      at = @At(value = "FIELD", target = "Lnet/minecraft/client/player/KeyboardInput;shiftKeyDown:Z", shift = Shift.BEFORE),
       cancellable = true
    )
    private void onSneak(boolean slowDown, float slowDownFactor, CallbackInfo ci) {

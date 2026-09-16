@@ -1,16 +1,16 @@
 package vcore.events.impl;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.projectile.FireworkRocketEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.phys.Vec3;
 import vcore.events.Event;
 
 public class EventFireworkMotion extends Event {
    private LivingEntity entity;
    private FireworkRocketEntity fireworkRocketEntity;
-   private Vec3d vector;
+   private Vec3 vector;
 
-   public EventFireworkMotion(LivingEntity entity, FireworkRocketEntity fireworkRocketEntity, Vec3d vector) {
+   public EventFireworkMotion(LivingEntity entity, FireworkRocketEntity fireworkRocketEntity, Vec3 vector) {
       this.entity = entity;
       this.fireworkRocketEntity = fireworkRocketEntity;
       this.vector = vector;
@@ -24,7 +24,7 @@ public class EventFireworkMotion extends Event {
       return this.fireworkRocketEntity;
    }
 
-   public Vec3d getVector() {
+   public Vec3 getVector() {
       return this.vector;
    }
 
@@ -36,7 +36,7 @@ public class EventFireworkMotion extends Event {
       this.fireworkRocketEntity = fireworkRocketEntity;
    }
 
-   public void setVector(Vec3d vector) {
+   public void setVector(Vec3 vector) {
       this.vector = vector;
    }
 }

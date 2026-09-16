@@ -7,8 +7,8 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import java.util.Objects;
-import net.minecraft.command.CommandSource;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.features.cmd.Command;
@@ -28,7 +28,7 @@ public class ModuleCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(arg("module", ModuleArgumentType.create()).executes(context -> {
          Module module = (Module)context.getArgument("module", Module.class);
          sendMessage(module.getDisplayName() + " : " + module.getDescription());
@@ -75,7 +75,7 @@ public class ModuleCommand extends Command {
          JsonParser jp = new JsonParser();
          if (setting.getValue().getClass().getSimpleName().equalsIgnoreCase("String")) {
             setting.setValue(settingValue);
-            sendMessage(Formatting.DARK_GRAY + module.getName() + " " + setting.getName() + " has been set to " + settingValue);
+            sendMessage(ChatFormatting.DARK_GRAY + module.getName() + " " + setting.getName() + " has been set to " + settingValue);
             return 1;
          }
 
@@ -101,9 +101,9 @@ public class ModuleCommand extends Command {
          }
 
          if (settingValue.contains("toggle")) {
-            sendMessage(Formatting.GRAY + module.getName() + " " + setting.getName() + " has been toggled");
+            sendMessage(ChatFormatting.GRAY + module.getName() + " " + setting.getName() + " has been toggled");
          } else {
-            sendMessage(Formatting.GRAY + module.getName() + " " + setting.getName() + " has been set to " + settingValue);
+            sendMessage(ChatFormatting.GRAY + module.getName() + " " + setting.getName() + " has been set to " + settingValue);
          }
 
          return 1;
@@ -115,7 +115,7 @@ public class ModuleCommand extends Command {
             StringBuilder modules = new StringBuilder(category.getName() + ": ");
 
             for (Module module1 : Managers.MODULE.getModulesByCategory(category)) {
-               modules.append(module1.isEnabled() ? Formatting.GREEN : Formatting.RED).append(module1.getName()).append(Formatting.WHITE).append(", ");
+               modules.append(module1.isEnabled() ? ChatFormatting.GREEN : ChatFormatting.RED).append(module1.getName()).append(ChatFormatting.WHITE).append(", ");
             }
 
             sendMessage(modules.toString());

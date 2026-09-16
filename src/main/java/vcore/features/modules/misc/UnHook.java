@@ -1,5 +1,6 @@
 package vcore.features.modules.misc;
 
+import com.mojang.blaze3d.platform.IconSet;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -10,9 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import net.minecraft.ChatFormatting;
 import net.minecraft.SharedConstants;
-import net.minecraft.client.util.Icons;
-import net.minecraft.util.Formatting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import vcore.core.Managers;
@@ -41,13 +41,13 @@ public class UnHook extends Module {
       this.code = (int)MathUtility.random(10.0F, 99.0F);
 
       for (int i = 0; i < 20; i++) {
-         this.sendMessage(Formatting.RED + "It's all close now, write to the chat " + Formatting.WHITE + this.code + Formatting.RED + " to return everything!");
+         this.sendMessage(ChatFormatting.RED + "It's all close now, write to the chat " + ChatFormatting.WHITE + this.code + ChatFormatting.RED + " to return everything!");
       }
 
       this.list = Managers.MODULE.getEnabledModules();
       mc.setScreen(null);
       this.refreshWindowTitle();
-      Managers.ASYNC.run(() -> mc.executeSync(() -> {
+      Managers.ASYNC.run(() -> mc.executeIfPossible(() -> {
          for (Module module : this.list) {
             if (!module.equals(this)) {
                module.disable();
@@ -55,11 +55,11 @@ public class UnHook extends Module {
          }
 
          this.restoreVanillaWindowAppearance();
-         mc.inGameHud.getChatHud().clear(true);
+         mc.gui.getChat().clearMessages(true);
          this.setEnabled(true);
 
          try {
-            File file = new File(mc.runDirectory + File.separator + "logs" + File.separator + "latest.log");
+            File file = new File(mc.gameDirectory + File.separator + "logs" + File.separator + "latest.log");
             LoggerContext ctx = (LoggerContext)LogManager.getContext(false);
 
             try {
@@ -127,7 +127,7 @@ public class UnHook extends Module {
 
    private void restoreVanillaWindowAppearance() {
       try {
-         mc.getWindow().setIcon(mc.getDefaultResourcePack(), SharedConstants.getGameVersion().isStable() ? Icons.RELEASE : Icons.SNAPSHOT);
+         mc.getWindow().setIcon(mc.getVanillaPackResources(), SharedConstants.getCurrentVersion().isStable() ? IconSet.RELEASE : IconSet.SNAPSHOT);
       } catch (Exception var2) {
       }
 

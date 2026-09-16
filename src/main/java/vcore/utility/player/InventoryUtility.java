@@ -3,23 +3,23 @@ package vcore.utility.player;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import net.minecraft.block.Block;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.DamageUtil;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.AxeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.PickaxeItem;
-import net.minecraft.item.ShovelItem;
-import net.minecraft.item.SwordItem;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.world.damagesource.CombatRules;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.item.ShovelItem;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
@@ -37,7 +37,7 @@ public final class InventoryUtility {
       int counter = 0;
 
       for (int i = 0; i <= 44; i++) {
-         ItemStack itemStack = Module.mc.player.getInventory().getStack(i);
+         ItemStack itemStack = Module.mc.player.getInventory().getItem(i);
          if (itemStack.getItem() == item) {
             counter += itemStack.getCount();
          }
@@ -55,11 +55,11 @@ public final class InventoryUtility {
       float f = 1.0F;
 
       for (int b1 = 9; b1 < 45; b1++) {
-         ItemStack itemStack = Module.mc.player.getInventory().getStack(b1 >= 36 ? b1 - 36 : b1);
+         ItemStack itemStack = Module.mc.player.getInventory().getItem(b1 >= 36 ? b1 - 36 : b1);
          if (itemStack != null && itemStack.getItem() instanceof AxeItem axe) {
-            float f1 = ((Integer)axe.getComponents().get(DataComponentTypes.MAX_DAMAGE)).intValue();
-            f1 += EnchantmentHelper.getLevel(
-               (RegistryEntry)Module.mc.world.getRegistryManager().get(Enchantments.SHARPNESS.getRegistryRef()).getEntry(Enchantments.SHARPNESS).get(),
+            float f1 = ((Integer)axe.components().get(DataComponents.MAX_DAMAGE)).intValue();
+            f1 += EnchantmentHelper.getItemEnchantmentLevel(
+               (Holder)Module.mc.level.registryAccess().registryOrThrow(Enchantments.SHARPNESS.registryKey()).getHolder(Enchantments.SHARPNESS).get(),
                itemStack
             );
             if (f1 > f) {
@@ -73,7 +73,7 @@ public final class InventoryUtility {
          slot -= 36;
       }
 
-      return slot == -1 ? SearchInvResult.notFound() : new SearchInvResult(slot, true, Module.mc.player.getInventory().getStack(slot));
+      return slot == -1 ? SearchInvResult.notFound() : new SearchInvResult(slot, true, Module.mc.player.getInventory().getItem(slot));
    }
 
    public static SearchInvResult getSwordHotBar() {
@@ -85,11 +85,11 @@ public final class InventoryUtility {
       float f = 1.0F;
 
       for (int b1 = 0; b1 < 9; b1++) {
-         ItemStack itemStack = Module.mc.player.getInventory().getStack(b1);
+         ItemStack itemStack = Module.mc.player.getInventory().getItem(b1);
          if (itemStack != null && itemStack.getItem() instanceof SwordItem sword) {
-            float f1 = ((Integer)sword.getComponents().get(DataComponentTypes.MAX_DAMAGE)).intValue();
-            f1 += EnchantmentHelper.getLevel(
-               (RegistryEntry)Module.mc.world.getRegistryManager().get(Enchantments.SHARPNESS.getRegistryRef()).getEntry(Enchantments.SHARPNESS).get(),
+            float f1 = ((Integer)sword.components().get(DataComponents.MAX_DAMAGE)).intValue();
+            f1 += EnchantmentHelper.getItemEnchantmentLevel(
+               (Holder)Module.mc.level.registryAccess().registryOrThrow(Enchantments.SHARPNESS.registryKey()).getHolder(Enchantments.SHARPNESS).get(),
                itemStack
             );
             if (f1 > f) {
@@ -99,12 +99,12 @@ public final class InventoryUtility {
          }
       }
 
-      return slot == -1 ? SearchInvResult.notFound() : new SearchInvResult(slot, true, Module.mc.player.getInventory().getStack(slot));
+      return slot == -1 ? SearchInvResult.notFound() : new SearchInvResult(slot, true, Module.mc.player.getInventory().getItem(slot));
    }
 
    public static int getElytra() {
       for (ItemStack stack : Module.mc.player.getInventory().armor) {
-         if (stack.getItem() == Items.ELYTRA && stack.getDamage() < 430) {
+         if (stack.getItem() == Items.ELYTRA && stack.getDamageValue() < 430) {
             return -2;
          }
       }
@@ -112,8 +112,8 @@ public final class InventoryUtility {
       int slot = -1;
 
       for (int i = 0; i < 36; i++) {
-         ItemStack s = Module.mc.player.getInventory().getStack(i);
-         if (s.getItem() == Items.ELYTRA && s.getDamage() < 430) {
+         ItemStack s = Module.mc.player.getInventory().getItem(i);
+         if (s.getItem() == Items.ELYTRA && s.getDamageValue() < 430) {
             slot = i;
             break;
          }
@@ -129,7 +129,7 @@ public final class InventoryUtility {
    public static SearchInvResult findInHotBar(InventoryUtility.Searcher searcher) {
       if (Module.mc.player != null) {
          for (int i = 0; i < 9; i++) {
-            ItemStack stack = Module.mc.player.getInventory().getStack(i);
+            ItemStack stack = Module.mc.player.getInventory().getItem(i);
             if (searcher.isValid(stack)) {
                return new SearchInvResult(i, true, stack);
             }
@@ -150,7 +150,7 @@ public final class InventoryUtility {
    public static SearchInvResult findInInventory(InventoryUtility.Searcher searcher) {
       if (Module.mc.player != null) {
          for (int i = 36; i >= 0; i--) {
-            ItemStack stack = Module.mc.player.getInventory().getStack(i);
+            ItemStack stack = Module.mc.player.getInventory().getItem(i);
             if (searcher.isValid(stack)) {
                if (i < 9) {
                   i += 36;
@@ -189,7 +189,7 @@ public final class InventoryUtility {
    }
 
    public static void saveSlot() {
-      cachedSlot = Module.mc.player.getInventory().selectedSlot;
+      cachedSlot = Module.mc.player.getInventory().selected;
    }
 
    public static void returnSlot() {
@@ -202,26 +202,26 @@ public final class InventoryUtility {
 
    public static void saveAndSwitchTo(int slot) {
       saveSlot();
-      if (Module.mc.player != null && Module.mc.getNetworkHandler() != null) {
-         if (Module.mc.player.getInventory().selectedSlot != slot || Managers.PLAYER.serverSideSlot != slot) {
-            Module.mc.player.getInventory().selectedSlot = slot;
-            ((IInteractionManager)Module.mc.interactionManager).syncSlot();
+      if (Module.mc.player != null && Module.mc.getConnection() != null) {
+         if (Module.mc.player.getInventory().selected != slot || Managers.PLAYER.serverSideSlot != slot) {
+            Module.mc.player.getInventory().selected = slot;
+            ((IInteractionManager)Module.mc.gameMode).syncSlot();
          }
       }
    }
 
    public static void switchTo(int slot) {
-      if (Module.mc.player != null && Module.mc.getNetworkHandler() != null) {
-         if (Module.mc.player.getInventory().selectedSlot != slot || Managers.PLAYER.serverSideSlot != slot) {
-            Module.mc.player.getInventory().selectedSlot = slot;
-            ((IInteractionManager)Module.mc.interactionManager).syncSlot();
+      if (Module.mc.player != null && Module.mc.getConnection() != null) {
+         if (Module.mc.player.getInventory().selected != slot || Managers.PLAYER.serverSideSlot != slot) {
+            Module.mc.player.getInventory().selected = slot;
+            ((IInteractionManager)Module.mc.gameMode).syncSlot();
          }
       }
    }
 
    public static void switchToSilent(int slot) {
-      if (Module.mc.player != null && Module.mc.getNetworkHandler() != null) {
-         Module.mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
+      if (Module.mc.player != null && Module.mc.getConnection() != null) {
+         Module.mc.getConnection().send(new ServerboundSetCarriedItemPacket(slot));
       }
    }
 
@@ -230,7 +230,7 @@ public final class InventoryUtility {
          return SearchInvResult.notFound();
       }
 
-      Item mainHand = Module.mc.player.getMainHandStack().getItem();
+      Item mainHand = Module.mc.player.getMainHandItem().getItem();
       return !(mainHand instanceof SwordItem) && !(mainHand instanceof PickaxeItem) && !(mainHand instanceof AxeItem) && !(mainHand instanceof ShovelItem)
          ? findInHotBar(
             itemStack -> itemStack.getItem() instanceof SwordItem
@@ -238,10 +238,10 @@ public final class InventoryUtility {
                || itemStack.getItem() instanceof AxeItem
                || itemStack.getItem() instanceof ShovelItem
          )
-         : new SearchInvResult(Module.mc.player.getInventory().selectedSlot, true, Module.mc.player.getMainHandStack());
+         : new SearchInvResult(Module.mc.player.getInventory().selected, true, Module.mc.player.getMainHandItem());
    }
 
-   public static float getHitDamage(@NotNull ItemStack weapon, PlayerEntity ent) {
+   public static float getHitDamage(@NotNull ItemStack weapon, Player ent) {
       if (Module.mc.player == null) {
          return 0.0F;
       }
@@ -259,17 +259,17 @@ public final class InventoryUtility {
          baseDamage += baseDamage / 2.0F;
       }
 
-      if (Module.mc.player.hasStatusEffect(StatusEffects.STRENGTH)) {
-         int strength = Objects.requireNonNull(Module.mc.player.getStatusEffect(StatusEffects.STRENGTH)).getAmplifier() + 1;
+      if (Module.mc.player.hasEffect(MobEffects.DAMAGE_BOOST)) {
+         int strength = Objects.requireNonNull(Module.mc.player.getEffect(MobEffects.DAMAGE_BOOST)).getAmplifier() + 1;
          baseDamage += 3 * strength;
       }
 
-      return DamageUtil.getDamageLeft(
+      return CombatRules.getDamageAfterAbsorb(
          ent,
          baseDamage,
-         Module.mc.world.getDamageSources().generic(),
-         ent.getArmor(),
-         (float)ent.getAttributeInstance(EntityAttributes.GENERIC_ARMOR_TOUGHNESS).getValue()
+         Module.mc.level.damageSources().generic(),
+         ent.getArmorValue(),
+         (float)ent.getAttribute(Attributes.ARMOR_TOUGHNESS).getValue()
       );
    }
 

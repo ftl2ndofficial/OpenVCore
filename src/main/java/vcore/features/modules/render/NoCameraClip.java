@@ -1,7 +1,7 @@
 package vcore.features.modules.render;
 
-import net.minecraft.client.option.Perspective;
-import net.minecraft.client.util.math.MatrixStack;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.CameraType;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
 import vcore.utility.render.animation.AnimationUtility;
@@ -16,15 +16,15 @@ public class NoCameraClip extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack matrix) {
-      if (mc.options.getPerspective() == Perspective.FIRST_PERSON) {
+   public void onRender3D(PoseStack matrix) {
+      if (mc.options.getCameraType() == CameraType.FIRST_PERSON) {
          this.animation = AnimationUtility.fast(this.animation, 0.0F, 10.0F);
       } else {
          this.animation = AnimationUtility.fast(this.animation, 1.0F, 10.0F);
       }
 
-      if (mc.options.getPerspective() == Perspective.THIRD_PERSON_FRONT && this.antiFront.getValue()) {
-         mc.options.setPerspective(Perspective.FIRST_PERSON);
+      if (mc.options.getCameraType() == CameraType.THIRD_PERSON_FRONT && this.antiFront.getValue()) {
+         mc.options.setCameraType(CameraType.FIRST_PERSON);
       }
    }
 

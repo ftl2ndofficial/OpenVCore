@@ -1,6 +1,11 @@
 package vcore.gui.font;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import it.unimi.dsi.fastutil.chars.Char2IntArrayMap;
 import it.unimi.dsi.fastutil.chars.Char2ObjectArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
@@ -21,13 +26,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.VertexFormat.DrawMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +60,7 @@ public class FontRenderer implements Closeable {
       }
    };
    private static final ExecutorService ASYNC_WORKER = Executors.newCachedThreadPool();
-   private final Object2ObjectMap<Identifier, ObjectList<FontRenderer.DrawEntry>> GLYPH_PAGE_CACHE = new Object2ObjectOpenHashMap();
+   private final Object2ObjectMap<ResourceLocation, ObjectList<FontRenderer.DrawEntry>> GLYPH_PAGE_CACHE = new Object2ObjectOpenHashMap();
    private final float originalSize;
    private final ObjectList<GlyphMap> maps = new ObjectArrayList();
    private final Char2ObjectArrayMap<Glyph> allGlyphs = new Char2ObjectArrayMap();
@@ -106,7 +106,7 @@ public class FontRenderer implements Closeable {
    }
 
    private void sizeCheck() {
-      int gs = (int)IManager.mc.getWindow().getScaleFactor();
+      int gs = (int)IManager.mc.getWindow().getGuiScale();
       if (gs != this.previousGameScale) {
          this.close();
          this.init(this.font, this.originalSize);
@@ -119,7 +119,7 @@ public class FontRenderer implements Closeable {
       }
 
       this.initialized = true;
-      this.previousGameScale = (int)IManager.mc.getWindow().getScaleFactor();
+      this.previousGameScale = (int)IManager.mc.getWindow().getGuiScale();
       this.scaleMul = this.previousGameScale;
       this.font = font.deriveFont(sizePx * this.scaleMul);
       if (this.prebakeGlyphs != null && !this.prebakeGlyphs.isEmpty()) {
@@ -167,7 +167,7 @@ public class FontRenderer implements Closeable {
       return (Glyph)this.allGlyphs.computeIfAbsent(glyph, this::locateGlyph0);
    }
 
-   public void drawString(MatrixStack stack, String s, double x, double y, int color) {
+   public void drawString(PoseStack stack, String s, double x, double y, int color) {
       float r = (color >> 16 & 0xFF) / 255.0F;
       float g = (color >> 8 & 0xFF) / 255.0F;
       float b = (color & 0xFF) / 255.0F;
@@ -175,15 +175,15 @@ public class FontRenderer implements Closeable {
       this.drawString(stack, s, (float)x, (float)y, r, g, b, a);
    }
 
-   public void drawString(MatrixStack stack, String s, double x, double y, Color color) {
+   public void drawString(PoseStack stack, String s, double x, double y, Color color) {
       this.drawString(stack, s, (float)x, (float)y, color.getRed() / 255.0F, color.getGreen() / 255.0F, color.getBlue() / 255.0F, color.getAlpha());
    }
 
-   public void drawString(MatrixStack stack, String s, float x, float y, float r, float g, float b, float a) {
+   public void drawString(PoseStack stack, String s, float x, float y, float r, float g, float b, float a) {
       this.drawString(stack, s, x, y, r, g, b, a, false, 0);
    }
 
-   public void drawStringWithHorizontalFade(MatrixStack stack, String s, float x, float y, int color, float visibleWidth, float fadeWidth) {
+   public void drawStringWithHorizontalFade(PoseStack stack, String s, float x, float y, int color, float visibleWidth, float fadeWidth) {
       float r = (color >> 16 & 0xFF) / 255.0F;
       float g = (color >> 8 & 0xFF) / 255.0F;
       float b = (color & 0xFF) / 255.0F;
@@ -192,7 +192,7 @@ public class FontRenderer implements Closeable {
    }
 
    public void drawStringWithHorizontalFade(
-      MatrixStack stack, String s, float x, float y, float r, float g, float b, float a, float visibleWidth, float fadeWidth
+      PoseStack stack, String s, float x, float y, float r, float g, float b, float a, float visibleWidth, float fadeWidth
    ) {
       if (this.prebakeGlyphsFuture != null && !this.prebakeGlyphsFuture.isDone()) {
          try {
@@ -208,7 +208,7 @@ public class FontRenderer implements Closeable {
       float r2 = r;
       float g2 = g;
       float b2 = b;
-      stack.push();
+      stack.pushPose();
       y -= 3.0F;
       stack.translate(MathUtility.roundToDecimal(x, 1), MathUtility.roundToDecimal(y, 1), 0.0);
       stack.scale(1.0F / this.scaleMul, 1.0F / this.scaleMul, 1.0F);
@@ -217,8 +217,8 @@ public class FontRenderer implements Closeable {
       RenderSystem.disableCull();
       GL11.glTexParameteri(3553, 10241, 9729);
       GL11.glTexParameteri(3553, 10240, 9729);
-      RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
-      Matrix4f mat = stack.peek().getPositionMatrix();
+      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+      Matrix4f mat = stack.last().pose();
       char[] chars = s.toCharArray();
       float xOffset = 0.0F;
       float yOffset = 0.0F;
@@ -251,7 +251,7 @@ public class FontRenderer implements Closeable {
                Glyph glyph = this.locateGlyph1(c);
                if (glyph != null) {
                   if (glyph.value() != ' ') {
-                     Identifier i1 = glyph.owner().bindToTexture;
+                     ResourceLocation i1 = glyph.owner().bindToTexture;
                      FontRenderer.DrawEntry entry = new FontRenderer.DrawEntry(xOffset, yOffset, r2, g2, b2, glyph);
                      ((ObjectList)this.GLYPH_PAGE_CACHE.computeIfAbsent(i1, integer -> new ObjectArrayList())).add(entry);
                   }
@@ -264,10 +264,10 @@ public class FontRenderer implements Closeable {
          ObjectIterator var49 = this.GLYPH_PAGE_CACHE.keySet().iterator();
 
          while (var49.hasNext()) {
-            Identifier identifier = (Identifier)var49.next();
+            ResourceLocation identifier = (ResourceLocation)var49.next();
             RenderSystem.setShaderTexture(0, identifier);
             List<FontRenderer.DrawEntry> objects = (List<FontRenderer.DrawEntry>)this.GLYPH_PAGE_CACHE.get(identifier);
-            BufferBuilder bb = Tessellator.getInstance().begin(DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+            BufferBuilder bb = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
             for (FontRenderer.DrawEntry object : objects) {
                float xo = object.atX;
@@ -286,10 +286,10 @@ public class FontRenderer implements Closeable {
                float leftAlpha = this.computeHorizontalFadeAlpha(xo, scaledVisibleWidth, fadeStart, a);
                float rightAlpha = this.computeHorizontalFadeAlpha(xo + w, scaledVisibleWidth, fadeStart, a);
                if (!(leftAlpha <= 0.0F) || !(rightAlpha <= 0.0F)) {
-                  bb.vertex(mat, xo, yo + h, 0.0F).texture(u1, v2).color(cr, cg, cb, leftAlpha);
-                  bb.vertex(mat, xo + w, yo + h, 0.0F).texture(u2, v2).color(cr, cg, cb, rightAlpha);
-                  bb.vertex(mat, xo + w, yo, 0.0F).texture(u2, v1).color(cr, cg, cb, rightAlpha);
-                  bb.vertex(mat, xo, yo, 0.0F).texture(u1, v1).color(cr, cg, cb, leftAlpha);
+                  bb.addVertex(mat, xo, yo + h, 0.0F).setUv(u1, v2).setColor(cr, cg, cb, leftAlpha);
+                  bb.addVertex(mat, xo + w, yo + h, 0.0F).setUv(u2, v2).setColor(cr, cg, cb, rightAlpha);
+                  bb.addVertex(mat, xo + w, yo, 0.0F).setUv(u2, v1).setColor(cr, cg, cb, rightAlpha);
+                  bb.addVertex(mat, xo, yo, 0.0F).setUv(u1, v1).setColor(cr, cg, cb, leftAlpha);
                }
             }
 
@@ -299,10 +299,10 @@ public class FontRenderer implements Closeable {
          this.GLYPH_PAGE_CACHE.clear();
       }
 
-      stack.pop();
+      stack.popPose();
    }
 
-   public void drawString(MatrixStack stack, String s, float x, float y, float r, float g, float b, float a, boolean gradient, int offset) {
+   public void drawString(PoseStack stack, String s, float x, float y, float r, float g, float b, float a, boolean gradient, int offset) {
       if (this.prebakeGlyphsFuture != null && !this.prebakeGlyphsFuture.isDone()) {
          try {
             this.prebakeGlyphsFuture.get();
@@ -314,7 +314,7 @@ public class FontRenderer implements Closeable {
       float r2 = r;
       float g2 = g;
       float b2 = b;
-      stack.push();
+      stack.pushPose();
       y -= 3.0F;
       stack.translate(MathUtility.roundToDecimal(x, 1), MathUtility.roundToDecimal(y, 1), 0.0);
       stack.scale(1.0F / this.scaleMul, 1.0F / this.scaleMul, 1.0F);
@@ -323,8 +323,8 @@ public class FontRenderer implements Closeable {
       RenderSystem.disableCull();
       GL11.glTexParameteri(3553, 10241, 9729);
       GL11.glTexParameteri(3553, 10240, 9729);
-      RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
-      Matrix4f mat = stack.peek().getPositionMatrix();
+      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+      Matrix4f mat = stack.last().pose();
       char[] chars = s.toCharArray();
       float xOffset = 0.0F;
       float yOffset = 0.0F;
@@ -366,7 +366,7 @@ public class FontRenderer implements Closeable {
                   Glyph glyph = this.locateGlyph1(c);
                   if (glyph != null) {
                      if (glyph.value() != ' ') {
-                        Identifier i1 = glyph.owner().bindToTexture;
+                        ResourceLocation i1 = glyph.owner().bindToTexture;
                         FontRenderer.DrawEntry entry = new FontRenderer.DrawEntry(xOffset, yOffset, r2, g2, b2, glyph);
                         ((ObjectList)this.GLYPH_PAGE_CACHE.computeIfAbsent(i1, integer -> new ObjectArrayList())).add(entry);
                      }
@@ -380,10 +380,10 @@ public class FontRenderer implements Closeable {
          ObjectIterator var44 = this.GLYPH_PAGE_CACHE.keySet().iterator();
 
          while (var44.hasNext()) {
-            Identifier identifier = (Identifier)var44.next();
+            ResourceLocation identifier = (ResourceLocation)var44.next();
             RenderSystem.setShaderTexture(0, identifier);
             List<FontRenderer.DrawEntry> objects = (List<FontRenderer.DrawEntry>)this.GLYPH_PAGE_CACHE.get(identifier);
-            BufferBuilder bb = Tessellator.getInstance().begin(DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+            BufferBuilder bb = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
             for (FontRenderer.DrawEntry object : objects) {
                float xo = object.atX;
@@ -399,10 +399,10 @@ public class FontRenderer implements Closeable {
                float v1 = (float)glyph.v() / owner.height;
                float u2 = (float)(glyph.u() + glyph.width()) / owner.width;
                float v2 = (float)(glyph.v() + glyph.height()) / owner.height;
-               bb.vertex(mat, xo + 0.0F, yo + h, 0.0F).texture(u1, v2).color(cr, cg, cb, a);
-               bb.vertex(mat, xo + w, yo + h, 0.0F).texture(u2, v2).color(cr, cg, cb, a);
-               bb.vertex(mat, xo + w, yo + 0.0F, 0.0F).texture(u2, v1).color(cr, cg, cb, a);
-               bb.vertex(mat, xo + 0.0F, yo + 0.0F, 0.0F).texture(u1, v1).color(cr, cg, cb, a);
+               bb.addVertex(mat, xo + 0.0F, yo + h, 0.0F).setUv(u1, v2).setColor(cr, cg, cb, a);
+               bb.addVertex(mat, xo + w, yo + h, 0.0F).setUv(u2, v2).setColor(cr, cg, cb, a);
+               bb.addVertex(mat, xo + w, yo + 0.0F, 0.0F).setUv(u2, v1).setColor(cr, cg, cb, a);
+               bb.addVertex(mat, xo + 0.0F, yo + 0.0F, 0.0F).setUv(u1, v1).setColor(cr, cg, cb, a);
             }
 
             Render2DEngine.endBuilding(bb);
@@ -411,10 +411,10 @@ public class FontRenderer implements Closeable {
          this.GLYPH_PAGE_CACHE.clear();
       }
 
-      stack.pop();
+      stack.popPose();
    }
 
-   public void drawCenteredString(MatrixStack stack, String s, double x, double y, int color) {
+   public void drawCenteredString(PoseStack stack, String s, double x, double y, int color) {
       float r = (color >> 16 & 0xFF) / 255.0F;
       float g = (color >> 8 & 0xFF) / 255.0F;
       float b = (color & 0xFF) / 255.0F;
@@ -422,7 +422,7 @@ public class FontRenderer implements Closeable {
       this.drawString(stack, s, (float)(x - this.getStringWidth(s) / 2.0F), (float)y, r, g, b, a);
    }
 
-   public void drawCenteredString(MatrixStack stack, String s, double x, double y, Color color) {
+   public void drawCenteredString(PoseStack stack, String s, double x, double y, Color color) {
       this.drawString(
          stack,
          s,
@@ -435,7 +435,7 @@ public class FontRenderer implements Closeable {
       );
    }
 
-   public void drawCenteredString(MatrixStack stack, String s, float x, float y, float r, float g, float b, float a) {
+   public void drawCenteredString(PoseStack stack, String s, float x, float y, float r, float g, float b, float a) {
       this.drawString(stack, s, x - this.getStringWidth(s) / 2.0F, y, r, g, b, a);
    }
 
@@ -526,8 +526,8 @@ public class FontRenderer implements Closeable {
 
    @Contract(value = "-> new", pure = true)
    @NotNull
-   public static Identifier randomIdentifier() {
-      return Identifier.of("vcore", "temp/" + randomString());
+   public static ResourceLocation randomIdentifier() {
+      return ResourceLocation.fromNamespaceAndPath("vcore", "temp/" + randomString());
    }
 
    private static String randomString() {
@@ -546,11 +546,11 @@ public class FontRenderer implements Closeable {
       return this.getStringHeight(str);
    }
 
-   public void drawGradientString(MatrixStack stack, String s, float x, float y, int offset) {
+   public void drawGradientString(PoseStack stack, String s, float x, float y, int offset) {
       this.drawString(stack, s, x, y, 255.0F, 255.0F, 255.0F, 255.0F, true, offset);
    }
 
-   public void drawGradientCenteredString(MatrixStack matrices, String s, float x, float y, int i) {
+   public void drawGradientCenteredString(PoseStack matrices, String s, float x, float y, int i) {
       this.drawGradientString(matrices, s, x - this.getStringWidth(s) / 2.0F, y, i);
    }
 

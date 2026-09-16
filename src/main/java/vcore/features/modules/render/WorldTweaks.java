@@ -2,7 +2,7 @@ package vcore.features.modules.render;
 
 import java.awt.Color;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -24,30 +24,30 @@ public class WorldTweaks extends Module {
 
    @Override
    public void onEnable() {
-      if (mc.world != null) {
-         this.oldTime = mc.world.getLevelProperties().getTimeOfDay();
+      if (mc.level != null) {
+         this.oldTime = mc.level.getLevelData().getDayTime();
       }
    }
 
    @Override
    public void onDisable() {
-      if (mc.world != null) {
-         mc.world.setTimeOfDay(this.oldTime);
+      if (mc.level != null) {
+         mc.level.setDayTime(this.oldTime);
       }
    }
 
    @EventHandler
    private void onPacketReceive(PacketEvent.Receive event) {
-      if (event.getPacket() instanceof WorldTimeUpdateS2CPacket && this.ctime.getValue()) {
-         this.oldTime = ((WorldTimeUpdateS2CPacket)event.getPacket()).getTime();
+      if (event.getPacket() instanceof ClientboundSetTimePacket && this.ctime.getValue()) {
+         this.oldTime = ((ClientboundSetTimePacket)event.getPacket()).getGameTime();
          event.cancel();
       }
    }
 
    @Override
    public void onUpdate() {
-      if (this.ctime.getValue() && mc.world != null) {
-         mc.world.setTimeOfDay(this.ctimeVal.getValue().intValue() * 1000L);
+      if (this.ctime.getValue() && mc.level != null) {
+         mc.level.setDayTime(this.ctimeVal.getValue().intValue() * 1000L);
       }
    }
 }

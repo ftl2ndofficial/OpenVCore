@@ -1,6 +1,6 @@
 package vcore.events.impl;
 
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screens.Screen;
 import vcore.events.Event;
 
 public class EventScreen extends Event {

@@ -1,12 +1,12 @@
 package vcore.injection;
 
-import net.minecraft.component.type.FoodComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.MovementType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,22 +23,22 @@ import vcore.features.modules.Module;
 import vcore.features.modules.movement.AutoSprint;
 import vcore.features.modules.movement.Speed;
 
-@Mixin(value = PlayerEntity.class, priority = 800)
+@Mixin(value = Player.class, priority = 800)
 public class MixinPlayerEntity {
-   @Inject(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/PlayerEntity;setSprinting(Z)V", shift = Shift.AFTER))
+   @Inject(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;setSprinting(Z)V", shift = Shift.AFTER))
    public void attackAHook(CallbackInfo callbackInfo) {
       if (ModuleManager.autoSprint.isEnabled() && AutoSprint.sprint.getValue()) {
          float multiplier = 0.6F + 0.4F * AutoSprint.motion.getValue();
          Module.mc
             .player
-            .setVelocity(
-               Module.mc.player.getVelocity().x / 0.6 * multiplier, Module.mc.player.getVelocity().y, Module.mc.player.getVelocity().z / 0.6 * multiplier
+            .setDeltaMovement(
+               Module.mc.player.getDeltaMovement().x / 0.6 * multiplier, Module.mc.player.getDeltaMovement().y, Module.mc.player.getDeltaMovement().z / 0.6 * multiplier
             );
          Module.mc.player.setSprinting(true);
       }
    }
 
-   @Inject(method = "getMovementSpeed", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "getSpeed", at = @At("HEAD"), cancellable = true)
    public void getMovementSpeedHook(CallbackInfoReturnable<Float> cir) {
       if (ModuleManager.speed.isEnabled() && ModuleManager.speed.mode.is(Speed.Mode.Vanilla)) {
          cir.setReturnValue(ModuleManager.speed.boostFactor.getValue());
@@ -55,45 +55,45 @@ public class MixinPlayerEntity {
    }
 
    @Inject(method = "travel", at = @At("HEAD"), cancellable = true)
-   private void onTravelhookPre(Vec3d movementInput, CallbackInfo ci) {
+   private void onTravelhookPre(Vec3 movementInput, CallbackInfo ci) {
       if (Module.mc.player != null) {
          EventPlayerTravel event = new EventPlayerTravel(movementInput, true);
          Vcore.EVENT_BUS.post(event);
          if (event.isCancelled()) {
-            Module.mc.player.move(MovementType.SELF, Module.mc.player.getVelocity());
+            Module.mc.player.move(MoverType.SELF, Module.mc.player.getDeltaMovement());
             ci.cancel();
          }
       }
    }
 
    @Inject(method = "travel", at = @At("RETURN"), cancellable = true)
-   private void onTravelhookPost(Vec3d movementInput, CallbackInfo ci) {
+   private void onTravelhookPost(Vec3 movementInput, CallbackInfo ci) {
       if (Module.mc.player != null) {
          EventPlayerTravel event = new EventPlayerTravel(movementInput, false);
          Vcore.EVENT_BUS.post(event);
          if (event.isCancelled()) {
-            Module.mc.player.move(MovementType.SELF, Module.mc.player.getVelocity());
+            Module.mc.player.move(MoverType.SELF, Module.mc.player.getDeltaMovement());
             ci.cancel();
          }
       }
    }
 
-   @Inject(method = "jump", at = @At("HEAD"))
+   @Inject(method = "jumpFromGround", at = @At("HEAD"))
    private void onJumpPre(CallbackInfo ci) {
       Vcore.EVENT_BUS.post(new EventPlayerJump(true));
    }
 
-   @Inject(method = "jump", at = @At("RETURN"))
+   @Inject(method = "jumpFromGround", at = @At("RETURN"))
    private void onJumpPost(CallbackInfo ci) {
       Vcore.EVENT_BUS.post(new EventPlayerJump(false));
    }
 
-   @Inject(method = "eatFood", at = @At("RETURN"))
-   public void eatFoodHook(World world, ItemStack stack, FoodComponent foodComponent, CallbackInfoReturnable<ItemStack> cir) {
+   @Inject(method = "eat(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/food/FoodProperties;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
+   public void eatFoodHook(Level world, ItemStack stack, FoodProperties foodComponent, CallbackInfoReturnable<ItemStack> cir) {
       Vcore.EVENT_BUS.post(new EventEatFood((ItemStack)cir.getReturnValue()));
    }
 
-   @Inject(method = "getBlockInteractionRange", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "blockInteractionRange", at = @At("HEAD"), cancellable = true)
    public void getBlockInteractionRangeHook(CallbackInfoReturnable<Double> cir) {
       if (ModuleManager.reach.isEnabled()) {
          if (ModuleManager.reach.Creative.getValue() && Module.mc.player.isCreative()) {
@@ -104,7 +104,7 @@ public class MixinPlayerEntity {
       }
    }
 
-   @Inject(method = "getEntityInteractionRange", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "entityInteractionRange", at = @At("HEAD"), cancellable = true)
    public void getEntityInteractionRangeHook(CallbackInfoReturnable<Double> cir) {
       if (ModuleManager.reach.isEnabled()) {
          if (ModuleManager.reach.Creative.getValue() && Module.mc.player.isCreative()) {

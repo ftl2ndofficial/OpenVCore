@@ -1,6 +1,6 @@
 package vcore.utility.render.animation;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 import vcore.utility.render.Render3DEngine;
 
 public class EaseOutBack {
@@ -22,7 +22,7 @@ public class EaseOutBack {
 
    public void update(boolean update) {
       this.prevTick = this.tick;
-      this.tick = MathHelper.clamp(this.tick + (update ? 1 : -1), 0, this.maxTick);
+      this.tick = Mth.clamp(this.tick + (update ? 1 : -1), 0, this.maxTick);
    }
 
    public double getAnimationd() {

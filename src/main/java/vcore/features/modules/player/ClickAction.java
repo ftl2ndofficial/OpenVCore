@@ -1,15 +1,15 @@
 package vcore.features.modules.player;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult.Type;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult.Type;
 import vcore.core.InputBlocker;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
@@ -98,7 +98,7 @@ public class ClickAction extends Module {
    }
 
    private void pollKeys() {
-      boolean guiOpen = mc.currentScreen != null;
+      boolean guiOpen = mc.screen != null;
       if (this.pearlElement.getValue()) {
          boolean pressed = this.isKeyPressed(this.pearlBind);
          if (!guiOpen && pressed && !this.pearlPressed) {
@@ -130,9 +130,9 @@ public class ClickAction extends Module {
 
    private void handleFriendAction() {
       if (!fullNullCheck()) {
-         if (!(mc.crosshairTarget instanceof EntityHitResult hit && hit.getType() == Type.ENTITY)) {
+         if (!(mc.hitResult instanceof EntityHitResult hit && hit.getType() == Type.ENTITY)) {
             this.warn("Aim at a player first.");
-         } else if (hit.getEntity() instanceof PlayerEntity player && player != mc.player) {
+         } else if (hit.getEntity() instanceof Player player && player != mc.player) {
             String name = player.getName().getString();
             if (Managers.FRIEND.isFriend(name)) {
                Managers.FRIEND.removeFriend(name);
@@ -148,7 +148,7 @@ public class ClickAction extends Module {
    }
 
    private void handlePearlAction() {
-      if (!fullNullCheck() && !mc.player.getItemCooldownManager().isCoolingDown(Items.ENDER_PEARL)) {
+      if (!fullNullCheck() && !mc.player.getCooldowns().isOnCooldown(Items.ENDER_PEARL)) {
          SearchInvResult hotbarPearl = InventoryUtility.findItemInHotBar(Items.ENDER_PEARL);
          SearchInvResult invPearl = hotbarPearl.found() ? SearchInvResult.notFound() : InventoryUtility.findItemInInventory(Items.ENDER_PEARL);
          if (!hotbarPearl.found() && !invPearl.found()) {
@@ -157,7 +157,7 @@ public class ClickAction extends Module {
             if (hotbarPearl.found()) {
                this.throwPearlFromHotbar(hotbarPearl.slot(), true);
             } else {
-               this.throwPearlWithSwap(invPearl.slot(), mc.player.getInventory().selectedSlot, false);
+               this.throwPearlWithSwap(invPearl.slot(), mc.player.getInventory().selected, false);
             }
          } else if (hotbarPearl.found()) {
             this.throwPearlFromHotbar(hotbarPearl.slot(), false);
@@ -189,9 +189,9 @@ public class ClickAction extends Module {
          if (System.currentTimeMillis() >= this.scheduledActionAt) {
             try {
                if (this.scheduledInventorySlot != -1) {
-                  clickSlot(this.scheduledInventorySlot, this.scheduledHotbarSlot, SlotActionType.SWAP);
+                  clickSlot(this.scheduledInventorySlot, this.scheduledHotbarSlot, ClickType.SWAP);
                   this.throwPearlFromHotbar(this.scheduledHotbarSlot, false);
-                  clickSlot(this.scheduledInventorySlot, this.scheduledHotbarSlot, SlotActionType.SWAP);
+                  clickSlot(this.scheduledInventorySlot, this.scheduledHotbarSlot, ClickType.SWAP);
                }
             } catch (Throwable var3) {
             }
@@ -211,10 +211,10 @@ public class ClickAction extends Module {
 
    private void throwPearlWithSwap(int inventorySlot, int hotbarSlot, boolean scheduleRestore) {
       if (inventorySlot != -1) {
-         clickSlot(inventorySlot, hotbarSlot, SlotActionType.SWAP);
+         clickSlot(inventorySlot, hotbarSlot, ClickType.SWAP);
          this.throwPearlFromHotbar(hotbarSlot, this.mode.is(ClickAction.Mode.Rage));
          if (this.mode.is(ClickAction.Mode.Rage) && !scheduleRestore) {
-            clickSlot(inventorySlot, hotbarSlot, SlotActionType.SWAP);
+            clickSlot(inventorySlot, hotbarSlot, ClickType.SWAP);
          } else {
             this.restoreSlot = inventorySlot;
             this.restoreHotbar = hotbarSlot;
@@ -227,15 +227,15 @@ public class ClickAction extends Module {
       if (rageMode) {
          InventoryUtility.saveSlot();
          InventoryUtility.switchTo(hotbarSlot);
-         this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, mc.player.getYaw(), mc.player.getPitch()));
-         mc.player.swingHand(Hand.MAIN_HAND);
+         this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, mc.player.getYRot(), mc.player.getXRot()));
+         mc.player.swing(InteractionHand.MAIN_HAND);
          InventoryUtility.returnSlot();
       } else {
-         int previousSlot = mc.player.getInventory().selectedSlot;
-         mc.player.getInventory().selectedSlot = hotbarSlot;
-         mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-         mc.player.swingHand(Hand.MAIN_HAND);
-         mc.player.getInventory().selectedSlot = previousSlot;
+         int previousSlot = mc.player.getInventory().selected;
+         mc.player.getInventory().selected = hotbarSlot;
+         mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+         mc.player.swing(InteractionHand.MAIN_HAND);
+         mc.player.getInventory().selected = previousSlot;
       }
    }
 
@@ -247,7 +247,7 @@ public class ClickAction extends Module {
                   return;
                }
 
-               clickSlot(this.restoreSlot, this.restoreHotbar, SlotActionType.SWAP);
+               clickSlot(this.restoreSlot, this.restoreHotbar, ClickType.SWAP);
             }
 
             this.restoreSlot = -1;
@@ -267,7 +267,7 @@ public class ClickAction extends Module {
    }
 
    private void handleXpAutomation() {
-      if (!this.xpElement.getValue() || !this.xpPressed || mc.currentScreen != null || mc.player == null) {
+      if (!this.xpElement.getValue() || !this.xpPressed || mc.screen != null || mc.player == null) {
          this.stopXpUse();
       } else if (this.xpAntiWaste.getValue().isEnabled() && !this.needXpRepair()) {
          this.stopXpUse();
@@ -275,7 +275,7 @@ public class ClickAction extends Module {
          this.stopXpUse();
       } else {
          if (!this.isThrowingXp) {
-            this.xpLastSlot = mc.player.getInventory().selectedSlot;
+            this.xpLastSlot = mc.player.getInventory().selected;
             this.isThrowingXp = true;
             this.lastXpUseTime = 0L;
          }
@@ -284,10 +284,10 @@ public class ClickAction extends Module {
          int delay = 20;
          if (now - this.lastXpUseTime >= delay) {
             float throwPitch = this.getXpThrowPitch();
-            float throwYaw = mc.player.getYaw();
-            if (mc.player.getOffHandStack().getItem() == Items.EXPERIENCE_BOTTLE) {
-               InteractionUtility.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.OFF_HAND, id, throwYaw, throwPitch));
-               mc.player.networkHandler.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));
+            float throwYaw = mc.player.getYRot();
+            if (mc.player.getOffhandItem().getItem() == Items.EXPERIENCE_BOTTLE) {
+               InteractionUtility.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.OFF_HAND, id, throwYaw, throwPitch));
+               mc.player.connection.send(new ServerboundSwingPacket(InteractionHand.OFF_HAND));
             } else {
                int xpSlot = InventoryUtility.findItemInHotBar(Items.EXPERIENCE_BOTTLE).slot();
                if (xpSlot == -1) {
@@ -295,12 +295,12 @@ public class ClickAction extends Module {
                   return;
                }
 
-               if (xpSlot != mc.player.getInventory().selectedSlot) {
-                  mc.player.getInventory().selectedSlot = xpSlot;
+               if (xpSlot != mc.player.getInventory().selected) {
+                  mc.player.getInventory().selected = xpSlot;
                }
 
-               InteractionUtility.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, throwYaw, throwPitch));
-               mc.player.networkHandler.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+               InteractionUtility.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, throwYaw, throwPitch));
+               mc.player.connection.send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
             }
 
             this.lastXpUseTime = now;
@@ -311,7 +311,7 @@ public class ClickAction extends Module {
    private boolean needXpRepair() {
       int stopOn = this.xpStopOn.getValue();
 
-      for (ItemStack stack : mc.player.getArmorItems()) {
+      for (ItemStack stack : mc.player.getArmorSlots()) {
          float percent = PlayerUtility.calculatePercentage(stack);
          if (percent < stopOn) {
             return true;
@@ -322,8 +322,8 @@ public class ClickAction extends Module {
    }
 
    private void stopXpUse() {
-      if (mc.player != null && this.isThrowingXp && this.xpLastSlot != -1 && this.xpLastSlot != mc.player.getInventory().selectedSlot) {
-         mc.player.getInventory().selectedSlot = this.xpLastSlot;
+      if (mc.player != null && this.isThrowingXp && this.xpLastSlot != -1 && this.xpLastSlot != mc.player.getInventory().selected) {
+         mc.player.getInventory().selected = this.xpLastSlot;
       }
 
       this.isThrowingXp = false;
@@ -335,7 +335,7 @@ public class ClickAction extends Module {
    private void onSync(EventSync event) {
       if (!fullNullCheck()) {
          if (this.shouldSpoofFeetPitch()) {
-            mc.player.setPitch(this.xpFeetPitch.getValue());
+            mc.player.setXRot(this.xpFeetPitch.getValue());
          }
       }
    }
@@ -343,7 +343,7 @@ public class ClickAction extends Module {
    private boolean shouldSpoofFeetPitch() {
       if (!this.xpElement.getValue() || !this.xpFeetGroup.getValue().isEnabled()) {
          return false;
-      } else if (!this.xpPressed || mc.currentScreen != null || mc.player == null) {
+      } else if (!this.xpPressed || mc.screen != null || mc.player == null) {
          return false;
       } else {
          return this.xpAntiWaste.getValue().isEnabled() && !this.needXpRepair() ? false : this.hasAvailableXpBottle();
@@ -351,7 +351,7 @@ public class ClickAction extends Module {
    }
 
    private int pickSwapHotbarSlot() {
-      int selected = mc.player.getInventory().selectedSlot;
+      int selected = mc.player.getInventory().selected;
       return (selected + 1) % 9;
    }
 
@@ -364,12 +364,12 @@ public class ClickAction extends Module {
    }
 
    private float getXpThrowPitch() {
-      return this.shouldSpoofFeetPitch() ? this.xpFeetPitch.getValue() : mc.player.getPitch();
+      return this.shouldSpoofFeetPitch() ? this.xpFeetPitch.getValue() : mc.player.getXRot();
    }
 
    private boolean hasAvailableXpBottle() {
       return mc.player != null
-         && (mc.player.getOffHandStack().getItem() == Items.EXPERIENCE_BOTTLE || InventoryUtility.findItemInHotBar(Items.EXPERIENCE_BOTTLE).found());
+         && (mc.player.getOffhandItem().getItem() == Items.EXPERIENCE_BOTTLE || InventoryUtility.findItemInHotBar(Items.EXPERIENCE_BOTTLE).found());
    }
 
    private void resetState() {

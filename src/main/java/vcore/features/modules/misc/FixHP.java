@@ -6,12 +6,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
-import net.minecraft.scoreboard.ReadableScoreboardScore;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.ReadOnlyScoreInfo;
+import net.minecraft.world.scores.Scoreboard;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -42,21 +42,21 @@ public class FixHP extends Module {
 
    @EventHandler
    public void onPacketReceive(PacketEvent.Receive event) {
-      if (this.isEnabled() && this.mode.getValue() == FixHP.Mode.ActionBar && mc.world != null) {
-         if (event.getPacket() instanceof GameMessageS2CPacket packet) {
+      if (this.isEnabled() && this.mode.getValue() == FixHP.Mode.ActionBar && mc.level != null) {
+         if (event.getPacket() instanceof ClientboundSystemChatPacket packet) {
             cacheActionBarHealth(packet.content().getString());
          }
       }
    }
 
-   public static float getHealth(PlayerEntity ent) {
+   public static float getHealth(Player ent) {
       if (ent == null) {
          return 0.0F;
       } else if (INSTANCE == null || !INSTANCE.isEnabled()) {
          return ent.getHealth();
       } else if (ent == mc.player) {
          return ent.getHealth();
-      } else if (mc.world != null && mc.getNetworkHandler() != null && mc.getNetworkHandler().getServerInfo() != null) {
+      } else if (mc.level != null && mc.getConnection() != null && mc.getConnection().getServerData() != null) {
          return getMode() == FixHP.Mode.ActionBar ? getActionBarHealth(ent) : getScoreboardHealth(ent);
       } else {
          return ent.getHealth();
@@ -67,34 +67,34 @@ public class FixHP extends Module {
       return INSTANCE != null && INSTANCE.isEnabled() && INSTANCE.mode.getValue() == FixHP.Mode.ActionBar;
    }
 
-   private static float getScoreboardHealth(PlayerEntity ent) {
+   private static float getScoreboardHealth(Player ent) {
       try {
          Scoreboard scoreboard = ent.getScoreboard();
-         ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.BELOW_NAME);
+         Objective objective = scoreboard.getDisplayObjective(DisplaySlot.BELOW_NAME);
          if (objective == null) {
             return ent.getHealth();
          }
 
-         ReadableScoreboardScore score = scoreboard.getScore(ent, objective);
-         return score.getScore();
+         ReadOnlyScoreInfo score = scoreboard.getPlayerScoreInfo(ent, objective);
+         return score.value();
       } catch (Exception ignored) {
          return ent.getHealth();
       }
    }
 
-   private static float getActionBarHealth(PlayerEntity ent) {
+   private static float getActionBarHealth(Player ent) {
       Float cachedHealth = getCachedActionBarHealth(ent);
       return cachedHealth != null ? cachedHealth : ent.getHealth();
    }
 
    private static void cacheActionBarHealth(String actionBarText) {
-      if (actionBarText != null && !actionBarText.isBlank() && mc.world != null) {
+      if (actionBarText != null && !actionBarText.isBlank() && mc.level != null) {
          Matcher matcher = ACTION_BAR_HEALTH_ENTRY.matcher(actionBarText);
 
          while (matcher.find()) {
             Float health = parseActionBarHealthValue(matcher.group(2));
             if (health != null) {
-               PlayerEntity player = findWorldPlayerByName(matcher.group(1));
+               Player player = findWorldPlayerByName(matcher.group(1));
                if (player != null) {
                   cacheActionBarHealth(player, health);
                }
@@ -126,9 +126,9 @@ public class FixHP extends Module {
       }
    }
 
-   private static PlayerEntity findWorldPlayerByName(String playerName) {
-      if (playerName != null && mc.world != null) {
-         for (PlayerEntity player : mc.world.getPlayers()) {
+   private static Player findWorldPlayerByName(String playerName) {
+      if (playerName != null && mc.level != null) {
+         for (Player player : mc.level.players()) {
             if (playerName.equals(player.getName().getString())) {
                return player;
             }
@@ -148,14 +148,14 @@ public class FixHP extends Module {
       return codePoint == 10084 || codePoint == 9829 || codePoint == 9825 || codePoint == 65039;
    }
 
-   private static void cacheActionBarHealth(PlayerEntity ent, float health) {
-      UUID uuid = ent.getUuid();
+   private static void cacheActionBarHealth(Player ent, float health) {
+      UUID uuid = ent.getUUID();
       ACTION_BAR_HEALTH_CACHE.put(uuid, health);
       ACTION_BAR_HEALTH_CACHE_TIME.put(uuid, System.currentTimeMillis());
    }
 
-   private static Float getCachedActionBarHealth(PlayerEntity ent) {
-      UUID uuid = ent.getUuid();
+   private static Float getCachedActionBarHealth(Player ent) {
+      UUID uuid = ent.getUUID();
       Long lastUpdate = ACTION_BAR_HEALTH_CACHE_TIME.get(uuid);
       if (lastUpdate == null) {
          return null;

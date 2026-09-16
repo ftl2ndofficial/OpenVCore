@@ -1,9 +1,9 @@
 package vcore.features.modules.player;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Item;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
 import vcore.events.impl.EventClickSlot;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -20,14 +20,14 @@ public class ItemScroller extends Module {
    public void onClick(EventClickSlot e) {
       if ((this.isKeyPressed(340) || this.isKeyPressed(344))
          && (this.isKeyPressed(341) || this.isKeyPressed(345))
-         && e.getSlotActionType() == SlotActionType.THROW
+         && e.getSlotActionType() == ClickType.THROW
          && !this.pauseListening) {
-         Item copy = ((Slot)mc.player.currentScreenHandler.slots.get(e.getSlot())).getStack().getItem();
+         Item copy = ((Slot)mc.player.containerMenu.slots.get(e.getSlot())).getItem().getItem();
          this.pauseListening = true;
 
-         for (int i2 = 0; i2 < mc.player.currentScreenHandler.slots.size(); i2++) {
-            if (((Slot)mc.player.currentScreenHandler.slots.get(i2)).getStack().getItem() == copy) {
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, i2, 1, SlotActionType.THROW, mc.player);
+         for (int i2 = 0; i2 < mc.player.containerMenu.slots.size(); i2++) {
+            if (((Slot)mc.player.containerMenu.slots.get(i2)).getItem().getItem() == copy) {
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, i2, 1, ClickType.THROW, mc.player);
             }
          }
 

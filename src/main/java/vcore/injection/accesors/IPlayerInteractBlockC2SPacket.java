@@ -1,14 +1,14 @@
 package vcore.injection.accesors;
 
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.util.Hand;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.world.InteractionHand;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(PlayerInteractBlockC2SPacket.class)
+@Mixin(ServerboundUseItemOnPacket.class)
 public interface IPlayerInteractBlockC2SPacket {
    @Mutable
    @Accessor("hand")
-   void setHand(Hand var1);
+   void setHand(InteractionHand var1);
 }

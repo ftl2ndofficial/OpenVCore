@@ -1,9 +1,9 @@
 package vcore.utility.render.shaders.satin.api.managed;
 
-import net.minecraft.client.gl.Framebuffer;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 
 public interface ManagedFramebuffer {
-   Framebuffer getFramebuffer();
+   RenderTarget getFramebuffer();
 
    void beginWrite(boolean var1);
 

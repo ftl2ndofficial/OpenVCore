@@ -9,8 +9,8 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.command.CommandSource;
-import net.minecraft.text.Text;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 import vcore.core.Managers;
 import vcore.features.modules.Module;
 
@@ -24,14 +24,14 @@ public class ModuleArgumentType implements ArgumentType<Module> {
    public Module parse(StringReader reader) throws CommandSyntaxException {
       Module module = Managers.MODULE.get(reader.readString());
       if (module == null) {
-         throw new DynamicCommandExceptionType(name -> Text.literal("Module " + name + " does not exist :(")).create(reader.readString());
+         throw new DynamicCommandExceptionType(name -> Component.literal("Module " + name + " does not exist :(")).create(reader.readString());
       } else {
          return module;
       }
    }
 
    public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-      return CommandSource.suggestMatching(Managers.MODULE.modules.stream().map(Module::getName), builder);
+      return SharedSuggestionProvider.suggest(Managers.MODULE.modules.stream().map(Module::getName), builder);
    }
 
    public Collection<String> getExamples() {

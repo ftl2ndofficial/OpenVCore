@@ -1,8 +1,8 @@
 package vcore.gui.notification;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 import vcore.core.manager.client.NotificationManager;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
@@ -63,19 +63,19 @@ public class Notification {
       this.animation = new EaseOutBack(NotificationManager.isDefault() ? 10 : 20);
       this.animationX = this.width;
       if (NotificationManager.isDefault()) {
-         this.y = Module.mc.getWindow().getScaledHeight() - this.height;
+         this.y = Module.mc.getWindow().getGuiScaledHeight() - this.height;
       } else {
-         this.y = Module.mc.getWindow().getScaledHeight() / 2.0F + 10.0F;
+         this.y = Module.mc.getWindow().getGuiScaledHeight() / 2.0F + 10.0F;
       }
    }
 
-   public void render(MatrixStack matrix, float getY) {
+   public void render(PoseStack matrix, float getY) {
       this.prepareFrame(getY);
       int contentAlpha = this.getContentAlpha();
       Color color = new Color(170, 170, 170, contentAlpha);
       Color textColor = Render2DEngine.injectAlpha(HudEditor.getTextColor(), contentAlpha);
       if (NotificationManager.isDefault()) {
-         float x = Module.mc.getWindow().getScaledWidth() - 6 - this.width + this.animationX;
+         float x = Module.mc.getWindow().getGuiScaledWidth() - 6 - this.width + this.animationX;
          if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
             Render2DEngine.verticalGradient(matrix, x + 25.0F, this.y + 1.0F, x + 25.5F, this.y + 12.0F, Render2DEngine.injectAlpha(textColor, 0), textColor);
             Render2DEngine.verticalGradient(matrix, x + 25.0F, this.y + 11.0F, x + 25.5F, this.y + 22.0F, textColor, Render2DEngine.injectAlpha(textColor, 0));
@@ -100,7 +100,7 @@ public class Notification {
          FontRenderers.sf_bold_mini.drawString(matrix, this.message, textX, this.y + 15.0F, color.getRGB());
          FontRenderers.mid_icons.drawString(matrix, this.icon, x + 5.0F, this.y + 7.0F, color.getRGB());
       } else {
-         float x = Module.mc.getWindow().getScaledWidth() / 2.0F - this.width / 2.0F;
+         float x = Module.mc.getWindow().getGuiScaledWidth() / 2.0F - this.width / 2.0F;
          if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
             Render2DEngine.verticalGradient(matrix, x + 13.0F, this.y + 1.0F, x + 13.5F, this.y + 6.0F, Render2DEngine.injectAlpha(color, 0), color);
             Render2DEngine.verticalGradient(matrix, x + 13.0F, this.y + 6.0F, x + 13.5F, this.y + 11.0F, color, Render2DEngine.injectAlpha(color, 0));
@@ -125,7 +125,7 @@ public class Notification {
       this.framePrepared = false;
    }
 
-   private void drawCrosshairGradientTitle(MatrixStack matrix, String text, float x, float y, int alpha) {
+   private void drawCrosshairGradientTitle(PoseStack matrix, String text, float x, float y, int alpha) {
       float charX = x;
 
       for (int i = 0; i < text.length(); i++) {
@@ -140,13 +140,13 @@ public class Notification {
       this.animation.update(this.direction);
    }
 
-   public void renderShaders(MatrixStack matrix, float getY) {
+   public void renderShaders(PoseStack matrix, float getY) {
       this.prepareFrame(getY);
       Render2DEngine.drawHudBase2(
          matrix,
          NotificationManager.isDefault()
-            ? Module.mc.getWindow().getScaledWidth() - 6 - this.width + this.animationX
-            : Module.mc.getWindow().getScaledWidth() / 2.0F - this.width / 2.0F,
+            ? Module.mc.getWindow().getGuiScaledWidth() - 6 - this.width + this.animationX
+            : Module.mc.getWindow().getGuiScaledWidth() / 2.0F - this.width / 2.0F,
          this.y,
          this.width,
          this.height,
@@ -187,17 +187,17 @@ public class Notification {
    }
 
    public enum Type {
-      SUCCESS("Success", Formatting.GREEN),
-      INFO("Information", Formatting.AQUA),
-      WARNING("Warning", Formatting.GOLD),
-      ERROR("Error", Formatting.RED),
-      ENABLED("Module enabled", Formatting.DARK_GREEN),
-      DISABLED("Module disabled", Formatting.DARK_RED);
+      SUCCESS("Success", ChatFormatting.GREEN),
+      INFO("Information", ChatFormatting.AQUA),
+      WARNING("Warning", ChatFormatting.GOLD),
+      ERROR("Error", ChatFormatting.RED),
+      ENABLED("Module enabled", ChatFormatting.DARK_GREEN),
+      DISABLED("Module disabled", ChatFormatting.DARK_RED);
 
       final String name;
-      final Formatting color;
+      final ChatFormatting color;
 
-      Type(String name, Formatting color) {
+      Type(String name, ChatFormatting color) {
          this.name = name;
          this.color = color;
       }
@@ -206,7 +206,7 @@ public class Notification {
          return this.name;
       }
 
-      public Formatting getColor() {
+      public ChatFormatting getColor() {
          return this.color;
       }
    }

@@ -1,18 +1,18 @@
 package vcore.events.impl;
 
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.world.entity.player.Player;
 import vcore.events.Event;
 
 public class TotemPopEvent extends Event {
-   private final PlayerEntity entity;
+   private final Player entity;
    private int pops;
 
-   public TotemPopEvent(PlayerEntity entity, int pops) {
+   public TotemPopEvent(Player entity, int pops) {
       this.entity = entity;
       this.pops = pops;
    }
 
-   public PlayerEntity getEntity() {
+   public Player getEntity() {
       return this.entity;
    }
 

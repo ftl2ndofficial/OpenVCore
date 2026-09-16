@@ -7,8 +7,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.Entity;
 import vcore.core.Managers;
 import vcore.core.manager.IManager;
 import vcore.events.impl.EventPostTick;
@@ -21,7 +21,7 @@ public class AsyncManager implements IManager {
    private AsyncManager.ClientService clientService = new AsyncManager.ClientService();
    public static ExecutorService executor = Executors.newCachedThreadPool();
    private volatile Iterable<Entity> threadSafeEntityList = Collections.emptyList();
-   private volatile List<AbstractClientPlayerEntity> threadSafePlayersList = Collections.emptyList();
+   private volatile List<AbstractClientPlayer> threadSafePlayersList = Collections.emptyList();
    public final AtomicBoolean ticking = new AtomicBoolean(false);
 
    public static void sleep(int delay) {
@@ -33,9 +33,9 @@ public class AsyncManager implements IManager {
 
    @EventHandler(priority = -200)
    public void onPostTick(EventPostTick e) {
-      if (mc.world != null) {
-         this.threadSafeEntityList = Lists.newArrayList(mc.world.getEntities());
-         this.threadSafePlayersList = Lists.newArrayList(mc.world.getPlayers());
+      if (mc.level != null) {
+         this.threadSafeEntityList = Lists.newArrayList(mc.level.entitiesForRendering());
+         this.threadSafePlayersList = Lists.newArrayList(mc.level.players());
          this.ticking.set(false);
       }
    }
@@ -44,7 +44,7 @@ public class AsyncManager implements IManager {
       return this.threadSafeEntityList;
    }
 
-   public List<AbstractClientPlayerEntity> getAsyncPlayers() {
+   public List<AbstractClientPlayer> getAsyncPlayers() {
       return this.threadSafePlayersList;
    }
 

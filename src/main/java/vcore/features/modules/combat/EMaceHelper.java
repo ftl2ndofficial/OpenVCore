@@ -1,26 +1,26 @@
 package vcore.features.modules.combat;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
 import vcore.features.modules.misc.ClientSettings;
@@ -68,7 +68,7 @@ public class EMaceHelper extends Module {
 
    @Override
    public void onUpdate() {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          if (this.peakAssist.getValue()) {
             this.handlePeakAssist();
          } else {
@@ -99,7 +99,7 @@ public class EMaceHelper extends Module {
       if (target instanceof LivingEntity livingTarget) {
          if (livingTarget.isFallFlying()) {
             return true;
-         } else if (target instanceof PlayerEntity player && player.getArmor() == 0) {
+         } else if (target instanceof Player player && player.getArmorValue() == 0) {
             return true;
          } else {
             return livingTarget.isSwimming() && this.isEyeInWater(livingTarget) ? true : this.isTargetBlockedBySolidBlock(target);
@@ -110,7 +110,7 @@ public class EMaceHelper extends Module {
    }
 
    private boolean canUseAutoTarget() {
-      if (mc.player == null || mc.world == null) {
+      if (mc.player == null || mc.level == null) {
          return false;
       } else if (!this.isEnabled()) {
          return false;
@@ -120,21 +120,21 @@ public class EMaceHelper extends Module {
    }
 
    private boolean isEyeInWater(LivingEntity livingTarget) {
-      return mc.world.getFluidState(BlockPos.ofFloored(livingTarget.getEyePos())).isIn(FluidTags.WATER);
+      return mc.level.getFluidState(BlockPos.containing(livingTarget.getEyePosition())).is(FluidTags.WATER);
    }
 
    private boolean isTargetBlockedBySolidBlock(Entity target) {
-      Vec3d start = mc.player.getEyePos();
-      Vec3d end = this.getClosestVisiblePoint(target);
-      Vec3d direction = end.subtract(start);
-      if (direction.lengthSquared() < 1.0E-6) {
+      Vec3 start = mc.player.getEyePosition();
+      Vec3 end = this.getClosestVisiblePoint(target);
+      Vec3 direction = end.subtract(start);
+      if (direction.lengthSqr() < 1.0E-6) {
          return false;
       }
 
-      Vec3d step = direction.normalize().multiply(0.05);
+      Vec3 step = direction.normalize().scale(0.05);
 
       for (int attempts = 0; attempts < 8; attempts++) {
-         BlockHitResult hit = mc.world.raycast(new RaycastContext(start, end, ShapeType.COLLIDER, FluidHandling.NONE, mc.player));
+         BlockHitResult hit = mc.level.clip(new ClipContext(start, end, Block.COLLIDER, Fluid.NONE, mc.player));
          if (hit.getType() != Type.BLOCK) {
             return false;
          }
@@ -143,27 +143,27 @@ public class EMaceHelper extends Module {
             return true;
          }
 
-         start = hit.getPos().add(step);
+         start = hit.getLocation().add(step);
       }
 
       return false;
    }
 
-   private Vec3d getClosestVisiblePoint(Entity target) {
-      Vec3d eyePos = mc.player.getEyePos();
-      return new Vec3d(
-         MathHelper.clamp(eyePos.x, target.getBoundingBox().minX, target.getBoundingBox().maxX),
-         MathHelper.clamp(eyePos.y, target.getBoundingBox().minY, target.getBoundingBox().maxY),
-         MathHelper.clamp(eyePos.z, target.getBoundingBox().minZ, target.getBoundingBox().maxZ)
+   private Vec3 getClosestVisiblePoint(Entity target) {
+      Vec3 eyePos = mc.player.getEyePosition();
+      return new Vec3(
+         Mth.clamp(eyePos.x, target.getBoundingBox().minX, target.getBoundingBox().maxX),
+         Mth.clamp(eyePos.y, target.getBoundingBox().minY, target.getBoundingBox().maxY),
+         Mth.clamp(eyePos.z, target.getBoundingBox().minZ, target.getBoundingBox().maxZ)
       );
    }
 
    private boolean isGrassBlock(BlockHitResult hit) {
-      BlockState state = mc.world.getBlockState(hit.getBlockPos());
-      return state.isOf(Blocks.SHORT_GRASS) || state.isOf(Blocks.TALL_GRASS);
+      BlockState state = mc.level.getBlockState(hit.getBlockPos());
+      return state.is(Blocks.SHORT_GRASS) || state.is(Blocks.TALL_GRASS);
    }
 
-   public Vec3d applyPeakAssistAimOffset(Entity target, Vec3d aimPos) {
+   public Vec3 applyPeakAssistAimOffset(Entity target, Vec3 aimPos) {
       if (aimPos == null || target == null || target.isRemoved()) {
          return aimPos;
       } else if (!this.canUsePeakAssist()) {
@@ -173,7 +173,7 @@ public class EMaceHelper extends Module {
       } else if (Aura.target != target) {
          return aimPos;
       } else {
-         Vec3d offsetPos = aimPos.add(0.0, this.height.getValue().intValue(), 0.0);
+         Vec3 offsetPos = aimPos.add(0.0, this.height.getValue().intValue(), 0.0);
          if (this.shouldDisablePeakOffset(offsetPos)) {
             this.peakOffsetActive = false;
             this.peakOffsetDisabledPendingFirework = true;
@@ -196,7 +196,7 @@ public class EMaceHelper extends Module {
 
          Entity target = Aura.target;
          if (target != null && !target.isRemoved()) {
-            Vec3d offsetPos = this.getPeakAssistOffsetPos(target);
+            Vec3 offsetPos = this.getPeakAssistOffsetPos(target);
             if (offsetPos != null) {
                if (this.peakOffsetActive && this.shouldDisablePeakOffset(offsetPos)) {
                   this.peakOffsetActive = false;
@@ -221,7 +221,7 @@ public class EMaceHelper extends Module {
    }
 
    private boolean canUsePeakAssist() {
-      if (mc.player == null || mc.world == null) {
+      if (mc.player == null || mc.level == null) {
          return false;
       } else if (!this.isEnabled()) {
          return false;
@@ -232,24 +232,24 @@ public class EMaceHelper extends Module {
       }
    }
 
-   private Vec3d getPeakAssistOffsetPos(Entity target) {
-      Vec3d baseAimPos;
+   private Vec3 getPeakAssistOffsetPos(Entity target) {
+      Vec3 baseAimPos;
       if (target instanceof LivingEntity livingTarget && ModuleManager.elytraTarget.shouldTarget(livingTarget)) {
          baseAimPos = ModuleManager.elytraTarget.getTargetVec(livingTarget, true);
       } else {
-         baseAimPos = target.getEyePos();
+         baseAimPos = target.getEyePosition();
       }
 
       return baseAimPos == null ? null : baseAimPos.add(0.0, this.height.getValue().intValue(), 0.0);
    }
 
-   private boolean shouldDisablePeakOffset(Vec3d offsetPos) {
-      return mc.player.getY() > offsetPos.y ? true : mc.player.getPos().squaredDistanceTo(offsetPos) < 1.0;
+   private boolean shouldDisablePeakOffset(Vec3 offsetPos) {
+      return mc.player.getY() > offsetPos.y ? true : mc.player.position().distanceToSqr(offsetPos) < 1.0;
    }
 
    private void triggerPeakAssistFirework() {
       if (this.hasFirework()) {
-         if (!mc.player.getItemCooldownManager().isCoolingDown(Items.FIREWORK_ROCKET)) {
+         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
             this.useFireWorkByMode();
          }
       }
@@ -272,7 +272,7 @@ public class EMaceHelper extends Module {
 
    private void handleArmorSwap() {
       if (!this.isPeakOffsetRunning()) {
-         if (mc.currentScreen == null && !this.swapping) {
+         if (mc.screen == null && !this.swapping) {
             if (this.canUseMaceAuraSupport()) {
                if (ModuleManager.maceSwap.isEnabled()) {
                   if (ModuleManager.maceSwap.hasMaceInHotbar()) {
@@ -305,7 +305,7 @@ public class EMaceHelper extends Module {
             clickSlot(slot);
             clickSlot(6);
             clickSlot(slot);
-            this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+            this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
          } finally {
             this.swapping = false;
          }
@@ -314,28 +314,28 @@ public class EMaceHelper extends Module {
 
    private double getArmorSwapDistance(Entity target) {
       if (target instanceof LivingEntity livingTarget && ModuleManager.elytraTarget.shouldTarget(livingTarget)) {
-         Vec3d predictedPos = ModuleManager.elytraTarget.getTargetVec(livingTarget, true);
+         Vec3 predictedPos = ModuleManager.elytraTarget.getTargetVec(livingTarget, true);
          if (predictedPos != null) {
-            return mc.player.getPos().distanceTo(predictedPos);
+            return mc.player.position().distanceTo(predictedPos);
          }
       }
 
-      return mc.player.getPos().distanceTo(target.getPos());
+      return mc.player.position().distanceTo(target.position());
    }
 
    private void handleAutoFireWork() {
       Entity target = Aura.target;
       if (target != null && !target.isRemoved()) {
-         boolean wearingElytra = mc.player.getInventory().getStack(38).getItem() == Items.ELYTRA;
+         boolean wearingElytra = mc.player.getInventory().getItem(38).getItem() == Items.ELYTRA;
          boolean isFallFlying = mc.player.isFallFlying();
-         double distance = mc.player.getPos().distanceTo(target.getPos());
+         double distance = mc.player.position().distanceTo(target.position());
          if (this.shouldResetFirework(wearingElytra, isFallFlying, distance)) {
             this.resetFireworkFlags();
          } else if (this.canUseMaceAuraSupport()) {
             if (wearingElytra) {
                if (isFallFlying) {
                   if (this.hasFirework()) {
-                     boolean holdingMace = this.isMace(mc.player.getMainHandStack());
+                     boolean holdingMace = this.isMace(mc.player.getMainHandItem());
                      if (!holdingMace) {
                         if (!ModuleManager.maceSwap.isEnabled()) {
                            return;
@@ -376,7 +376,7 @@ public class EMaceHelper extends Module {
    }
 
    private boolean shouldUseExtraAimRange() {
-      if (mc.player == null || mc.world == null) {
+      if (mc.player == null || mc.level == null) {
          return false;
       } else if (!this.isEnabled()) {
          return false;
@@ -386,17 +386,17 @@ public class EMaceHelper extends Module {
    }
 
    private boolean canUseMaceAuraSupport() {
-      if (mc.player == null || mc.world == null) {
+      if (mc.player == null || mc.level == null) {
          return false;
       } else {
          return !ModuleManager.aura.isEnabled()
             ? false
-            : this.isMace(mc.player.getMainHandStack()) || ModuleManager.maceSwap.isEnabled() && ModuleManager.maceSwap.hasMaceInHotbar();
+            : this.isMace(mc.player.getMainHandItem()) || ModuleManager.maceSwap.isEnabled() && ModuleManager.maceSwap.hasMaceInHotbar();
       }
    }
 
    private boolean hasFirework() {
-      return mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET
+      return mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET
          ? true
          : InventoryUtility.findItemInHotBar(Items.FIREWORK_ROCKET).found() || InventoryUtility.findItemInInventory(Items.FIREWORK_ROCKET).found();
    }
@@ -406,7 +406,7 @@ public class EMaceHelper extends Module {
    }
 
    private boolean useFireWorkMainHandSilent() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          this.useFireworkOffhandPacket();
          return true;
       }
@@ -422,31 +422,31 @@ public class EMaceHelper extends Module {
       if (hotbarFireWorkResult.found()) {
          hotbarFireWorkResult.switchTo();
       } else {
-         if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
+         if (mc.player.containerMenu != mc.player.inventoryMenu) {
             InventoryUtility.returnSlot();
             return false;
          }
 
          swappedFromInventory = true;
-         mc.interactionManager
-            .clickSlot(mc.player.currentScreenHandler.syncId, fireWorkResult.slot(), mc.player.getInventory().selectedSlot, SlotActionType.SWAP, mc.player);
-         this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+         mc.gameMode
+            .handleInventoryMouseClick(mc.player.containerMenu.containerId, fireWorkResult.slot(), mc.player.getInventory().selected, ClickType.SWAP, mc.player);
+         this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       }
 
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, ModuleManager.aura.rotationYaw, ModuleManager.aura.rotationPitch));
-      this.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, ModuleManager.aura.rotationYaw, ModuleManager.aura.rotationPitch));
+      this.sendPacket(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
       InventoryUtility.returnSlot();
       if (swappedFromInventory) {
-         mc.interactionManager
-            .clickSlot(mc.player.currentScreenHandler.syncId, fireWorkResult.slot(), mc.player.getInventory().selectedSlot, SlotActionType.SWAP, mc.player);
-         this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+         mc.gameMode
+            .handleInventoryMouseClick(mc.player.containerMenu.containerId, fireWorkResult.slot(), mc.player.getInventory().selected, ClickType.SWAP, mc.player);
+         this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       }
 
       return true;
    }
 
    private boolean useFireWorkOffhandSilent() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          this.useFireworkOffhandPacket();
          return true;
       }
@@ -456,20 +456,20 @@ public class EMaceHelper extends Module {
          return false;
       }
 
-      if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
+      if (mc.player.containerMenu != mc.player.inventoryMenu) {
          return false;
       }
 
       int slotIndex = convertFireworkSlot(fireWorkResult.slot());
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
       this.useFireworkOffhandPacket();
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
       return true;
    }
 
    private void useFireworkOffhandPacket() {
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.OFF_HAND, id, ModuleManager.aura.rotationYaw, ModuleManager.aura.rotationPitch));
-      this.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.OFF_HAND, id, ModuleManager.aura.rotationYaw, ModuleManager.aura.rotationPitch));
+      this.sendPacket(new ServerboundSwingPacket(InteractionHand.OFF_HAND));
    }
 
    private static int convertFireworkSlot(int slotIndex) {
@@ -478,7 +478,7 @@ public class EMaceHelper extends Module {
 
    private boolean isMace(ItemStack stack) {
       if (stack != null && stack.getItem() != null) {
-         String key = stack.getItem().getTranslationKey();
+         String key = stack.getItem().getDescriptionId();
          return key != null && key.toLowerCase().contains("mace") ? true : stack.getItem().toString().toLowerCase().contains("mace");
       } else {
          return false;
@@ -486,7 +486,7 @@ public class EMaceHelper extends Module {
    }
 
    private boolean isWearingElytra() {
-      return mc.player.getInventory().getStack(38).getItem() == Items.ELYTRA;
+      return mc.player.getInventory().getItem(38).getItem() == Items.ELYTRA;
    }
 
    public static void markAuraPostAttack() {

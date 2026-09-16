@@ -1,8 +1,8 @@
 package vcore.features.modules.movement;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Items;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventPostSync;
 import vcore.events.impl.EventSync;
@@ -62,10 +62,10 @@ public final class WindJump extends Module {
       this.restorePendingSlot();
       if (this.jumpRequested) {
          this.jumpRequested = false;
-         if (this.canUseWindCharge() && mc.player.isOnGround()) {
+         if (this.canUseWindCharge() && mc.player.onGround()) {
             this.pauseAuraIfNeeded();
             this.silentRotationActive = true;
-            mc.player.setPitch(90.0F);
+            mc.player.setXRot(90.0F);
             this.performWindJump();
          } else {
             this.resetRequest();
@@ -82,11 +82,11 @@ public final class WindJump extends Module {
    }
 
    private boolean canStart() {
-      return this.pendingRestoreSlot == -1 && !this.silentRotationActive && this.canUseWindCharge() && mc.player.isOnGround();
+      return this.pendingRestoreSlot == -1 && !this.silentRotationActive && this.canUseWindCharge() && mc.player.onGround();
    }
 
    private boolean canUseWindCharge() {
-      return !fullNullCheck() && mc.currentScreen == null && InventoryUtility.findItemInHotBar(Items.WIND_CHARGE).found();
+      return !fullNullCheck() && mc.screen == null && InventoryUtility.findItemInHotBar(Items.WIND_CHARGE).found();
    }
 
    private void performWindJump() {
@@ -94,7 +94,7 @@ public final class WindJump extends Module {
       if (!windCharge.found()) {
          this.endSilentRotation();
       } else {
-         int previousSlot = mc.player.getInventory().selectedSlot;
+         int previousSlot = mc.player.getInventory().selected;
          boolean switched = false;
 
          try {
@@ -113,9 +113,9 @@ public final class WindJump extends Module {
 
    private void performWindChargeAction() {
       this.pressJumpInput();
-      if (mc.interactionManager != null) {
-         mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-         mc.player.swingHand(Hand.MAIN_HAND);
+      if (mc.gameMode != null) {
+         mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+         mc.player.swing(InteractionHand.MAIN_HAND);
       }
    }
 
@@ -136,11 +136,11 @@ public final class WindJump extends Module {
    }
 
    private void pressJumpInput() {
-      this.previousJumpPressed = mc.options.jumpKey.isPressed();
-      mc.options.jumpKey.setPressed(true);
+      this.previousJumpPressed = mc.options.keyJump.isDown();
+      mc.options.keyJump.setDown(true);
       mc.player.input.jumping = true;
-      if (mc.player.isOnGround()) {
-         mc.player.jump();
+      if (mc.player.onGround()) {
+         mc.player.jumpFromGround();
       }
 
       this.restoreJumpInput = true;
@@ -148,7 +148,7 @@ public final class WindJump extends Module {
 
    private void restoreJumpInput() {
       if (this.restoreJumpInput) {
-         mc.options.jumpKey.setPressed(this.previousJumpPressed);
+         mc.options.keyJump.setDown(this.previousJumpPressed);
          if (mc.player != null) {
             mc.player.input.jumping = this.previousJumpPressed;
          }

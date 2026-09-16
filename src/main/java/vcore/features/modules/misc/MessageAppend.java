@@ -2,8 +2,8 @@ package vcore.features.modules.misc;
 
 import java.util.Objects;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ChatMessageC2SPacket;
+import net.minecraft.network.protocol.game.ServerboundChatPacket;
+import net.minecraft.world.item.Items;
 import vcore.core.Managers;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
@@ -20,21 +20,21 @@ public class MessageAppend extends Module {
    @EventHandler
    public void onPacketSend(PacketEvent.Send e) {
       if (!fullNullCheck()) {
-         if (e.getPacket() instanceof ChatMessageC2SPacket pac) {
-            if (Objects.equals(pac.chatMessage(), this.skip)) {
+         if (e.getPacket() instanceof ServerboundChatPacket pac) {
+            if (Objects.equals(pac.message(), this.skip)) {
                return;
             }
 
-            if (mc.player.getMainHandStack().getItem() == Items.FILLED_MAP || mc.player.getOffHandStack().getItem() == Items.FILLED_MAP) {
+            if (mc.player.getMainHandItem().getItem() == Items.FILLED_MAP || mc.player.getOffhandItem().getItem() == Items.FILLED_MAP) {
                return;
             }
 
-            if (pac.chatMessage().startsWith("/") || pac.chatMessage().startsWith(Managers.COMMAND.getPrefix())) {
+            if (pac.message().startsWith("/") || pac.message().startsWith(Managers.COMMAND.getPrefix())) {
                return;
             }
 
-            this.skip = pac.chatMessage() + this.word.getValue();
-            mc.player.networkHandler.sendChatMessage(pac.chatMessage() + this.word.getValue());
+            this.skip = pac.message() + this.word.getValue();
+            mc.player.connection.sendChat(pac.message() + this.word.getValue());
             e.cancel();
          }
       }

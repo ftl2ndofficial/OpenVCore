@@ -7,39 +7,39 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.PostEffectProcessor;
-import net.minecraft.resource.ResourceFactory;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceProvider;
 import vcore.injection.accesors.AccessiblePassesShaderEffect;
 import vcore.utility.render.shaders.satin.api.managed.ManagedFramebuffer;
 import vcore.utility.render.shaders.satin.api.managed.ManagedShaderEffect;
 import vcore.utility.render.shaders.satin.api.managed.uniform.SamplerUniformV2;
 
-public final class ResettableManagedShaderEffect extends ResettableManagedShaderBase<PostEffectProcessor> implements ManagedShaderEffect {
+public final class ResettableManagedShaderEffect extends ResettableManagedShaderBase<PostChain> implements ManagedShaderEffect {
    private final Consumer<ManagedShaderEffect> initCallback;
    private final Map<String, FramebufferWrapper> managedTargets;
    private final Map<String, ManagedSamplerUniformV2> managedSamplers = new HashMap<>();
 
-   public ResettableManagedShaderEffect(Identifier location, Consumer<ManagedShaderEffect> initCallback) {
+   public ResettableManagedShaderEffect(ResourceLocation location, Consumer<ManagedShaderEffect> initCallback) {
       super(location);
       this.initCallback = initCallback;
       this.managedTargets = new HashMap<>();
    }
 
    @Override
-   public PostEffectProcessor getShaderEffect() {
+   public PostChain getShaderEffect() {
       return this.getShaderOrLog();
    }
 
-   protected PostEffectProcessor parseShader(ResourceFactory resourceFactory, MinecraftClient mc, Identifier location) throws IOException {
-      return new PostEffectProcessor(mc.getTextureManager(), mc.getResourceManager(), mc.getFramebuffer(), location);
+   protected PostChain parseShader(ResourceProvider resourceFactory, Minecraft mc, ResourceLocation location) throws IOException {
+      return new PostChain(mc.getTextureManager(), mc.getResourceManager(), mc.getMainRenderTarget(), location);
    }
 
    @Override
    public void setup(int windowWidth, int windowHeight) {
       Preconditions.checkNotNull(this.shader);
-      this.shader.setupDimensions(windowWidth, windowHeight);
+      this.shader.resize(windowWidth, windowHeight);
 
       for (ManagedUniformBase uniform : this.getManagedUniforms()) {
          this.setupUniform(uniform, this.shader);
@@ -54,13 +54,13 @@ public final class ResettableManagedShaderEffect extends ResettableManagedShader
 
    @Override
    public void render(float tickDelta) {
-      PostEffectProcessor sg = this.getShaderEffect();
+      PostChain sg = this.getShaderEffect();
       if (sg != null) {
          RenderSystem.disableBlend();
          RenderSystem.disableDepthTest();
          RenderSystem.resetTextureMatrix();
-         sg.render(tickDelta);
-         MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
+         sg.process(tickDelta);
+         Minecraft.getInstance().getMainRenderTarget().bindWrite(true);
          RenderSystem.disableBlend();
          RenderSystem.blendFunc(770, 771);
          RenderSystem.enableDepthTest();
@@ -109,7 +109,7 @@ public final class ResettableManagedShaderEffect extends ResettableManagedShader
       return this.manageUniform(this.managedSamplers, ManagedSamplerUniformV2::new, samplerName, "sampler");
    }
 
-   protected boolean setupUniform(ManagedUniformBase uniform, PostEffectProcessor shader) {
+   protected boolean setupUniform(ManagedUniformBase uniform, PostChain shader) {
       return uniform.findUniformTargets(((AccessiblePassesShaderEffect)shader).getPasses());
    }
 
@@ -118,9 +118,9 @@ public final class ResettableManagedShaderEffect extends ResettableManagedShader
       LogUtils.getLogger().error("Could not create screen shader {}", this.getLocation(), e);
    }
 
-   private PostEffectProcessor getShaderOrLog() {
+   private PostChain getShaderOrLog() {
       if (!this.isInitialized() && !this.isErrored()) {
-         this.initializeOrLog(MinecraftClient.getInstance().getResourceManager());
+         this.initializeOrLog(Minecraft.getInstance().getResourceManager());
       }
 
       return this.shader;

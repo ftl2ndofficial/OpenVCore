@@ -1,18 +1,18 @@
 package vcore.features.modules.render.frageffects;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.VertexFormat.DrawMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import vcore.features.modules.Module;
 import vcore.utility.Timer;
@@ -29,7 +29,7 @@ public final class FragParticleRenderer {
       return new FragParticleRenderer();
    }
 
-   public void spawnParticlesVoid(Vec3d mainPos, int lifeTimeMin, int lifeTimeMax, float maxFlight, int count, float gravity) {
+   public void spawnParticlesVoid(Vec3 mainPos, int lifeTimeMin, int lifeTimeMax, float maxFlight, int count, float gravity) {
       float maxXZMotion = maxFlight / (lifeTimeMin / 50.0F) * 1.12F;
       float maxYMotion = maxFlight / (lifeTimeMin / 50.0F) * 0.31F;
 
@@ -53,14 +53,14 @@ public final class FragParticleRenderer {
       }
    }
 
-   public void renderParticles(MatrixStack matrices) {
+   public void renderParticles(PoseStack matrices) {
       if (!this.particles.isEmpty() && Module.mc.gameRenderer != null) {
          List<FragParticleRenderer.ColoredPoint>[] pointsBySize = this.createPointBuckets(160);
          float tickDelta = Render3DEngine.getTickDelta();
-         Vec3d cameraPos = Module.mc.gameRenderer.getCamera().getPos();
+         Vec3 cameraPos = Module.mc.gameRenderer.getMainCamera().getPosition();
 
          for (FragParticleRenderer.FragParticle particle : this.particles) {
-            Vec3d renderPos = particle.getRenderPos(tickDelta).subtract(cameraPos);
+            Vec3 renderPos = particle.getRenderPos(tickDelta).subtract(cameraPos);
             pointsBySize[particle.getScaledBeginInt(160)]
                .add(new FragParticleRenderer.ColoredPoint(renderPos.x, renderPos.y, renderPos.z, particle.getColor()));
          }
@@ -69,20 +69,20 @@ public final class FragParticleRenderer {
          RenderSystem.defaultBlendFunc();
          RenderSystem.enableDepthTest();
          RenderSystem.depthMask(false);
-         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-         Matrix4f matrix = matrices.peek().getPositionMatrix();
+         RenderSystem.setShader(GameRenderer::getPositionColorShader);
+         Matrix4f matrix = matrices.last().pose();
          float pointScale = 0.25F;
 
          for (List<FragParticleRenderer.ColoredPoint> points : pointsBySize) {
             if (!points.isEmpty()) {
-               BufferBuilder buffer = Tessellator.getInstance().begin(DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+               BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
                float radius = pointScale * 0.003F;
 
                for (FragParticleRenderer.ColoredPoint point : points) {
                   this.putPointQuad(buffer, matrix, point, radius);
                }
 
-               BufferRenderer.drawWithGlobalProgram(buffer.end());
+               BufferUploader.drawWithShader(buffer.buildOrThrow());
             }
 
             pointScale += 0.25F;
@@ -111,10 +111,10 @@ public final class FragParticleRenderer {
       float x = (float)point.x;
       float y = (float)point.y;
       float z = (float)point.z;
-      buffer.vertex(matrix, x - radius, y + radius, z).color(point.color);
-      buffer.vertex(matrix, x + radius, y + radius, z).color(point.color);
-      buffer.vertex(matrix, x + radius, y - radius, z).color(point.color);
-      buffer.vertex(matrix, x - radius, y - radius, z).color(point.color);
+      buffer.addVertex(matrix, x - radius, y + radius, z).setColor(point.color);
+      buffer.addVertex(matrix, x + radius, y + radius, z).setColor(point.color);
+      buffer.addVertex(matrix, x + radius, y - radius, z).setColor(point.color);
+      buffer.addVertex(matrix, x - radius, y - radius, z).setColor(point.color);
    }
 
    private record ColoredPoint(double x, double y, double z, int color) {
@@ -122,19 +122,19 @@ public final class FragParticleRenderer {
 
    private static final class FragParticle {
       private static final Random RANDOM = new Random();
-      private Vec3d pos;
-      private Vec3d prevPos;
-      private Vec3d motion;
+      private Vec3 pos;
+      private Vec3 prevPos;
+      private Vec3 motion;
       private final int maxTime;
       private final float gravity;
       private final Timer stopWatch = new Timer();
       private final int color = Color.HSBtoRGB(0.0F, 0.0F, (float)FragEffectMath.easeExpoInOut(RANDOM.nextFloat()));
 
-      private FragParticle(Vec3d spawnPos, int maxTime, float motionXZSpeedMax, float motionYSpeedMax, float gravity) {
+      private FragParticle(Vec3 spawnPos, int maxTime, float motionXZSpeedMax, float motionYSpeedMax, float gravity) {
          this.pos = spawnPos;
          this.prevPos = spawnPos;
          this.maxTime = maxTime;
-         this.motion = new Vec3d(
+         this.motion = new Vec3(
             FragEffectMath.lerp(-motionXZSpeedMax, motionXZSpeedMax, RANDOM.nextFloat()),
             FragEffectMath.lerp(-motionYSpeedMax / 4.0F, motionYSpeedMax, RANDOM.nextFloat()),
             FragEffectMath.lerp(-motionXZSpeedMax, motionXZSpeedMax, RANDOM.nextFloat())
@@ -145,10 +145,10 @@ public final class FragParticleRenderer {
       private void updateMotion() {
          this.prevPos = this.pos;
          this.pos = this.pos.add(this.motion);
-         this.motion = new Vec3d(this.motion.x * 0.99F, (this.motion.y - this.gravity) * 0.994F, this.motion.z * 0.99F);
+         this.motion = new Vec3(this.motion.x * 0.99F, (this.motion.y - this.gravity) * 0.994F, this.motion.z * 0.99F);
       }
 
-      private Vec3d getRenderPos(float partialTicks) {
+      private Vec3 getRenderPos(float partialTicks) {
          return this.prevPos
             .add((this.pos.x - this.prevPos.x) * partialTicks, (this.pos.y - this.prevPos.y) * partialTicks, (this.pos.z - this.prevPos.z) * partialTicks);
       }

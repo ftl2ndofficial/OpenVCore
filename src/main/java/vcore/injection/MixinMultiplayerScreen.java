@@ -1,10 +1,10 @@
 package vcore.injection;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.features.modules.misc.UnHook;
 import vcore.utility.AccountUtility;
 
-@Mixin(MultiplayerScreen.class)
+@Mixin(JoinMultiplayerScreen.class)
 public abstract class MixinMultiplayerScreen extends Screen {
    private static final int EDGE_PADDING = 5;
    private static final int RANDOM_ALT_BUTTON_Y = 8;
@@ -21,9 +21,9 @@ public abstract class MixinMultiplayerScreen extends Screen {
    private static final int ACCOUNT_TEXT_X = 5;
    private static final int ACCOUNT_TEXT_Y = 14;
    private static final int ACCOUNT_TEXT_COLOR = -1;
-   private ButtonWidget randomAltButton;
+   private Button randomAltButton;
 
-   protected MixinMultiplayerScreen(Text title) {
+   protected MixinMultiplayerScreen(Component title) {
       super(title);
    }
 
@@ -32,24 +32,24 @@ public abstract class MixinMultiplayerScreen extends Screen {
       if (UnHook.isActive()) {
          this.randomAltButton = null;
       } else {
-         this.randomAltButton = (ButtonWidget)this.addDrawableChild(
-            ButtonWidget.builder(Text.of("Random Alt"), button -> AccountUtility.loginRandomAlt()).dimensions(this.width - 70 - 5, 8, 70, 20).build()
+         this.randomAltButton = (Button)this.addRenderableWidget(
+            Button.builder(Component.nullToEmpty("Random Alt"), button -> AccountUtility.loginRandomAlt()).bounds(this.width - 70 - 5, 8, 70, 20).build()
          );
       }
    }
 
    @Inject(method = "render", at = @At("HEAD"))
-   private void removeRandomAltWhenUnhooked(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+   private void removeRandomAltWhenUnhooked(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
       if (UnHook.isActive() && this.randomAltButton != null) {
-         this.remove(this.randomAltButton);
+         this.removeWidget(this.randomAltButton);
          this.randomAltButton = null;
       }
    }
 
    @Inject(method = "render", at = @At("TAIL"))
-   private void renderAccountText(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-      if (!UnHook.isActive() && this.client != null) {
-         context.drawTextWithShadow(this.textRenderer, "Account: " + this.client.getSession().getUsername(), 5, 14, -1);
+   private void renderAccountText(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+      if (!UnHook.isActive() && this.minecraft != null) {
+         context.drawString(this.font, "Account: " + this.minecraft.getUser().getName(), 5, 14, -1);
       }
    }
 }

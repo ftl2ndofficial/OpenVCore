@@ -1,50 +1,50 @@
 package vcore.features.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToDoubleFunction;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.SlimeEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.CatEntity;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.FireballEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.entity.projectile.ShulkerBulletEntity;
-import net.minecraft.item.AxeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.MaceItem;
-import net.minecraft.item.SwordItem;
-import net.minecraft.item.TridentItem;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.UseAction;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Slime;
+import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.LargeFireball;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.ShulkerBullet;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import vcore.Vcore;
 import vcore.core.Core;
@@ -141,8 +141,8 @@ public class Aura extends Module {
    private float previousRenderRotationPitch;
    private float renderRotationYaw;
    private float renderRotationPitch;
-   public Vec3d rotationPoint = Vec3d.ZERO;
-   public Vec3d rotationMotion = Vec3d.ZERO;
+   public Vec3 rotationPoint = Vec3.ZERO;
+   public Vec3 rotationMotion = Vec3.ZERO;
    private int hitTicks;
    public int trackticks;
    public boolean lookingAtHitbox;
@@ -152,7 +152,7 @@ public class Aura extends Module {
    private final Timer delayTimer = new Timer();
    private final Timer pauseTimer = new Timer();
    public volatile boolean externalPause = false;
-   public Box resolvedBox;
+   public AABB resolvedBox;
 
    public Aura() {
       super("Aura", "Auto attacks entities.", Module.Category.COMBAT);
@@ -208,7 +208,7 @@ public class Aura extends Module {
 
                boolean[] playerState = this.preAttack();
                boolean attacked = false;
-               if (!(target instanceof PlayerEntity pl && pl.isUsingItem() && pl.getOffHandStack().getItem() == Items.SHIELD && !this.ignoreShield.getValue())) {
+               if (!(target instanceof Player pl && pl.isUsingItem() && pl.getOffhandItem().getItem() == Items.SHIELD && !this.ignoreShield.getValue())) {
                   this.attack();
                   attacked = true;
                }
@@ -220,7 +220,7 @@ public class Aura extends Module {
    }
 
    private boolean hasWeapon() {
-      Item handItem = mc.player.getMainHandStack().getItem();
+      Item handItem = mc.player.getMainHandItem().getItem();
       return !this.onlyWeapon.getValue()
          ? true
          : handItem instanceof SwordItem || handItem instanceof AxeItem || handItem instanceof TridentItem || handItem instanceof MaceItem;
@@ -239,9 +239,9 @@ public class Aura extends Module {
       }
 
       ModuleManager.autoSprint.markAuraHitCooldown();
-      mc.interactionManager.attackEntity(mc.player, target);
+      mc.gameMode.attack(mc.player, target);
       Criticals.cancelCrit = false;
-      mc.player.swingHand(Hand.MAIN_HAND);
+      mc.player.swing(InteractionHand.MAIN_HAND);
       this.hitTicks = this.getHitTicks();
    }
 
@@ -255,9 +255,9 @@ public class Aura extends Module {
                      boolean[] playerState = this.preAttack();
                      boolean attacked = false;
                      if (!(
-                        target instanceof PlayerEntity pl
+                        target instanceof Player pl
                            && pl.isUsingItem()
-                           && pl.getOffHandStack().getItem() == Items.SHIELD
+                           && pl.getOffhandItem().getItem() == Items.SHIELD
                            && !this.ignoreShield.getValue()
                      )) {
                         this.attack();
@@ -273,9 +273,9 @@ public class Aura extends Module {
    }
 
    private boolean @NotNull [] preAttack() {
-      boolean blocking = mc.player.isUsingItem() && mc.player.getActiveItem().getItem().getUseAction(mc.player.getActiveItem()) == UseAction.BLOCK;
+      boolean blocking = mc.player.isUsingItem() && mc.player.getUseItem().getItem().getUseAnimation(mc.player.getUseItem()) == UseAnim.BLOCK;
       if (blocking && this.timing.is(Aura.Timing.NEW) && this.unpressShield.getValue()) {
-         this.sendPacket(new PlayerActionC2SPacket(Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, Direction.DOWN));
+         this.sendPacket(new ServerboundPlayerActionPacket(Action.RELEASE_USE_ITEM, BlockPos.ZERO, Direction.DOWN));
       }
 
       boolean sprint = Core.serverSprint;
@@ -292,7 +292,7 @@ public class Aura extends Module {
       }
 
       if (block && this.timing.is(Aura.Timing.NEW) && this.unpressShield.getValue()) {
-         this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.OFF_HAND, id, this.rotationYaw, this.rotationPitch));
+         this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.OFF_HAND, id, this.rotationYaw, this.rotationPitch));
       }
 
       AutoSprint.markAuraPostAttack();
@@ -303,20 +303,20 @@ public class Aura extends Module {
 
    private void disableSprint() {
       mc.player.setSprinting(false);
-      mc.options.sprintKey.setPressed(false);
-      this.sendPacket(new ClientCommandC2SPacket(mc.player, net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.STOP_SPRINTING));
+      mc.options.keySprint.setDown(false);
+      this.sendPacket(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
    }
 
    private void enableSprint() {
       mc.player.setSprinting(true);
-      mc.options.sprintKey.setPressed(true);
-      this.sendPacket(new ClientCommandC2SPacket(mc.player, net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode.START_SPRINTING));
+      mc.options.keySprint.setDown(true);
+      this.sendPacket(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_SPRINTING));
    }
 
    public void resolvePlayers() {
       if (this.resolver.not(Aura.Resolver.Off)) {
-         for (PlayerEntity player : mc.world.getPlayers()) {
-            if (player instanceof OtherClientPlayerEntity && !this.shouldBypassResolver(player)) {
+         for (Player player : mc.level.players()) {
+            if (player instanceof RemotePlayer && !this.shouldBypassResolver(player)) {
                ((IOtherClientPlayerEntity)player).resolve(this.resolver.getValue());
             }
          }
@@ -325,20 +325,20 @@ public class Aura extends Module {
 
    public void restorePlayers() {
       if (this.resolver.not(Aura.Resolver.Off)) {
-         for (PlayerEntity player : mc.world.getPlayers()) {
-            if (player instanceof OtherClientPlayerEntity) {
+         for (Player player : mc.level.players()) {
+            if (player instanceof RemotePlayer) {
                ((IOtherClientPlayerEntity)player).releaseResolver();
             }
          }
       }
    }
 
-   private boolean shouldBypassResolver(PlayerEntity player) {
+   private boolean shouldBypassResolver(Player player) {
       return ModuleManager.elytraTarget.shouldTarget(player);
    }
 
    public void handleKill() {
-      if (target instanceof LivingEntity && (((LivingEntity)target).getHealth() <= 0.0F || ((LivingEntity)target).isDead())) {
+      if (target instanceof LivingEntity && (((LivingEntity)target).getHealth() <= 0.0F || ((LivingEntity)target).isDeadOrDying())) {
          Managers.NOTIFICATION.publicity("Aura", "Đã hạ mục tiêu thành công!", 3, Notification.Type.SUCCESS);
       }
    }
@@ -391,12 +391,12 @@ public class Aura extends Module {
          boolean canHandleTarget = target != null && !pauseRotation && this.hasWeapon();
          boolean shouldApplyRotation = canHandleTarget && this.rotationMode.getValue() != Aura.Mode.None;
          if (shouldApplyRotation) {
-            mc.player.setYaw(this.rotationYaw);
-            mc.player.setPitch(this.rotationPitch);
+            mc.player.setYRot(this.rotationYaw);
+            mc.player.setXRot(this.rotationPitch);
          } else {
             this.lookingAtHitbox = false;
-            this.rotationYaw = mc.player.getYaw();
-            this.rotationPitch = mc.player.getPitch();
+            this.rotationYaw = mc.player.getYRot();
+            this.rotationPitch = mc.player.getXRot();
             this.resetRenderRotation(this.rotationYaw, this.rotationPitch);
          }
 
@@ -414,18 +414,18 @@ public class Aura extends Module {
 
    @EventHandler
    public void onPacketSend(PacketEvent.@NotNull Send e) {
-      if (e.getPacket() instanceof PlayerInteractEntityC2SPacket pie && Criticals.getInteractType(pie) != Criticals.InteractType.ATTACK && target != null) {
+      if (e.getPacket() instanceof ServerboundInteractPacket pie && Criticals.getInteractType(pie) != Criticals.InteractType.ATTACK && target != null) {
          e.cancel();
       }
    }
 
    @EventHandler
    public void onPacketReceive(PacketEvent.@NotNull Receive e) {
-      if (e.getPacket() instanceof EntityStatusS2CPacket status
-         && status.getStatus() == 30
-         && status.getEntity(mc.world) != null
+      if (e.getPacket() instanceof ClientboundEntityEventPacket status
+         && status.getEventId() == 30
+         && status.getEntity(mc.level) != null
          && target != null
-         && status.getEntity(mc.world) == target) {
+         && status.getEntity(mc.level) == target) {
          Managers.NOTIFICATION.publicity("Aura", "Đã phá khiên của " + target.getName().getString(), 2, Notification.Type.SUCCESS);
       }
    }
@@ -434,10 +434,10 @@ public class Aura extends Module {
    public void onEnable() {
       target = null;
       this.lookingAtHitbox = false;
-      this.rotationPoint = Vec3d.ZERO;
-      this.rotationMotion = Vec3d.ZERO;
-      this.rotationYaw = mc.player.getYaw();
-      this.rotationPitch = mc.player.getPitch();
+      this.rotationPoint = Vec3.ZERO;
+      this.rotationMotion = Vec3.ZERO;
+      this.rotationYaw = mc.player.getYRot();
+      this.rotationPitch = mc.player.getXRot();
       this.resetRenderRotation(this.rotationYaw, this.rotationPitch);
       this.delayTimer.reset();
    }
@@ -452,8 +452,8 @@ public class Aura extends Module {
             || mc.player.getAbilities().flying
             || mc.player.isFallFlying()
             || ModuleManager.elytraPlus.isEnabled()
-            || mc.player.hasStatusEffect(StatusEffects.BLINDNESS)
-            || mc.player.hasStatusEffect(StatusEffects.SLOW_FALLING)
+            || mc.player.hasEffect(MobEffects.BLINDNESS)
+            || mc.player.hasEffect(MobEffects.SLOW_FALLING)
             || Managers.PLAYER.isInWeb();
          if (this.getAttackCooldown() < 0.9F) {
             return false;
@@ -461,19 +461,19 @@ public class Aura extends Module {
             return true;
          } else {
             boolean mergeWithTargetStrafe = !ModuleManager.targetStrafe.isEnabled() || !ModuleManager.targetStrafe.jump.getValue();
-            boolean mergeWithSpeed = !ModuleManager.speed.isEnabled() || mc.player.isOnGround();
-            if (!mc.options.jumpKey.isPressed() && mergeWithTargetStrafe && mergeWithSpeed && !this.onlySpace.getValue()) {
+            boolean mergeWithSpeed = !ModuleManager.speed.isEnabled() || mc.player.onGround();
+            if (!mc.options.keyJump.isDown() && mergeWithTargetStrafe && mergeWithSpeed && !this.onlySpace.getValue()) {
                return true;
-            } else if (mc.player.isInLava() || mc.player.isSubmergedInWater()) {
+            } else if (mc.player.isInLava() || mc.player.isUnderWater()) {
                return true;
-            } else if (!mc.options.jumpKey.isPressed() && this.isAboveWater()) {
+            } else if (!mc.options.keyJump.isDown() && this.isAboveWater()) {
                return true;
             } else if (mc.player.fallDistance > 1.0F && mc.player.fallDistance < 1.14) {
                return false;
             } else {
                return reasonForSkipCrit
                   ? true
-                  : !mc.player.isOnGround() && mc.player.fallDistance > (this.shouldRandomizeFallDistance() ? MathUtility.random(0.15F, 0.7F) : 0.0F);
+                  : !mc.player.onGround() && mc.player.fallDistance > (this.shouldRandomizeFallDistance() ? MathUtility.random(0.15F, 0.7F) : 0.0F);
             }
          }
       }
@@ -489,32 +489,32 @@ public class Aura extends Module {
          return false;
       }
 
-      if (!(target instanceof PlayerEntity)) {
+      if (!(target instanceof Player)) {
          return false;
       }
 
-      if (!((PlayerEntity)target).isUsingItem()) {
+      if (!((Player)target).isUsingItem()) {
          return false;
       }
 
-      if (((PlayerEntity)target).getOffHandStack().getItem() != Items.SHIELD && ((PlayerEntity)target).getMainHandStack().getItem() != Items.SHIELD) {
+      if (((Player)target).getOffhandItem().getItem() != Items.SHIELD && ((Player)target).getMainHandItem().getItem() != Items.SHIELD) {
          return false;
       }
 
       if (axeSlot >= 9) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, axeSlot, mc.player.getInventory().selectedSlot, SlotActionType.SWAP, mc.player);
-         this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
-         mc.interactionManager.attackEntity(mc.player, target);
-         mc.player.swingHand(Hand.MAIN_HAND);
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, axeSlot, mc.player.getInventory().selected, ClickType.SWAP, mc.player);
+         this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
+         mc.gameMode.attack(mc.player, target);
+         mc.player.swing(InteractionHand.MAIN_HAND);
          this.tryMaceSwapAttack();
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, axeSlot, mc.player.getInventory().selectedSlot, SlotActionType.SWAP, mc.player);
-         this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, axeSlot, mc.player.getInventory().selected, ClickType.SWAP, mc.player);
+         this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       } else {
-         this.sendPacket(new UpdateSelectedSlotC2SPacket(axeSlot));
-         mc.interactionManager.attackEntity(mc.player, target);
-         mc.player.swingHand(Hand.MAIN_HAND);
+         this.sendPacket(new ServerboundSetCarriedItemPacket(axeSlot));
+         mc.gameMode.attack(mc.player, target);
+         mc.player.swing(InteractionHand.MAIN_HAND);
          this.tryMaceSwapAttack();
-         this.sendPacket(new UpdateSelectedSlotC2SPacket(mc.player.getInventory().selectedSlot));
+         this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected));
       }
 
       this.hitTicks = 10;
@@ -525,25 +525,25 @@ public class Aura extends Module {
       if (ModuleManager.maceSwap.isEnabled() && ModuleManager.maceSwap.isMaceStun()) {
          MaceSwap.calledFromAura = true;
          ModuleManager.maceSwap.silentSwapToMace();
-         mc.interactionManager.attackEntity(mc.player, target);
-         mc.player.swingHand(Hand.MAIN_HAND);
+         mc.gameMode.attack(mc.player, target);
+         mc.player.swing(InteractionHand.MAIN_HAND);
       }
    }
 
    public boolean isAboveWater() {
-      return mc.player.isSubmergedInWater() || mc.world.getBlockState(BlockPos.ofFloored(mc.player.getPos().add(0.0, -0.4, 0.0))).getBlock() == Blocks.WATER;
+      return mc.player.isUnderWater() || mc.level.getBlockState(BlockPos.containing(mc.player.position().add(0.0, -0.4, 0.0))).getBlock() == Blocks.WATER;
    }
 
    public float getAttackCooldownProgressPerTick() {
       return (float)(
          1.0
-            / mc.player.getAttributeValue(EntityAttributes.GENERIC_ATTACK_SPEED)
+            / mc.player.getAttributeValue(Attributes.ATTACK_SPEED)
             * (20.0 * Vcore.TICK_TIMER * (this.timing.is(Aura.Timing.NEW) && this.tpsSync.getValue() ? Managers.SERVER.getTPSFactor() : 1.0F))
       );
    }
 
    public float getAttackCooldown() {
-      return MathHelper.clamp((((ILivingEntity)mc.player).getLastAttackedTicks() + 0.5F) / this.getAttackCooldownProgressPerTick(), 0.0F, 1.0F);
+      return Mth.clamp((((ILivingEntity)mc.player).getLastAttackedTicks() + 0.5F) / this.getAttackCooldownProgressPerTick(), 0.0F, 1.0F);
    }
 
    private void updateTarget() {
@@ -571,7 +571,7 @@ public class Aura extends Module {
             target = candidat;
          }
 
-         if (candidat instanceof ProjectileEntity) {
+         if (candidat instanceof Projectile) {
             target = candidat;
          }
 
@@ -584,11 +584,11 @@ public class Aura extends Module {
    private Entity findIncomingProjectile() {
       double rotateDist = Math.sqrt(this.getSquaredRotateDistance());
       double half = rotateDist + 8.0;
-      Vec3d eye = mc.player.getEyePos();
-      Box box = new Box(eye.x - half, eye.y - half, eye.z - half, eye.x + half, eye.y + half, eye.z + half);
+      Vec3 eye = mc.player.getEyePosition();
+      AABB box = new AABB(eye.x - half, eye.y - half, eye.z - half, eye.x + half, eye.y + half, eye.z + half);
 
-      for (Entity ent : mc.world.getOtherEntities(mc.player, box)) {
-         if ((ent instanceof ShulkerBulletEntity || ent instanceof FireballEntity) && ent.isAlive() && this.isInRange(ent)) {
+      for (Entity ent : mc.level.getEntities(mc.player, box)) {
+         if ((ent instanceof ShulkerBullet || ent instanceof LargeFireball) && ent.isAlive() && this.isInRange(ent)) {
             return ent;
          }
       }
@@ -603,12 +603,12 @@ public class Aura extends Module {
    private boolean isTargetInAttackRange(Entity targetEntity) {
       if (targetEntity != null && mc.player != null) {
          double maxDistanceSq = this.getRange() * this.getRange();
-         Vec3d eyePos = mc.player.getEyePos();
-         Box box = targetEntity.getBoundingBox();
-         Vec3d closest = new Vec3d(
-            MathHelper.clamp(eyePos.x, box.minX, box.maxX), MathHelper.clamp(eyePos.y, box.minY, box.maxY), MathHelper.clamp(eyePos.z, box.minZ, box.maxZ)
+         Vec3 eyePos = mc.player.getEyePosition();
+         AABB box = targetEntity.getBoundingBox();
+         Vec3 closest = new Vec3(
+            Mth.clamp(eyePos.x, box.minX, box.maxX), Mth.clamp(eyePos.y, box.minY, box.maxY), Mth.clamp(eyePos.z, box.minZ, box.maxZ)
          );
-         return eyePos.squaredDistanceTo(closest) <= maxDistanceSq;
+         return eyePos.distanceToSqr(closest) <= maxDistanceSq;
       } else {
          return false;
       }
@@ -619,7 +619,7 @@ public class Aura extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       if (this.hasWeapon() && target != null) {
          this.rotationManager.onRender3D();
          boolean shouldRenderResolverVis = this.resolverVisualisation.getValue();
@@ -635,8 +635,8 @@ public class Aura extends Module {
       this.lookingAtHitbox = false;
       this.pendingElytraTargetAttack = false;
       if (mc.player != null) {
-         this.rotationYaw = mc.player.getYaw();
-         this.rotationPitch = mc.player.getPitch();
+         this.rotationYaw = mc.player.getYRot();
+         this.rotationPitch = mc.player.getXRot();
          this.resetRenderRotation(this.rotationYaw, this.rotationPitch);
       }
    }
@@ -657,7 +657,7 @@ public class Aura extends Module {
    }
 
    public float getRenderRotationPitch() {
-      return MathHelper.clamp(this.interpolateRotation(this.previousRenderRotationPitch, this.renderRotationPitch), -90.0F, 90.0F);
+      return Mth.clamp(this.interpolateRotation(this.previousRenderRotationPitch, this.renderRotationPitch), -90.0F, 90.0F);
    }
 
    private void resetRenderRotation(float yaw, float pitch) {
@@ -668,7 +668,7 @@ public class Aura extends Module {
    }
 
    private float interpolateRotation(float from, float to) {
-      return from + MathHelper.wrapDegrees(to - from) * Render3DEngine.getTickDelta();
+      return from + Mth.wrapDegrees(to - from) * Render3DEngine.getTickDelta();
    }
 
    public boolean isLookingAtHitbox() {
@@ -692,16 +692,16 @@ public class Aura extends Module {
    }
 
    public Entity findTarget() {
-      if (mc.world != null && mc.player != null) {
+      if (mc.level != null && mc.player != null) {
          double rotateDist = Math.sqrt(this.getSquaredRotateDistance());
          double half = rotateDist + 16.0;
-         Vec3d eye = mc.player.getEyePos();
-         Box searchBox = new Box(eye.x - half, eye.y - half, eye.z - half, eye.x + half, eye.y + half, eye.z + half);
+         Vec3 eye = mc.player.getEyePosition();
+         AABB searchBox = new AABB(eye.x - half, eye.y - half, eye.z - half, eye.x + half, eye.y + half, eye.z + half);
          boolean projectilesEnabled = this.Projectiles.getValue();
          List<LivingEntity> candidates = new ArrayList<>();
 
-         for (Entity ent : mc.world.getOtherEntities(mc.player, searchBox)) {
-            if (projectilesEnabled && (ent instanceof ShulkerBulletEntity || ent instanceof FireballEntity) && ent.isAlive() && this.isInRange(ent)) {
+         for (Entity ent : mc.level.getEntities(mc.player, searchBox)) {
+            if (projectilesEnabled && (ent instanceof ShulkerBullet || ent instanceof LargeFireball) && ent.isAlive() && this.isInRange(ent)) {
                return ent;
             }
 
@@ -719,7 +719,7 @@ public class Aura extends Module {
          }
 
          return switch ((Aura.Sort)this.sort.getValue()) {
-            case Distance -> (LivingEntity)findMin(candidates, e -> mc.player.squaredDistanceTo(e.getPos()));
+            case Distance -> (LivingEntity)findMin(candidates, e -> mc.player.distanceToSqr(e.position()));
             case Durability -> (LivingEntity)findMin(candidates, Aura::computeDurabilityScore);
             case Health -> (LivingEntity)findMin(candidates, e -> e.getHealth() + e.getAbsorptionAmount());
             case FOV -> (LivingEntity)findMin(candidates, this::getFOVAngle);
@@ -749,11 +749,11 @@ public class Aura extends Module {
    private static double computeDurabilityScore(LivingEntity e) {
       float v = 0.0F;
 
-      for (ItemStack armor : e.getArmorItems()) {
+      for (ItemStack armor : e.getArmorSlots()) {
          if (armor != null && !armor.isEmpty()) {
             int max = armor.getMaxDamage();
             if (max > 0) {
-               v += (float)(max - armor.getDamage()) / max;
+               v += (float)(max - armor.getDamageValue()) / max;
             }
          }
       }
@@ -767,15 +767,15 @@ public class Aura extends Module {
       } else if (!(entity instanceof LivingEntity ent)) {
          return true;
       } else {
-         if (ent.isDead() || !entity.isAlive()) {
+         if (ent.isDeadOrDying() || !entity.isAlive()) {
             return true;
          }
 
-         if (entity instanceof ArmorStandEntity) {
+         if (entity instanceof ArmorStand) {
             return true;
          }
 
-         if (entity instanceof CatEntity) {
+         if (entity instanceof Cat) {
             return true;
          }
 
@@ -787,11 +787,11 @@ public class Aura extends Module {
             return true;
          }
 
-         if (!InteractionUtility.isVecInFOV(ent.getPos(), this.fov.getValue())) {
+         if (!InteractionUtility.isVecInFOV(ent.position(), this.fov.getValue())) {
             return true;
          }
 
-         if (entity instanceof PlayerEntity player) {
+         if (entity instanceof Player player) {
             if (ModuleManager.antiBot.isEnabled() && AntiBot.isBot(entity)) {
                return true;
             }
@@ -804,7 +804,7 @@ public class Aura extends Module {
                return true;
             }
 
-            if (player.getArmor() == 0 && this.ignoreNaked.getValue()) {
+            if (player.getArmorValue() == 0 && this.ignoreNaked.getValue()) {
                return true;
             }
 
@@ -812,7 +812,7 @@ public class Aura extends Module {
                return true;
             }
 
-            if (player.getTeamColorValue() == mc.player.getTeamColorValue() && this.ignoreTeam.getValue() && mc.player.getTeamColorValue() != 16777215) {
+            if (player.getTeamColor() == mc.player.getTeamColor() && this.ignoreTeam.getValue() && mc.player.getTeamColor() != 16777215) {
                return true;
             }
          }
@@ -822,41 +822,41 @@ public class Aura extends Module {
    }
 
    private boolean isBullet(Entity entity) {
-      return (entity instanceof ShulkerBulletEntity || entity instanceof FireballEntity)
+      return (entity instanceof ShulkerBullet || entity instanceof LargeFireball)
          && entity.isAlive()
-         && PlayerUtility.squaredDistanceFromEyes(entity.getPos()) < this.getSquaredRotateDistance()
+         && PlayerUtility.squaredDistanceFromEyes(entity.position()) < this.getSquaredRotateDistance()
          && this.Projectiles.getValue();
    }
 
    private boolean skipNotSelected(Entity entity) {
-      if (entity instanceof SlimeEntity && !this.Slimes.getValue()) {
+      if (entity instanceof Slime && !this.Slimes.getValue()) {
          return true;
       }
 
-      if (entity instanceof HostileEntity he) {
+      if (entity instanceof Monster he) {
          if (!this.hostiles.getValue()) {
             return true;
          }
 
          if (this.onlyAngry.getValue()) {
-            return !he.isAngryAt(mc.player);
+            return !he.isPreventingPlayerRest(mc.player);
          }
       }
 
-      if (entity instanceof PlayerEntity && !this.Players.getValue()) {
+      if (entity instanceof Player && !this.Players.getValue()) {
          return true;
-      } else if (entity instanceof VillagerEntity && !this.Villagers.getValue()) {
+      } else if (entity instanceof Villager && !this.Villagers.getValue()) {
          return true;
       } else {
-         return entity instanceof MobEntity && !this.Mobs.getValue() ? true : entity instanceof AnimalEntity && !this.Animals.getValue();
+         return entity instanceof Mob && !this.Mobs.getValue() ? true : entity instanceof Animal && !this.Animals.getValue();
       }
    }
 
    private float getFOVAngle(@NotNull LivingEntity e) {
       double difX = e.getX() - mc.player.getX();
       double difZ = e.getZ() - mc.player.getZ();
-      float yaw = (float)MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(difZ, difX)) - 90.0);
-      return (float)Math.abs(yaw - MathHelper.wrapDegrees(mc.player.getYaw()));
+      float yaw = (float)Mth.wrapDegrees(Math.toDegrees(Math.atan2(difZ, difX)) - 90.0);
+      return (float)Math.abs(yaw - Mth.wrapDegrees(mc.player.getYRot()));
    }
 
    public void pause() {
@@ -865,8 +865,8 @@ public class Aura extends Module {
 
    private boolean isConsumingItem() {
       if (mc.player != null && mc.player.isUsingItem()) {
-         UseAction useAction = mc.player.getActiveItem().getUseAction();
-         return useAction == UseAction.EAT || useAction == UseAction.DRINK;
+         UseAnim useAction = mc.player.getUseItem().getUseAnimation();
+         return useAction == UseAnim.EAT || useAction == UseAnim.DRINK;
       } else {
          return false;
       }
@@ -875,7 +875,7 @@ public class Aura extends Module {
    private boolean shouldRandomizeDelay() {
       return this.timing.is(Aura.Timing.NEW)
          && this.randomHitDelay.getValue()
-         && (mc.player.isOnGround() || mc.player.fallDistance < 0.12F || mc.player.isSwimming() || mc.player.isFallFlying());
+         && (mc.player.onGround() || mc.player.fallDistance < 0.12F || mc.player.isSwimming() || mc.player.isFallFlying());
    }
 
    private boolean shouldRandomizeFallDistance() {

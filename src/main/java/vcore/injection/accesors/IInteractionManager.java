@@ -1,18 +1,18 @@
 package vcore.injection.accesors;
 
-import net.minecraft.client.network.ClientPlayerInteractionManager;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin(ClientPlayerInteractionManager.class)
+@Mixin(MultiPlayerGameMode.class)
 public interface IInteractionManager {
-   @Accessor("currentBreakingProgress")
+   @Accessor("destroyProgress")
    float getCurBlockDamageMP();
 
-   @Accessor("currentBreakingProgress")
+   @Accessor("destroyProgress")
    void setCurBlockDamageMP(float var1);
 
-   @Invoker("syncSelectedSlot")
+   @Invoker("ensureHasSentCarriedItem")
    void syncSlot();
 }

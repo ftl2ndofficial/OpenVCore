@@ -1,8 +1,8 @@
 package vcore.utility.render.shaders.satin.api.managed;
 
+import com.mojang.blaze3d.vertex.VertexFormat;
 import java.util.function.Consumer;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import vcore.utility.render.shaders.satin.impl.ReloadableShaderEffectManager;
 
 public interface ShaderEffectManager {
@@ -10,13 +10,13 @@ public interface ShaderEffectManager {
       return ReloadableShaderEffectManager.INSTANCE;
    }
 
-   ManagedShaderEffect manage(Identifier var1);
+   ManagedShaderEffect manage(ResourceLocation var1);
 
-   ManagedShaderEffect manage(Identifier var1, Consumer<ManagedShaderEffect> var2);
+   ManagedShaderEffect manage(ResourceLocation var1, Consumer<ManagedShaderEffect> var2);
 
-   ManagedCoreShader manageCoreShader(Identifier var1);
+   ManagedCoreShader manageCoreShader(ResourceLocation var1);
 
-   ManagedCoreShader manageCoreShader(Identifier var1, VertexFormat var2);
+   ManagedCoreShader manageCoreShader(ResourceLocation var1, VertexFormat var2);
 
-   ManagedCoreShader manageCoreShader(Identifier var1, VertexFormat var2, Consumer<ManagedCoreShader> var3);
+   ManagedCoreShader manageCoreShader(ResourceLocation var1, VertexFormat var2, Consumer<ManagedCoreShader> var3);
 }

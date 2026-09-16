@@ -1,18 +1,18 @@
 package vcore.features.hud.impl;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.hud.HudElement;
 import vcore.features.modules.combat.Aura;
@@ -58,7 +58,7 @@ public class TargetHud extends HudElement {
    }
 
    @Override
-   public void render(DrawContext context) {
+   public void render(GuiGraphics context) {
       super.render(context);
       this.getTarget();
       if (this.target != null) {
@@ -80,7 +80,7 @@ public class TargetHud extends HudElement {
             this.target = null;
             this.direction = false;
          }
-      } else if (mc.currentScreen instanceof ChatScreen) {
+      } else if (mc.screen instanceof ChatScreen) {
          this.target = mc.player;
          this.direction = true;
       } else {
@@ -91,33 +91,33 @@ public class TargetHud extends HudElement {
       }
    }
 
-   private void renderNurik(DrawContext context, float health, float totalHealth, float animationFactor) {
+   private void renderNurik(GuiGraphics context, float health, float totalHealth, float animationFactor) {
       float hurtPercent = Render2DEngine.interpolateFloat(
             MathUtility.clamp(this.target.hurtTime == 0 ? 0 : this.target.hurtTime + 1, 0, 10), this.target.hurtTime, Render3DEngine.getTickDelta()
          )
          / 8.0F;
       healthAnimation.setValue(health);
       health = (float)healthAnimation.getAnimationD();
-      Render2DEngine.drawHudBase2(context.getMatrices(), this.getPosX(), this.getPosY(), 137.0F, 47.5F, 9.0F, 5.0F, HudEditor.getBlurOpacity(), animationFactor);
+      Render2DEngine.drawHudBase2(context.pose(), this.getPosX(), this.getPosY(), 137.0F, 47.5F, 9.0F, 5.0F, HudEditor.getBlurOpacity(), animationFactor);
       this.setBounds(this.getPosX(), this.getPosY(), 137.0F, 47.5F);
-      if (this.target instanceof PlayerEntity) {
-         RenderSystem.setShaderTexture(0, ((AbstractClientPlayerEntity)this.target).getSkinTextures().texture());
+      if (this.target instanceof Player) {
+         RenderSystem.setShaderTexture(0, ((AbstractClientPlayer)this.target).getSkin().texture());
       } else {
-         RenderSystem.setShaderTexture(0, mc.getEntityRenderDispatcher().getRenderer(this.target).getTexture(this.target));
+         RenderSystem.setShaderTexture(0, mc.getEntityRenderDispatcher().getRenderer(this.target).getTextureLocation(this.target));
       }
 
-      context.getMatrices().push();
-      context.getMatrices().translate(this.getPosX() + 3.5F + 20.0F, this.getPosY() + 3.5F + 20.0F, 0.0F);
-      context.getMatrices().scale(1.0F - hurtPercent / 15.0F, 1.0F - hurtPercent / 15.0F, 1.0F);
-      context.getMatrices().translate(-(this.getPosX() + 3.5F + 20.0F), -(this.getPosY() + 3.5F + 20.0F), 0.0F);
+      context.pose().pushPose();
+      context.pose().translate(this.getPosX() + 3.5F + 20.0F, this.getPosY() + 3.5F + 20.0F, 0.0F);
+      context.pose().scale(1.0F - hurtPercent / 15.0F, 1.0F - hurtPercent / 15.0F, 1.0F);
+      context.pose().translate(-(this.getPosX() + 3.5F + 20.0F), -(this.getPosY() + 3.5F + 20.0F), 0.0F);
       RenderSystem.enableBlend();
       RenderSystem.colorMask(false, false, false, true);
       RenderSystem.clearColor(0.0F, 0.0F, 0.0F, 0.0F);
       RenderSystem.clear(16384, false);
       RenderSystem.colorMask(true, true, true, true);
-      RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       Render2DEngine.renderRoundedQuadInternal(
-         context.getMatrices().peek().getPositionMatrix(),
+         context.pose().last().pose(),
          animationFactor,
          animationFactor,
          animationFactor,
@@ -132,14 +132,14 @@ public class TargetHud extends HudElement {
       RenderSystem.blendFunc(772, 773);
       float hurtTint = MathUtility.clamp(animationFactor - hurtPercent / 2.0F, 0.0F, 1.0F);
       RenderSystem.setShaderColor(animationFactor, hurtTint, hurtTint, animationFactor);
-      Render2DEngine.renderTexture(context.getMatrices(), this.getPosX() + 3.5F, this.getPosY() + 3.5F, 40.0, 40.0, 8.0F, 8.0F, 8.0, 8.0, 64.0, 64.0);
-      Render2DEngine.renderTexture(context.getMatrices(), this.getPosX() + 3.5F, this.getPosY() + 3.5F, 40.0, 40.0, 40.0F, 8.0F, 8.0, 8.0, 64.0, 64.0);
+      Render2DEngine.renderTexture(context.pose(), this.getPosX() + 3.5F, this.getPosY() + 3.5F, 40.0, 40.0, 8.0F, 8.0F, 8.0, 8.0, 64.0, 64.0);
+      Render2DEngine.renderTexture(context.pose(), this.getPosX() + 3.5F, this.getPosY() + 3.5F, 40.0, 40.0, 40.0F, 8.0F, 8.0, 8.0, 64.0, 64.0);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       RenderSystem.defaultBlendFunc();
-      context.getMatrices().pop();
-      Render2DEngine.drawRect(context.getMatrices(), this.getPosX() + 48.0F, this.getPosY() + 32.0F, 85.0F, 11.0F, 4.0F, 0.15F * animationFactor);
+      context.pose().popPose();
+      Render2DEngine.drawRect(context.pose(), this.getPosX() + 48.0F, this.getPosY() + 32.0F, 85.0F, 11.0F, 4.0F, 0.15F * animationFactor);
       Render2DEngine.drawRect(
-         context.getMatrices(),
+         context.pose(),
          this.getPosX() + 48.0F,
          this.getPosY() + 32.0F,
          MathUtility.clamp(85.0F * (health / this.target.getMaxHealth()), 8.0F, 85.0F),
@@ -150,25 +150,25 @@ public class TargetHud extends HudElement {
       this.renderTargetName(context, animationFactor);
       FontRenderers.inter_target_hp
          .drawString(
-            context.getMatrices(),
+            context.pose(),
             this.getHealthDisplayText(totalHealth, this.getAbsorptionHealth()),
             this.getPosX() + 48.0F,
             this.getPosY() + 22.5F,
             Render2DEngine.applyOpacity(Color.WHITE.getRGB(), animationFactor)
          );
-      if (this.target instanceof PlayerEntity) {
+      if (this.target instanceof Player) {
          RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, (float)MathUtility.clamp(this.animation.getAnimationd(), 0.0, 1.0));
-         ItemStack[] items = this.getTargetItems((PlayerEntity)this.target);
+         ItemStack[] items = this.getTargetItems((Player)this.target);
          float rowWidth = (items.length - 1) * 12.0F + 12.0F;
          float xItemOffset = this.getPosX() + 48.0F + (85.0F - rowWidth) / 2.0F + 2.0F;
 
          for (ItemStack itemStack : items) {
-            context.getMatrices().push();
-            context.getMatrices().translate(xItemOffset, this.getPosY() + -14.5F, 0.0F);
-            context.getMatrices().scale(0.75F, 0.75F, 0.75F);
-            context.drawItem(itemStack, 0, 0);
-            context.drawItemInSlot(mc.textRenderer, itemStack, 0, 0);
-            context.getMatrices().pop();
+            context.pose().pushPose();
+            context.pose().translate(xItemOffset, this.getPosY() + -14.5F, 0.0F);
+            context.pose().scale(0.75F, 0.75F, 0.75F);
+            context.renderItem(itemStack, 0, 0);
+            context.renderItemDecorations(mc.font, itemStack, 0, 0);
+            context.pose().popPose();
             xItemOffset += 12.0F;
          }
 
@@ -181,7 +181,7 @@ public class TargetHud extends HudElement {
    }
 
    private float getBaseHealth() {
-      return this.target instanceof PlayerEntity ent && ModuleManager.fixHP.isEnabled() ? FixHP.getHealth(ent) : this.target.getHealth();
+      return this.target instanceof Player ent && ModuleManager.fixHP.isEnabled() ? FixHP.getHealth(ent) : this.target.getHealth();
    }
 
    private float getAbsorptionHealth() {
@@ -192,7 +192,7 @@ public class TargetHud extends HudElement {
       return ModuleManager.nameProtect.isEnabled() && this.target == mc.player ? NameProtect.getCustomName() : this.target.getName().getString();
    }
 
-   private void renderTargetName(DrawContext context, float animationFactor) {
+   private void renderTargetName(GuiGraphics context, float animationFactor) {
       String targetName = this.getTargetName();
       float textX = this.getPosX() + 48.0F;
       float textY = this.getPosY() + 9.5F;
@@ -200,10 +200,10 @@ public class TargetHud extends HudElement {
       float clipTop = textY - 1.0F;
       float clipBottom = clipTop + FontRenderers.inter_target_name.getStringHeight(targetName) + 4.0F;
       float clipRight = textX + maxNameWidth;
-      Render2DEngine.addWindow(context.getMatrices(), new Render2DEngine.Rectangle(textX, clipTop, clipRight, clipBottom));
+      Render2DEngine.addWindow(context.pose(), new Render2DEngine.Rectangle(textX, clipTop, clipRight, clipBottom));
       FontRenderers.inter_target_name
          .drawStringWithHorizontalFade(
-            context.getMatrices(),
+            context.pose(),
             targetName,
             textX,
             textY,
@@ -214,9 +214,9 @@ public class TargetHud extends HudElement {
       Render2DEngine.popWindow();
    }
 
-   private ItemStack[] getTargetItems(PlayerEntity player) {
+   private ItemStack[] getTargetItems(Player player) {
       List<ItemStack> armor = player.getInventory().armor;
-      ItemStack[] items = new ItemStack[]{player.getMainHandStack(), armor.get(3), armor.get(2), armor.get(1), armor.get(0), player.getOffHandStack()};
+      ItemStack[] items = new ItemStack[]{player.getMainHandItem(), armor.get(3), armor.get(2), armor.get(1), armor.get(0), player.getOffhandItem()};
       ItemStack[] packedItems = new ItemStack[items.length];
 
       for (int i = 0; i < packedItems.length; i++) {
@@ -248,7 +248,7 @@ public class TargetHud extends HudElement {
       return String.format(Locale.US, "%.1f", value);
    }
 
-   public static void sizeAnimation(MatrixStack matrixStack, double width, double height, double animation) {
+   public static void sizeAnimation(PoseStack matrixStack, double width, double height, double animation) {
       matrixStack.translate(width, height, 0.0);
       matrixStack.scale((float)animation, (float)animation, 1.0F);
       matrixStack.translate(-width, -height, 0.0);

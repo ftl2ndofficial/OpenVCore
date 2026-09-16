@@ -4,19 +4,19 @@ import io.netty.buffer.Unpooled;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.Entity.RemovalReason;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.AxeItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.PickaxeItem;
-import net.minecraft.item.ShovelItem;
-import net.minecraft.item.SwordItem;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.s2c.play.ExplosionS2CPacket;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.game.ClientboundExplodePacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Entity.RemovalReason;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.item.ShovelItem;
+import net.minecraft.world.item.SwordItem;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.events.impl.PacketEvent;
@@ -58,7 +58,7 @@ public final class CrystalOptimizer extends Module {
 
    @EventHandler
    private void onPacketSend(PacketEvent.@NotNull Send event) {
-      if (!fullNullCheck() && event.getPacket() instanceof PlayerInteractEntityC2SPacket packet) {
+      if (!fullNullCheck() && event.getPacket() instanceof ServerboundInteractPacket packet) {
          if (Criticals.getInteractType(packet) == Criticals.InteractType.ATTACK) {
             if (this.blatant.getValue()) {
                this.pruneInhibitedCrystals();
@@ -68,7 +68,7 @@ public final class CrystalOptimizer extends Module {
             if (this.blatant.getValue()) {
                this.handleBlatantAttack(event, packet, entity);
             } else {
-               if (entity instanceof EndCrystalEntity crystal && !this.cantBreakCrystal()) {
+               if (entity instanceof EndCrystal crystal && !this.cantBreakCrystal()) {
                   this.removeCrystal(crystal);
                }
             }
@@ -76,14 +76,14 @@ public final class CrystalOptimizer extends Module {
       }
    }
 
-   private void handleBlatantAttack(PacketEvent.@NotNull Send event, @NotNull PlayerInteractEntityC2SPacket packet, Entity entity) {
+   private void handleBlatantAttack(PacketEvent.@NotNull Send event, @NotNull ServerboundInteractPacket packet, Entity entity) {
       if (this.shouldBlatantInhibit(this.getEntityId(packet))) {
-         if (entity instanceof EndCrystalEntity crystal) {
+         if (entity instanceof EndCrystal crystal) {
             this.removeCrystal(crystal);
          }
 
          event.cancel();
-      } else if (entity instanceof EndCrystalEntity crystal) {
+      } else if (entity instanceof EndCrystal crystal) {
          if (!this.cantBreakCrystal()) {
             this.markInhibited(crystal.getId());
             this.markNearbyCrystalsDead(crystal.getX(), crystal.getY(), crystal.getZ());
@@ -97,7 +97,7 @@ public final class CrystalOptimizer extends Module {
       if (!fullNullCheck()) {
          if (this.blatant.getValue()) {
             this.pruneInhibitedCrystals();
-            if (event.getPacket() instanceof ExplosionS2CPacket explosion) {
+            if (event.getPacket() instanceof ClientboundExplodePacket explosion) {
                this.markNearbyCrystalsDead(explosion.getX(), explosion.getY(), explosion.getZ());
             }
          }
@@ -107,11 +107,11 @@ public final class CrystalOptimizer extends Module {
    private void removeCrystal(@NotNull Entity entity) {
       entity.kill();
       entity.setRemoved(RemovalReason.KILLED);
-      entity.onRemoved();
+      entity.onClientRemoval();
    }
 
    public boolean isAttackInhibited(Entity entity) {
-      if (!fullNullCheck() && !this.isOff() && this.blatant.getValue() && entity instanceof EndCrystalEntity crystal) {
+      if (!fullNullCheck() && !this.isOff() && this.blatant.getValue() && entity instanceof EndCrystal crystal) {
          this.pruneInhibitedCrystals();
          if (!this.isInhibited(crystal.getId())) {
             return false;
@@ -125,7 +125,7 @@ public final class CrystalOptimizer extends Module {
    }
 
    public boolean shouldIgnoreForPlacement(Entity entity) {
-      if (!fullNullCheck() && !this.isOff() && this.blatant.getValue() && entity instanceof EndCrystalEntity crystal) {
+      if (!fullNullCheck() && !this.isOff() && this.blatant.getValue() && entity instanceof EndCrystal crystal) {
          this.pruneInhibitedCrystals();
          return this.isInhibited(crystal.getId());
       } else {
@@ -136,8 +136,8 @@ public final class CrystalOptimizer extends Module {
    private void markNearbyCrystalsDead(double x, double y, double z) {
       long time = System.currentTimeMillis();
 
-      for (Entity entity : mc.world.getEntities()) {
-         if (entity instanceof EndCrystalEntity crystal && crystal.squaredDistanceTo(x, y, z) <= 144.0 && !this.isInhibited(crystal.getId())) {
+      for (Entity entity : mc.level.entitiesForRendering()) {
+         if (entity instanceof EndCrystal crystal && crystal.distanceToSqr(x, y, z) <= 144.0 && !this.isInhibited(crystal.getId())) {
             this.inhibitedCrystals.put(crystal.getId(), time);
          }
       }
@@ -164,16 +164,16 @@ public final class CrystalOptimizer extends Module {
       return Math.max(150L, Managers.SERVER.getPing() * 2L);
    }
 
-   private int getEntityId(@NotNull PlayerInteractEntityC2SPacket packet) {
-      PacketByteBuf packetBuf = new PacketByteBuf(Unpooled.buffer());
+   private int getEntityId(@NotNull ServerboundInteractPacket packet) {
+      FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.buffer());
       packet.write(packetBuf);
       return packetBuf.readVarInt();
    }
 
    private boolean cantBreakCrystal() {
-      StatusEffectInstance weakness = mc.player.getStatusEffect(StatusEffects.WEAKNESS);
-      StatusEffectInstance strength = mc.player.getStatusEffect(StatusEffects.STRENGTH);
-      return weakness != null && (strength == null || strength.getAmplifier() <= weakness.getAmplifier()) && !this.isTool(mc.player.getMainHandStack());
+      MobEffectInstance weakness = mc.player.getEffect(MobEffects.WEAKNESS);
+      MobEffectInstance strength = mc.player.getEffect(MobEffects.DAMAGE_BOOST);
+      return weakness != null && (strength == null || strength.getAmplifier() <= weakness.getAmplifier()) && !this.isTool(mc.player.getMainHandItem());
    }
 
    private boolean isTool(@NotNull ItemStack stack) {

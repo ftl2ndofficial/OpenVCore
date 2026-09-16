@@ -4,9 +4,9 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
 import java.text.DecimalFormat;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import vcore.core.Managers;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
@@ -43,28 +43,28 @@ public class LagNotifier extends Module {
    @EventHandler
    public void onPacketReceive(PacketEvent.Receive e) {
       if (!fullNullCheck()) {
-         if (e.getPacket() instanceof PlayerPositionLookS2CPacket) {
+         if (e.getPacket() instanceof ClientboundPlayerPositionPacket) {
             this.rubberbandTimer.reset();
          }
 
-         if (e.getPacket() instanceof WorldTimeUpdateS2CPacket) {
+         if (e.getPacket() instanceof ClientboundSetTimePacket) {
             this.packetTimer.reset();
          }
       }
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       Render2DEngine.setupRender();
       RenderSystem.defaultBlendFunc();
       if (!this.rubberbandTimer.passedMs(5000L) && this.rubberbandNotify.getValue()) {
          DecimalFormat decimalFormat = new DecimalFormat("#.#");
          FontRenderers.modules
             .drawCenteredString(
-               context.getMatrices(),
+               context.pose(),
                "Rubberband detected! " + decimalFormat.format((5000.0F - (float)this.rubberbandTimer.getTimeMs()) / 1000.0F),
-               mc.getWindow().getScaledWidth() / 2.0F,
-               mc.getWindow().getScaledHeight() / 3.0F,
+               mc.getWindow().getGuiScaledWidth() / 2.0F,
+               mc.getWindow().getGuiScaledHeight() / 3.0F,
                new Color(16768768).getRGB()
             );
       }
@@ -73,17 +73,17 @@ public class LagNotifier extends Module {
          DecimalFormat decimalFormat = new DecimalFormat("#.#");
          FontRenderers.modules
             .drawCenteredString(
-               context.getMatrices(),
+               context.pose(),
                "The server stopped responding! " + decimalFormat.format((float)this.packetTimer.getTimeMs() / 1000.0F),
-               mc.getWindow().getScaledWidth() / 2.0F,
-               mc.getWindow().getScaledHeight() / 3.0F,
+               mc.getWindow().getGuiScaledWidth() / 2.0F,
+               mc.getWindow().getGuiScaledHeight() / 3.0F,
                new Color(16768768).getRGB()
             );
          RenderSystem.setShaderColor(1.0F, 0.87F, 0.0F, 1.0F);
-         context.drawTexture(
+         context.blit(
             TextureStorage.lagIcon,
-            (int)(mc.getWindow().getScaledWidth() / 2.0F - 40.0F),
-            (int)(mc.getWindow().getScaledHeight() / 3.0F - 120.0F),
+            (int)(mc.getWindow().getGuiScaledWidth() / 2.0F - 40.0F),
+            (int)(mc.getWindow().getGuiScaledHeight() / 3.0F - 120.0F),
             0.0F,
             0.0F,
             80,

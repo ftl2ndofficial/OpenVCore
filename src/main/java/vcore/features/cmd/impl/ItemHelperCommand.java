@@ -3,8 +3,8 @@ package vcore.features.cmd.impl;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
-import net.minecraft.command.CommandSource;
-import net.minecraft.item.ItemStack;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.cmd.Command;
@@ -16,11 +16,11 @@ public class ItemHelperCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(literal("set").executes(context -> {
          ItemHelper helper = ModuleManager.itemHelper;
          if (helper != null && mc.player != null) {
-            ItemStack stack = mc.player.getMainHandStack();
+            ItemStack stack = mc.player.getMainHandItem();
             if (stack != null && !stack.isEmpty()) {
                int emptyIndex = helper.findEmptyIndex();
                if (emptyIndex == -1) {
@@ -28,7 +28,7 @@ public class ItemHelperCommand extends Command {
                   return 1;
                } else {
                   helper.setItemAt(emptyIndex, stack.getItem());
-                  sendMessage(stack.getName().getString() + " đã được set vào Item" + (emptyIndex + 1));
+                  sendMessage(stack.getHoverName().getString() + " đã được set vào Item" + (emptyIndex + 1));
                   return 1;
                }
             } else {
@@ -53,10 +53,10 @@ public class ItemHelperCommand extends Command {
          if (helper != null && mc.player != null) {
             int index = this.parseSlot((String)context.getArgument("slot", String.class));
             if (index >= 0 && index < helper.getItemSettings().size()) {
-               ItemStack stack = mc.player.getMainHandStack();
+               ItemStack stack = mc.player.getMainHandItem();
                if (stack != null && !stack.isEmpty()) {
                   helper.setItemAt(index, stack.getItem());
-                  sendMessage("Set vật phẩm " + stack.getName().getString() + " thành công");
+                  sendMessage("Set vật phẩm " + stack.getHoverName().getString() + " thành công");
                   return 1;
                } else {
                   sendMessage("Tay đang trống.");

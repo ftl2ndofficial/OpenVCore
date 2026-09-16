@@ -2,7 +2,7 @@ package vcore.features.cmd.impl;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import net.minecraft.command.CommandSource;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import vcore.features.cmd.Command;
 import vcore.utility.AccountUtility;
@@ -13,10 +13,10 @@ public class LoginCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(arg("name", StringArgumentType.word()).executes(context -> {
          this.login((String)context.getArgument("name", String.class));
-         sendMessage("Switched account to: " + mc.getSession().getUsername());
+         sendMessage("Switched account to: " + mc.getUser().getName());
          return 1;
       }));
       builder.executes(context -> {

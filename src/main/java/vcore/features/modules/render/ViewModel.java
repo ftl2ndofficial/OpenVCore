@@ -1,9 +1,9 @@
 package vcore.features.modules.render;
 
+import com.mojang.math.Axis;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Items;
 import vcore.events.impl.EventHeldItemRenderer;
 import vcore.events.impl.EventSetting;
 import vcore.features.modules.Module;
@@ -80,19 +80,19 @@ public class ViewModel extends Module {
    @EventHandler
    private void onHeldItemRender(EventHeldItemRenderer event) {
       if (this.isEnabled()) {
-         if (!event.getItem().isOf(Items.CROSSBOW)) {
-            if (event.getHand() == Hand.MAIN_HAND) {
+         if (!event.getItem().is(Items.CROSSBOW)) {
+            if (event.getHand() == InteractionHand.MAIN_HAND) {
                event.getStack().translate(this.positionMainX.getValue(), this.positionMainY.getValue(), this.positionMainZ.getValue());
                event.getStack().scale(this.scaleMain.getValue(), this.scaleMain.getValue(), this.scaleMain.getValue());
-               event.getStack().multiply(RotationAxis.POSITIVE_X.rotationDegrees(this.rotationMainX.getValue()));
-               event.getStack().multiply(RotationAxis.POSITIVE_Y.rotationDegrees(this.rotationMainY.getValue()));
-               event.getStack().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(this.rotationMainZ.getValue()));
+               event.getStack().mulPose(Axis.XP.rotationDegrees(this.rotationMainX.getValue()));
+               event.getStack().mulPose(Axis.YP.rotationDegrees(this.rotationMainY.getValue()));
+               event.getStack().mulPose(Axis.ZP.rotationDegrees(this.rotationMainZ.getValue()));
             } else {
                event.getStack().translate(-this.positionOffX.getValue(), this.positionOffY.getValue(), this.positionOffZ.getValue());
                event.getStack().scale(this.scaleOff.getValue(), this.scaleOff.getValue(), this.scaleOff.getValue());
-               event.getStack().multiply(RotationAxis.POSITIVE_X.rotationDegrees(this.rotationOffX.getValue()));
-               event.getStack().multiply(RotationAxis.POSITIVE_Y.rotationDegrees(this.rotationOffY.getValue()));
-               event.getStack().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(this.rotationOffZ.getValue()));
+               event.getStack().mulPose(Axis.XP.rotationDegrees(this.rotationOffX.getValue()));
+               event.getStack().mulPose(Axis.YP.rotationDegrees(this.rotationOffY.getValue()));
+               event.getStack().mulPose(Axis.ZP.rotationDegrees(this.rotationOffZ.getValue()));
             }
          }
       }

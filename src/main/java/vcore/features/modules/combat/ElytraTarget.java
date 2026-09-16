@@ -1,19 +1,19 @@
 package vcore.features.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.Full;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventSync;
 import vcore.events.impl.PacketEvent;
@@ -59,7 +59,7 @@ public final class ElytraTarget extends Module {
    private double bps;
    private double scale;
    private Entity cachedTargetVecEntity;
-   private Vec3d cachedTargetVec;
+   private Vec3 cachedTargetVec;
    private boolean cachedTargetVecPrediction;
    private long cachedTargetVecWorldTime = Long.MIN_VALUE;
 
@@ -70,11 +70,11 @@ public final class ElytraTarget extends Module {
    @EventHandler
    public void onPacketSend(PacketEvent.Send event) {
       if (this.packetCrit.getValue() && this.shouldSendPacketCrit()) {
-         if (event.getPacket() instanceof PlayerInteractEntityC2SPacket packet) {
+         if (event.getPacket() instanceof ServerboundInteractPacket packet) {
             if (Criticals.getInteractType(packet) == Criticals.InteractType.ATTACK) {
                if (Criticals.getEntity(packet) == Aura.target) {
                   this.sendPacket(
-                     new Full(
+                     new PosRot(
                         mc.player.getX(),
                         mc.player.getY() - 1.0E-6,
                         mc.player.getZ(),
@@ -91,16 +91,16 @@ public final class ElytraTarget extends Module {
 
    private boolean shouldSendPacketCrit() {
       return mc.player != null
-         && mc.world != null
+         && mc.level != null
          && mc.player.isFallFlying()
          && Aura.target != null
          && !mc.player.isInLava()
-         && !mc.player.isSubmergedInWater();
+         && !mc.player.isUnderWater();
    }
 
    @EventHandler
    public void onSync(EventSync event) {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          LivingEntity target = null;
          if (Aura.target instanceof LivingEntity livingTarget) {
             target = livingTarget;
@@ -131,12 +131,12 @@ public final class ElytraTarget extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
-      if (mc.player != null && mc.world != null && this.visual.getValue()) {
+   public void onRender3D(PoseStack stack) {
+      if (mc.player != null && mc.level != null && this.visual.getValue()) {
          if (Aura.target instanceof LivingEntity livingTarget) {
             if (this.shouldTarget(livingTarget)) {
-               Box box = this.getPredictRenderBox(livingTarget);
-               int offset = livingTarget.age * 2;
+               AABB box = this.getPredictRenderBox(livingTarget);
+               int offset = livingTarget.tickCount * 2;
                Color[] fillColors = this.getPredictThemeColors(85, offset);
                Color[] outlineColors = this.getPredictThemeColors(255, offset);
                Render3DEngine.drawGradientFilledFadeBox(stack, box, fillColors, fillColors);
@@ -146,10 +146,10 @@ public final class ElytraTarget extends Module {
       }
    }
 
-   private Box getPredictRenderBox(LivingEntity livingTarget) {
-      Vec3d predictionOffset = livingTarget.getVelocity().multiply(this.getPrediction(livingTarget));
-      Vec3d predictCenter = livingTarget.getBoundingBox().offset(predictionOffset).getCenter();
-      return Box.of(predictCenter, 1.0, 1.0, 1.0);
+   private AABB getPredictRenderBox(LivingEntity livingTarget) {
+      Vec3 predictionOffset = livingTarget.getDeltaMovement().scale(this.getPrediction(livingTarget));
+      Vec3 predictCenter = livingTarget.getBoundingBox().move(predictionOffset).getCenter();
+      return AABB.ofSize(predictCenter, 1.0, 1.0, 1.0);
    }
 
    private Color[] getPredictThemeColors(int alpha, int offset) {
@@ -227,8 +227,8 @@ public final class ElytraTarget extends Module {
    }
 
    private void useFirework() {
-      if (mc.player != null && mc.interactionManager != null) {
-         if (!mc.player.getItemCooldownManager().isCoolingDown(Items.FIREWORK_ROCKET)) {
+      if (mc.player != null && mc.gameMode != null) {
+         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
             if (ClientSettings.fireWorkMode.is(ClientSettings.FireWorkMode.OffHand)) {
                this.useFireworkOffhand();
             } else {
@@ -239,37 +239,37 @@ public final class ElytraTarget extends Module {
    }
 
    private void useFireworkMainHand() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          this.useFireworkOffhandPacket();
       } else {
          SearchInvResult fireWorkResult = InventoryUtility.findItemInInventory(Items.FIREWORK_ROCKET);
          if (fireWorkResult.found()) {
-            int currentSlot = mc.player.getInventory().selectedSlot;
+            int currentSlot = mc.player.getInventory().selected;
             int hotbarSlot = currentSlot % 8 + 1;
             int itemSlot = fireWorkResult.slot();
-            if (mc.player.isUsingItem() && mc.player.getActiveHand() == Hand.MAIN_HAND) {
+            if (mc.player.isUsingItem() && mc.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
                this.useFireworkWithOffhandSwap(itemSlot);
             } else if (itemSlot >= 36) {
                this.useFireworkFromHotbar(itemSlot - 36, currentSlot);
             } else {
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, itemSlot, hotbarSlot, SlotActionType.SWAP, mc.player);
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, itemSlot, hotbarSlot, ClickType.SWAP, mc.player);
                this.useFireworkFromHotbar(hotbarSlot, currentSlot);
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, itemSlot, hotbarSlot, SlotActionType.SWAP, mc.player);
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, itemSlot, hotbarSlot, ClickType.SWAP, mc.player);
             }
          }
       }
    }
 
    private void useFireworkOffhand() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          this.useFireworkOffhandPacket();
       } else {
          SearchInvResult fireWorkResult = InventoryUtility.findItemInInventory(Items.FIREWORK_ROCKET);
-         if (fireWorkResult.found() && mc.player.currentScreenHandler == mc.player.playerScreenHandler) {
+         if (fireWorkResult.found() && mc.player.containerMenu == mc.player.inventoryMenu) {
             int slotIndex = convertFireworkSlot(fireWorkResult.slot());
-            mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
             this.useFireworkOffhandPacket();
-            mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
          }
       }
    }
@@ -277,20 +277,20 @@ public final class ElytraTarget extends Module {
    private void useFireworkFromHotbar(int fireworkSlot, int returnSlot) {
       InventoryUtility.switchToSilent(fireworkSlot);
       float[] rotation = this.getUseRotation();
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, rotation[0], rotation[1]));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, rotation[0], rotation[1]));
       InventoryUtility.switchToSilent(returnSlot);
    }
 
    private void useFireworkWithOffhandSwap(int itemSlot) {
       int slotIndex = convertFireworkSlot(itemSlot);
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
       this.useFireworkOffhandPacket();
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
    }
 
    private void useFireworkOffhandPacket() {
       float[] rotation = this.getUseRotation();
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.OFF_HAND, id, rotation[0], rotation[1]));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.OFF_HAND, id, rotation[0], rotation[1]));
    }
 
    private static int convertFireworkSlot(int slotIndex) {
@@ -298,8 +298,8 @@ public final class ElytraTarget extends Module {
    }
 
    private float[] getUseRotation() {
-      float yaw = mc.player.getYaw();
-      float pitch = mc.player.getPitch();
+      float yaw = mc.player.getYRot();
+      float pitch = mc.player.getXRot();
       if (ModuleManager.aura.isEnabled() && Aura.target != null) {
          yaw = ModuleManager.aura.rotationYaw;
          pitch = ModuleManager.aura.rotationPitch;
@@ -322,9 +322,9 @@ public final class ElytraTarget extends Module {
          return 0.0;
       }
 
-      double dx = entity.getX() - entity.prevX;
-      double dy = entity.getY() - entity.prevY;
-      double dz = entity.getZ() - entity.prevZ;
+      double dx = entity.getX() - entity.xo;
+      double dy = entity.getY() - entity.yo;
+      double dz = entity.getZ() - entity.zo;
       return Math.sqrt(dx * dx + dy * dy + dz * dz) * 20.0;
    }
 
@@ -338,9 +338,9 @@ public final class ElytraTarget extends Module {
       }
    }
 
-   public Vec3d getTargetVec(Entity entity, boolean applyPrediction) {
+   public Vec3 getTargetVec(Entity entity, boolean applyPrediction) {
       if (mc.player != null && entity != null) {
-         long worldTime = mc.world == null ? Long.MIN_VALUE : mc.world.getTime();
+         long worldTime = mc.level == null ? Long.MIN_VALUE : mc.level.getGameTime();
          if (entity == this.cachedTargetVecEntity
             && this.cachedTargetVecPrediction == applyPrediction
             && this.cachedTargetVecWorldTime == worldTime
@@ -348,7 +348,7 @@ public final class ElytraTarget extends Module {
             return this.cachedTargetVec;
          }
 
-         Vec3d targetVec = this.calculateTargetVec(entity, applyPrediction);
+         Vec3 targetVec = this.calculateTargetVec(entity, applyPrediction);
          this.cachedTargetVecEntity = entity;
          this.cachedTargetVec = targetVec;
          this.cachedTargetVecPrediction = applyPrediction;
@@ -359,16 +359,16 @@ public final class ElytraTarget extends Module {
       }
    }
 
-   private Vec3d calculateTargetVec(Entity entity, boolean applyPrediction) {
+   private Vec3 calculateTargetVec(Entity entity, boolean applyPrediction) {
       if (entity instanceof LivingEntity livingTarget) {
-         Vec3d basePos = this.getBestPoint(mc.player.getEyePos(), livingTarget.getBoundingBox());
+         Vec3 basePos = this.getBestPoint(mc.player.getEyePosition(), livingTarget.getBoundingBox());
          if (applyPrediction && this.shouldTarget(livingTarget)) {
-            basePos = basePos.add(livingTarget.getVelocity().multiply(this.getPrediction(livingTarget)));
+            basePos = basePos.add(livingTarget.getDeltaMovement().scale(this.getPrediction(livingTarget)));
          }
 
          return basePos;
       } else {
-         return entity.getPos().add(0.0, entity.getEyeHeight(entity.getPose()), 0.0);
+         return entity.position().add(0.0, entity.getEyeHeight(entity.getPose()), 0.0);
       }
    }
 
@@ -379,8 +379,8 @@ public final class ElytraTarget extends Module {
       this.cachedTargetVecWorldTime = Long.MIN_VALUE;
    }
 
-   private Vec3d getBestPoint(Vec3d pos, Box box) {
-      return new Vec3d(MathHelper.clamp(pos.x, box.minX, box.maxX), MathHelper.clamp(pos.y, box.minY, box.maxY), MathHelper.clamp(pos.z, box.minZ, box.maxZ));
+   private Vec3 getBestPoint(Vec3 pos, AABB box) {
+      return new Vec3(Mth.clamp(pos.x, box.minX, box.maxX), Mth.clamp(pos.y, box.minY, box.maxY), Mth.clamp(pos.z, box.minZ, box.maxZ));
    }
 
    private void updateTrackedTarget(LivingEntity target) {
@@ -405,7 +405,7 @@ public final class ElytraTarget extends Module {
    }
 
    private boolean isTargetSwinging(LivingEntity target) {
-      return target.handSwinging || target.handSwingTicks > 0 || target.handSwingProgress > 0.0F;
+      return target.swinging || target.swingTime > 0 || target.attackAnim > 0.0F;
    }
 
    public enum Mode {

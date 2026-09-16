@@ -1,7 +1,7 @@
 package vcore.features.cmd.impl;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import net.minecraft.command.CommandSource;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import vcore.features.cmd.Command;
 
@@ -11,7 +11,7 @@ public class GarbageCleanerCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.executes(context -> {
          sendMessage("Cleaning RAM..");
          System.gc();

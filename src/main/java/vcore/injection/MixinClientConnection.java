@@ -1,9 +1,9 @@
 package vcore.injection;
 
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.listener.PacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BundleS2CPacket;
+import net.minecraft.network.Connection;
+import net.minecraft.network.PacketListener;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -12,13 +12,13 @@ import vcore.Vcore;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
 
-@Mixin(ClientConnection.class)
+@Mixin(Connection.class)
 public class MixinClientConnection {
-   @Inject(method = "handlePacket", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "genericsFtw", at = @At("HEAD"), cancellable = true)
    private static <T extends PacketListener> void onHandlePacket(Packet<T> packet, PacketListener listener, CallbackInfo info) {
       if (!Module.fullNullCheck()) {
-         if (packet instanceof BundleS2CPacket packs) {
-            packs.getPackets().forEach(p -> {
+         if (packet instanceof ClientboundBundlePacket packs) {
+            packs.subPackets().forEach(p -> {
                PacketEvent.Receive eventx = new PacketEvent.Receive((Packet<?>)p);
                Vcore.EVENT_BUS.post(eventx);
                if (eventx.isCancelled()) {
@@ -35,11 +35,11 @@ public class MixinClientConnection {
       }
    }
 
-   @Inject(method = "handlePacket", at = @At("TAIL"), cancellable = true)
+   @Inject(method = "genericsFtw", at = @At("TAIL"), cancellable = true)
    private static <T extends PacketListener> void onHandlePacketPost(Packet<T> packet, PacketListener listener, CallbackInfo info) {
       if (!Module.fullNullCheck()) {
-         if (packet instanceof BundleS2CPacket packs) {
-            packs.getPackets().forEach(p -> {
+         if (packet instanceof ClientboundBundlePacket packs) {
+            packs.subPackets().forEach(p -> {
                PacketEvent.ReceivePost eventx = new PacketEvent.ReceivePost((Packet<?>)p);
                Vcore.EVENT_BUS.post(eventx);
                if (eventx.isCancelled()) {
@@ -56,7 +56,7 @@ public class MixinClientConnection {
       }
    }
 
-   @Inject(method = "send(Lnet/minecraft/network/packet/Packet;)V", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;)V", at = @At("HEAD"), cancellable = true)
    private void onSendPacketPre(Packet<?> packet, CallbackInfo info) {
       if (!Vcore.core.silentPackets.remove(packet)) {
          if (!Module.fullNullCheck()) {
@@ -69,7 +69,7 @@ public class MixinClientConnection {
       }
    }
 
-   @Inject(method = "send(Lnet/minecraft/network/packet/Packet;)V", at = @At("RETURN"), cancellable = true)
+   @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;)V", at = @At("RETURN"), cancellable = true)
    private void onSendPacketPost(Packet<?> packet, CallbackInfo info) {
       if (!Vcore.core.silentPostPackets.remove(packet)) {
          if (!Module.fullNullCheck()) {

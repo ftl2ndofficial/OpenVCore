@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 import vcore.events.impl.EventMouse;
 import vcore.events.impl.TotemPopEvent;
 import vcore.features.hud.HudElement;
@@ -164,7 +164,7 @@ public final class HudEditor extends Module {
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       HudElement.anyHovered = false;
       this.hudEntries.stream().filter(this::isEnabled).map(entry -> entry.element).forEach(element -> element.render(context));
    }

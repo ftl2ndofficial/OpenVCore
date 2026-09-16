@@ -1,16 +1,16 @@
 package vcore.gui.clickui.impl;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.List;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.VertexFormat.DrawMode;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.GameRenderer;
 import org.joml.Matrix4f;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.clickui.AbstractButton;
@@ -44,13 +44,13 @@ public class ThemeSelector extends AbstractButton {
    }
 
    @Override
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       boolean hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height);
       int hudAlpha = Math.round(255.0F * HudEditor.getAlpha());
       Color buttonBg = Render2DEngine.injectAlpha(new Color(25, 25, 28), hudAlpha);
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), this.x, this.y, this.width, this.height, this.width / 4.0F, buttonBg);
+      Render2DEngine.drawClickGuiRound(context.pose(), this.x, this.y, this.width, this.height, this.width / 4.0F, buttonBg);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, HudEditor.getAlpha());
-      context.drawTexture(
+      context.blit(
          TextureStorage.themeHudIcon, (int)(this.x + this.width / 2.0F - 6.0F), (int)(this.y + this.height / 2.0F - 6.0F), 0.0F, 0.0F, 12, 12, 12, 12
       );
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
@@ -63,7 +63,7 @@ public class ThemeSelector extends AbstractButton {
       return this.paletteOpen || this.themeAlphaAnim > 0.01F;
    }
 
-   public void renderPalette(DrawContext context, int mouseX, int mouseY, float delta, float px, float width, float py, float height) {
+   public void renderPalette(GuiGraphics context, int mouseX, int mouseY, float delta, float px, float width, float py, float height) {
       float target = this.paletteOpen ? 1.0F : 0.0F;
       this.themeAlphaAnim = this.lerp(this.themeAlphaAnim, target, 0.15F);
       this.themeMenuAnim = this.lerp(this.themeMenuAnim, target, 0.2F);
@@ -72,7 +72,7 @@ public class ThemeSelector extends AbstractButton {
          float actualY = py + offsetY;
          int paletteAlpha = Math.round(255.0F * HudEditor.getAlpha() * this.themeAlphaAnim);
          Color bg = Render2DEngine.injectAlpha(new Color(20, 20, 22), paletteAlpha);
-         Render2DEngine.drawClickGuiRound(context.getMatrices(), px, actualY, width, height, height / 2.0F, bg);
+         Render2DEngine.drawClickGuiRound(context.pose(), px, actualY, width, height, height / 2.0F, bg);
          List<HudEditor.Theme> palette = HudEditor.advancecolor;
          float swatchSize = Math.max(10.5F, height - 5.5F);
          float spacing = 5.0F;
@@ -87,7 +87,7 @@ public class ThemeSelector extends AbstractButton {
             boolean swatchHovered = Render2DEngine.isHovered(mouseX, mouseY, sx, swatchY, swatchSize, swatchSize);
             if (swatchHovered) {
                Render2DEngine.drawRound(
-                  context.getMatrices(),
+                  context.pose(),
                   sx - 1.0F,
                   swatchY - 1.0F,
                   swatchSize + 2.0F,
@@ -111,20 +111,20 @@ public class ThemeSelector extends AbstractButton {
       return start + (end - start) * step;
    }
 
-   public void drawGradientCircle(DrawContext context, float x, float y, float radius, Color tl, Color tr, Color bl, Color br) {
-      MatrixStack matrices = context.getMatrices();
-      Matrix4f matrix = matrices.peek().getPositionMatrix();
+   public void drawGradientCircle(GuiGraphics context, float x, float y, float radius, Color tl, Color tr, Color bl, Color br) {
+      PoseStack matrices = context.pose();
+      Matrix4f matrix = matrices.last().pose();
       RenderSystem.enableBlend();
       RenderSystem.defaultBlendFunc();
-      RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-      BufferBuilder bufferBuilder = Tessellator.getInstance().begin(DrawMode.TRIANGLE_FAN, VertexFormats.POSITION_COLOR);
+      RenderSystem.setShader(GameRenderer::getPositionColorShader);
+      BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
       float cx = x + radius;
       float cy = y + radius;
       int cr = (tl.getRed() + tr.getRed() + bl.getRed() + br.getRed()) / 4;
       int cg = (tl.getGreen() + tr.getGreen() + bl.getGreen() + br.getGreen()) / 4;
       int cb = (tl.getBlue() + tr.getBlue() + bl.getBlue() + br.getBlue()) / 4;
       int ca = (tl.getAlpha() + tr.getAlpha() + bl.getAlpha() + br.getAlpha()) / 4;
-      bufferBuilder.vertex(matrix, cx, cy, 0.0F).color(cr, cg, cb, ca);
+      bufferBuilder.addVertex(matrix, cx, cy, 0.0F).setColor(cr, cg, cb, ca);
 
       for (int i = 0; i <= 360; i += 10) {
          double rad = Math.toRadians(i);
@@ -135,10 +135,10 @@ public class ThemeSelector extends AbstractButton {
          Color cTop = this.interpolate(tl, tr, u);
          Color cBot = this.interpolate(bl, br, u);
          Color cFinal = this.interpolate(cTop, cBot, v);
-         bufferBuilder.vertex(matrix, px, py, 0.0F).color(cFinal.getRGB());
+         bufferBuilder.addVertex(matrix, px, py, 0.0F).setColor(cFinal.getRGB());
       }
 
-      BufferRenderer.drawWithGlobalProgram(bufferBuilder.end());
+      BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
       RenderSystem.disableBlend();
    }
 

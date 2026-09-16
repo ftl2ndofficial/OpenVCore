@@ -3,10 +3,10 @@ package vcore.core.manager.client;
 import com.mojang.brigadier.CommandDispatcher;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientCommandSource;
-import net.minecraft.command.CommandSource;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientSuggestionProvider;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.manager.IManager;
 import vcore.features.cmd.Command;
@@ -36,8 +36,8 @@ import vcore.features.cmd.impl.VClipCommand;
 
 public class CommandManager implements IManager {
    private String prefix = "@";
-   private final CommandDispatcher<CommandSource> dispatcher = new CommandDispatcher();
-   private final CommandSource source = new ClientCommandSource(null, MinecraftClient.getInstance());
+   private final CommandDispatcher<SharedSuggestionProvider> dispatcher = new CommandDispatcher();
+   private final SharedSuggestionProvider source = new ClientSuggestionProvider(null, Minecraft.getInstance());
    private final List<Command> commands = new ArrayList<>();
 
    public CommandManager() {
@@ -91,18 +91,18 @@ public class CommandManager implements IManager {
 
    @NotNull
    public static String getClientMessage() {
-      return Formatting.WHITE + "⌊" + Formatting.GOLD + "⚡" + Formatting.WHITE + "⌉" + Formatting.RESET;
+      return ChatFormatting.WHITE + "⌊" + ChatFormatting.GOLD + "⚡" + ChatFormatting.WHITE + "⌉" + ChatFormatting.RESET;
    }
 
    public List<Command> getCommands() {
       return this.commands;
    }
 
-   public CommandSource getSource() {
+   public SharedSuggestionProvider getSource() {
       return this.source;
    }
 
-   public CommandDispatcher<CommandSource> getDispatcher() {
+   public CommandDispatcher<SharedSuggestionProvider> getDispatcher() {
       return this.dispatcher;
    }
 

@@ -1,8 +1,8 @@
 package vcore.injection;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,9 +20,9 @@ public class MixinSodiumDefaultChunkRenderer {
       require = 0
    )
    private static void modifyRegionOffset(Args args) {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc != null && mc.gameRenderer != null) {
-         Vec3d cameraPos = mc.gameRenderer.getCamera().getPos();
+         Vec3 cameraPos = mc.gameRenderer.getMainCamera().getPosition();
          if (cameraPos != null) {
             float regionOffsetX = (Float)args.get(0);
             float regionOffsetY = (Float)args.get(1);
@@ -30,8 +30,8 @@ public class MixinSodiumDefaultChunkRenderer {
             BlockPos origin = new BlockPos(
                (int)Math.round(regionOffsetX + cameraPos.x), (int)Math.round(regionOffsetY + cameraPos.y), (int)Math.round(regionOffsetZ + cameraPos.z)
             );
-            Vec3d offset = ChunkAnimations.INSTANCE.getOffset(origin);
-            if (offset != Vec3d.ZERO) {
+            Vec3 offset = ChunkAnimations.INSTANCE.getOffset(origin);
+            if (offset != Vec3.ZERO) {
                args.set(0, regionOffsetX + (float)offset.x);
                args.set(1, regionOffsetY + (float)offset.y);
                args.set(2, regionOffsetZ + (float)offset.z);

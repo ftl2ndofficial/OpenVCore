@@ -1,7 +1,7 @@
 package vcore.utility.player;
 
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffects;
 import vcore.core.Managers;
 import vcore.events.impl.EventMove;
 import vcore.features.modules.Module;
@@ -9,19 +9,19 @@ import vcore.features.modules.Module;
 public final class MovementUtility {
    public static boolean isMoving() {
       return Module.mc.player != null
-         && Module.mc.world != null
+         && Module.mc.level != null
          && Module.mc.player.input != null
-         && (Module.mc.player.input.movementForward != 0.0 || Module.mc.player.input.movementSideways != 0.0);
+         && (Module.mc.player.input.forwardImpulse != 0.0 || Module.mc.player.input.leftImpulse != 0.0);
    }
 
    public static double getSpeed() {
-      return Math.hypot(Module.mc.player.getVelocity().x, Module.mc.player.getVelocity().z);
+      return Math.hypot(Module.mc.player.getDeltaMovement().x, Module.mc.player.getDeltaMovement().z);
    }
 
    public static double[] forward(double d) {
-      float f = Module.mc.player.input.movementForward;
-      float f2 = Module.mc.player.input.movementSideways;
-      float f3 = Module.mc.player.getYaw();
+      float f = Module.mc.player.input.forwardImpulse;
+      float f2 = Module.mc.player.input.leftImpulse;
+      float f3 = Module.mc.player.getYRot();
       if (f != 0.0F) {
          if (f2 > 0.0F) {
             f3 += f > 0.0F ? -45 : 45;
@@ -45,11 +45,11 @@ public final class MovementUtility {
    }
 
    public static void setMotion(double speed) {
-      double forward = Module.mc.player.input.movementForward;
-      double strafe = Module.mc.player.input.movementSideways;
-      float yaw = Module.mc.player.getYaw();
+      double forward = Module.mc.player.input.forwardImpulse;
+      double strafe = Module.mc.player.input.leftImpulse;
+      float yaw = Module.mc.player.getYRot();
       if (forward == 0.0 && strafe == 0.0) {
-         Module.mc.player.setVelocity(0.0, Module.mc.player.getVelocity().y, 0.0);
+         Module.mc.player.setDeltaMovement(0.0, Module.mc.player.getDeltaMovement().y, 0.0);
       } else {
          if (forward != 0.0) {
             if (strafe > 0.0) {
@@ -66,24 +66,24 @@ public final class MovementUtility {
             }
          }
 
-         double sin = MathHelper.sin((float)Math.toRadians(yaw + 90.0F));
-         double cos = MathHelper.cos((float)Math.toRadians(yaw + 90.0F));
+         double sin = Mth.sin((float)Math.toRadians(yaw + 90.0F));
+         double cos = Mth.cos((float)Math.toRadians(yaw + 90.0F));
          Module.mc
             .player
-            .setVelocity(forward * speed * cos + strafe * speed * sin, Module.mc.player.getVelocity().y, forward * speed * sin - strafe * speed * cos);
+            .setDeltaMovement(forward * speed * cos + strafe * speed * sin, Module.mc.player.getDeltaMovement().y, forward * speed * sin - strafe * speed * cos);
       }
    }
 
    public static float getMoveDirection() {
-      double forward = Module.mc.player.input.movementForward;
-      double strafe = Module.mc.player.input.movementSideways;
+      double forward = Module.mc.player.input.forwardImpulse;
+      double strafe = Module.mc.player.input.leftImpulse;
       if (strafe > 0.0) {
          strafe = 1.0;
       } else if (strafe < 0.0) {
          strafe = -1.0;
       }
 
-      float yaw = Module.mc.player.getYaw();
+      float yaw = Module.mc.player.getYRot();
       if (forward == 0.0 && strafe == 0.0) {
          return yaw;
       }
@@ -110,7 +110,7 @@ public final class MovementUtility {
    }
 
    public static double[] forwardWithoutStrafe(double d) {
-      float f3 = Module.mc.player.getYaw();
+      float f3 = Module.mc.player.getYRot();
       double d4 = d * Math.cos(Math.toRadians(f3 + 90.0F));
       double d5 = d * Math.sin(Math.toRadians(f3 + 90.0F));
       return new double[]{d4, d5};
@@ -118,8 +118,8 @@ public final class MovementUtility {
 
    public static double getJumpSpeed() {
       double jumpSpeed = 0.39999995F;
-      if (Module.mc.player.hasStatusEffect(StatusEffects.JUMP_BOOST)) {
-         double amplifier = Module.mc.player.getStatusEffect(StatusEffects.JUMP_BOOST).getAmplifier();
+      if (Module.mc.player.hasEffect(MobEffects.JUMP)) {
+         double amplifier = Module.mc.player.getEffect(MobEffects.JUMP).getAmplifier();
          jumpSpeed += (amplifier + 1.0) * 0.1;
       }
 
@@ -127,9 +127,9 @@ public final class MovementUtility {
    }
 
    public static void modifyEventSpeed(EventMove event, double d) {
-      double d2 = Module.mc.player.input.movementForward;
-      double d3 = Module.mc.player.input.movementSideways;
-      float f = Module.mc.player.getYaw();
+      double d2 = Module.mc.player.input.forwardImpulse;
+      double d3 = Module.mc.player.input.leftImpulse;
+      float f = Module.mc.player.getYRot();
       if (d2 == 0.0 && d3 == 0.0) {
          event.setX(0.0);
          event.setZ(0.0);
@@ -162,18 +162,18 @@ public final class MovementUtility {
          return d;
       }
 
-      if (Module.mc.player.hasStatusEffect(StatusEffects.SPEED)) {
-         int n = Module.mc.player.getStatusEffect(StatusEffects.SPEED).getAmplifier();
+      if (Module.mc.player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
+         int n = Module.mc.player.getEffect(MobEffects.MOVEMENT_SPEED).getAmplifier();
          d *= 1.0 + 0.2 * (n + 1);
       }
 
-      if (Module.mc.player.hasStatusEffect(StatusEffects.JUMP_BOOST)) {
-         int n = Module.mc.player.getStatusEffect(StatusEffects.JUMP_BOOST).getAmplifier();
+      if (Module.mc.player.hasEffect(MobEffects.JUMP)) {
+         int n = Module.mc.player.getEffect(MobEffects.JUMP).getAmplifier();
          d /= 1.0 + 0.2 * (n + 1);
       }
 
-      if (Module.mc.player.hasStatusEffect(StatusEffects.SLOWNESS)) {
-         int n = Module.mc.player.getStatusEffect(StatusEffects.SLOWNESS).getAmplifier();
+      if (Module.mc.player.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
+         int n = Module.mc.player.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier();
          d /= 1.0 + 0.2 * (n + 1);
       }
 
@@ -181,6 +181,6 @@ public final class MovementUtility {
    }
 
    public static boolean sprintIsLegit(float yaw) {
-      return Math.abs(Math.abs(MathHelper.wrapDegrees(yaw)) - Math.abs(MathHelper.wrapDegrees(Managers.PLAYER.yaw))) < 40.0F;
+      return Math.abs(Math.abs(Mth.wrapDegrees(yaw)) - Math.abs(Mth.wrapDegrees(Managers.PLAYER.yaw))) < 40.0F;
    }
 }

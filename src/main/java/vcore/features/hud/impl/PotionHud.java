@@ -3,10 +3,10 @@ package vcore.features.hud.impl;
 import java.awt.Color;
 import java.util.List;
 import java.util.function.Supplier;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 import vcore.features.hud.HudElement;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.font.FontRenderers;
@@ -32,8 +32,8 @@ public class PotionHud extends HudElement {
       super("Potions", 100, 100, position, activeElementsSupplier);
    }
 
-   public static String getDuration(StatusEffectInstance pe) {
-      if (pe.isInfinite()) {
+   public static String getDuration(MobEffectInstance pe) {
+      if (pe.isInfiniteDuration()) {
          return "*:*";
       }
 
@@ -43,9 +43,9 @@ public class PotionHud extends HudElement {
       return mins + ":" + sec;
    }
 
-   private int getDurationColor(StatusEffectInstance potionEffect) {
+   private int getDurationColor(MobEffectInstance potionEffect) {
       Color baseColor = HudEditor.getTextColor();
-      if (!potionEffect.isInfinite() && potionEffect.getDuration() <= 200) {
+      if (!potionEffect.isInfiniteDuration() && potionEffect.getDuration() <= 200) {
          double blink = Math.sin(System.currentTimeMillis() * Math.PI * 2.0 / 500.0);
          float progress = (float)((blink + 1.0) * 0.5);
          return Render2DEngine.interpolateColorC(baseColor, WARNING_DURATION_COLOR, progress).getRGB();
@@ -55,21 +55,21 @@ public class PotionHud extends HudElement {
    }
 
    @Override
-   public void render(DrawContext context) {
+   public void render(GuiGraphics context) {
       super.render(context);
       int y_offset1 = 0;
       float max_width = 50.0F;
       float maxNameWidth = 0.0F;
       float maxDurationWidth = 0.0F;
 
-      for (StatusEffectInstance potionEffect : mc.player.getStatusEffects()) {
-         StatusEffect potion = (StatusEffect)potionEffect.getEffectType().value();
+      for (MobEffectInstance potionEffect : mc.player.getActiveEffects()) {
+         MobEffect potion = (MobEffect)potionEffect.getEffect().value();
          if (y_offset1 == 0) {
             y_offset1 += 4;
          }
 
          y_offset1 += 9;
-         float nameWidth = FontRenderers.sf_bold_mini.getStringWidth(potion.getName().getString() + " " + (potionEffect.getAmplifier() + 1));
+         float nameWidth = FontRenderers.sf_bold_mini.getStringWidth(potion.getDisplayName().getString() + " " + (potionEffect.getAmplifier() + 1));
          float timeWidth = FontRenderers.sf_bold_mini.getStringWidth(getDuration(potionEffect));
          maxNameWidth = Math.max(maxNameWidth, nameWidth);
          maxDurationWidth = Math.max(maxDurationWidth, timeWidth);
@@ -81,18 +81,18 @@ public class PotionHud extends HudElement {
 
       this.vAnimation = AnimationUtility.fast(this.vAnimation, 14 + y_offset1, 15.0F);
       this.hAnimation = AnimationUtility.fast(this.hAnimation, max_width, 15.0F);
-      Render2DEngine.drawHudBase(context.getMatrices(), this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation, 4.0F);
+      Render2DEngine.drawHudBase(context.pose(), this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation, 4.0F);
       if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
          FontRenderers.sf_bold
-            .drawCenteredString(context.getMatrices(), "Potions", this.getPosX() + this.hAnimation / 2.0F, this.getPosY() + 4.0F, HudEditor.getTextColor());
+            .drawCenteredString(context.pose(), "Potions", this.getPosX() + this.hAnimation / 2.0F, this.getPosY() + 4.0F, HudEditor.getTextColor());
       } else {
-         FontRenderers.sf_bold.drawGradientCenteredString(context.getMatrices(), "Potions", this.getPosX() + this.hAnimation / 2.0F, this.getPosY() + 4.0F, 10);
+         FontRenderers.sf_bold.drawGradientCenteredString(context.pose(), "Potions", this.getPosX() + this.hAnimation / 2.0F, this.getPosY() + 4.0F, 10);
       }
 
       if (y_offset1 > 0) {
          if (HudEditor.hudStyle.is(HudEditor.HudStyle.Blurry)) {
             Render2DEngine.drawRectDumbWay(
-               context.getMatrices(),
+               context.pose(),
                this.getPosX() + 4.0F,
                this.getPosY() + 13.0F,
                this.getPosX() + this.getWidth() - 4.0F,
@@ -101,7 +101,7 @@ public class PotionHud extends HudElement {
             );
          } else {
             Render2DEngine.horizontalGradient(
-               context.getMatrices(),
+               context.pose(),
                this.getPosX() + 2.0F,
                this.getPosY() + 13.7F,
                this.getPosX() + 2.0F + this.hAnimation / 2.0F - 2.0F,
@@ -110,7 +110,7 @@ public class PotionHud extends HudElement {
                HudEditor.getTextColor()
             );
             Render2DEngine.horizontalGradient(
-               context.getMatrices(),
+               context.pose(),
                this.getPosX() + 2.0F + this.hAnimation / 2.0F - 2.0F,
                this.getPosY() + 13.7F,
                this.getPosX() + 2.0F + this.hAnimation - 4.0F,
@@ -121,30 +121,30 @@ public class PotionHud extends HudElement {
          }
       }
 
-      Render2DEngine.addWindow(context.getMatrices(), this.getPosX(), this.getPosY(), this.getPosX() + this.hAnimation, this.getPosY() + this.vAnimation, 1.0);
+      Render2DEngine.addWindow(context.pose(), this.getPosX(), this.getPosY(), this.getPosX() + this.hAnimation, this.getPosY() + this.vAnimation, 1.0);
       int y_offset = 0;
 
-      for (StatusEffectInstance potionEffect : mc.player.getStatusEffects()) {
-         StatusEffect potion = (StatusEffect)potionEffect.getEffectType().value();
+      for (MobEffectInstance potionEffect : mc.player.getActiveEffects()) {
+         MobEffect potion = (MobEffect)potionEffect.getEffect().value();
          String duration = getDuration(potionEffect);
          float durationRightX = this.getPosX() + this.hAnimation - 3.0F;
          float durationX = durationRightX - FontRenderers.sf_bold_mini.getStringWidth(duration);
          float separatorX = durationRightX - maxDurationWidth - 4.0F;
-         context.getMatrices().push();
-         context.getMatrices().translate(this.getPosX() + 2.0F, this.getPosY() + 16.0F + y_offset, 0.0F);
-         context.drawSprite(0, 0, 0, 8, 8, mc.getStatusEffectSpriteManager().getSprite(potionEffect.getEffectType()));
-         context.getMatrices().pop();
+         context.pose().pushPose();
+         context.pose().translate(this.getPosX() + 2.0F, this.getPosY() + 16.0F + y_offset, 0.0F);
+         context.blit(0, 0, 0, 8, 8, mc.getMobEffectTextures().get(potionEffect.getEffect()));
+         context.pose().popPose();
          FontRenderers.sf_bold_mini
             .drawString(
-               context.getMatrices(),
-               potion.getName().getString() + " " + Formatting.RED + (potionEffect.getAmplifier() + 1),
+               context.pose(),
+               potion.getDisplayName().getString() + " " + ChatFormatting.RED + (potionEffect.getAmplifier() + 1),
                this.getPosX() + 12.0F,
                this.getPosY() + 19.0F + y_offset,
                HudEditor.getTextColor().getRGB()
             );
          FontRenderers.sf_bold_mini
-            .drawString(context.getMatrices(), duration, durationX, this.getPosY() + 19.0F + y_offset, this.getDurationColor(potionEffect));
-         Render2DEngine.drawRect(context.getMatrices(), separatorX, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
+            .drawString(context.pose(), duration, durationX, this.getPosY() + 19.0F + y_offset, this.getDurationColor(potionEffect));
+         Render2DEngine.drawRect(context.pose(), separatorX, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
          y_offset += 9;
       }
 

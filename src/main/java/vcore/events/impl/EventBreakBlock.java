@@ -1,6 +1,6 @@
 package vcore.events.impl;
 
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 import vcore.events.Event;
 
 public class EventBreakBlock extends Event {

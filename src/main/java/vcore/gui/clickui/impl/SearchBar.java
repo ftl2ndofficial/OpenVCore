@@ -1,9 +1,9 @@
 package vcore.gui.clickui.impl;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.awt.Color;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.StringHelper;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.util.StringUtil;
 import org.lwjgl.glfw.GLFW;
 import vcore.Vcore;
 import vcore.features.modules.Module;
@@ -44,12 +44,12 @@ public class SearchBar extends AbstractButton {
    }
 
    @Override
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       super.render(context, mouseX, mouseY, delta);
       boolean hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height);
       int hudAlpha = Math.round(255.0F * HudEditor.getAlpha());
       Color base = Render2DEngine.injectAlpha(new Color(25, 25, 28), hudAlpha);
-      Render2DEngine.drawClickGuiRound(context.getMatrices(), this.x, this.y, this.width, this.height, this.height / 2.0F, base);
+      Render2DEngine.drawClickGuiRound(context.pose(), this.x, this.y, this.width, this.height, this.height / 2.0F, base);
       FontRenderer font = FontRenderers.sf_bold;
       String displayText;
       int textColor;
@@ -57,16 +57,16 @@ public class SearchBar extends AbstractButton {
          displayText = "Search...";
          textColor = -1;
       } else {
-         String suffix = !listening || Module.mc.player != null && Module.mc.player.age / 10 % 2 != 0 ? (listening ? "_" : "") : " ";
+         String suffix = !listening || Module.mc.player != null && Module.mc.player.tickCount / 10 % 2 != 0 ? (listening ? "_" : "") : " ";
          displayText = moduleName + suffix;
          textColor = -1;
       }
 
       float textY = this.y + (this.height - font.getFontHeight(displayText.isEmpty() ? "A" : displayText)) / 2.0F + 3.0F;
-      font.drawString(context.getMatrices(), displayText, this.x + 9.0F, textY, textColor);
+      font.drawString(context.pose(), displayText, this.x + 9.0F, textY, textColor);
       if (hovered) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(Module.mc.getWindow().getHandle(), GLFW.glfwCreateStandardCursor(221186));
+            GLFW.glfwSetCursor(Module.mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221186));
          }
 
          ClickGUI.anyHovered = true;
@@ -87,7 +87,7 @@ public class SearchBar extends AbstractButton {
 
    @Override
    public void charTyped(char key, int keyCode) {
-      if (StringHelper.isValidChar(key) && listening) {
+      if (StringUtil.isAllowedChatCharacter(key) && listening) {
          moduleName = moduleName + key;
       }
    }
@@ -95,7 +95,7 @@ public class SearchBar extends AbstractButton {
    @Override
    public void keyTyped(int keyCode) {
       super.keyTyped(keyCode);
-      if (keyCode != 70 || !InputUtil.isKeyPressed(Module.mc.getWindow().getHandle(), 341) && !InputUtil.isKeyPressed(Module.mc.getWindow().getHandle(), 345)) {
+      if (keyCode != 70 || !InputConstants.isKeyDown(Module.mc.getWindow().getWindow(), 341) && !InputConstants.isKeyDown(Module.mc.getWindow().getWindow(), 345)) {
          if (Vcore.currentKeyListener == Vcore.KeyListening.Search) {
             if (listening) {
                switch (keyCode) {

@@ -1,9 +1,9 @@
 package vcore.utility.render;
 
+import com.mojang.blaze3d.platform.Window;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.Window;
+import net.minecraft.client.Minecraft;
 
 public interface WindowResizeCallback {
    Event<WindowResizeCallback> EVENT = EventFactory.createArrayBacked(WindowResizeCallback.class, callbacks -> (client, window) -> {
@@ -12,5 +12,5 @@ public interface WindowResizeCallback {
       }
    });
 
-   void onResized(MinecraftClient var1, Window var2);
+   void onResized(Minecraft var1, Window var2);
 }

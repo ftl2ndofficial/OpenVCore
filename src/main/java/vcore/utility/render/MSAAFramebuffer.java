@@ -1,15 +1,15 @@
 package vcore.utility.render;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.Minecraft;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.opengl.GL30;
 
-public class MSAAFramebuffer extends Framebuffer {
+public class MSAAFramebuffer extends RenderTarget {
    public static final int MAX_SAMPLES = GL30.glGetInteger(36183);
    private static final Map<Integer, MSAAFramebuffer> INSTANCES = new HashMap<>();
    private final int samples;
@@ -27,44 +27,44 @@ public class MSAAFramebuffer extends Framebuffer {
    }
 
    public static void use(boolean fancy, Runnable drawAction) {
-      use(Math.min(fancy ? 16 : 4, MAX_SAMPLES), MinecraftClient.getInstance().getFramebuffer(), drawAction);
+      use(Math.min(fancy ? 16 : 4, MAX_SAMPLES), Minecraft.getInstance().getMainRenderTarget(), drawAction);
    }
 
-   public static void use(int samples, @NotNull Framebuffer mainBuffer, @NotNull Runnable drawAction) {
+   public static void use(int samples, @NotNull RenderTarget mainBuffer, @NotNull Runnable drawAction) {
       RenderSystem.assertOnRenderThreadOrInit();
       MSAAFramebuffer msaaBuffer = getInstance(samples);
-      msaaBuffer.resize(mainBuffer.textureWidth, mainBuffer.textureHeight, false);
-      GlStateManager._glBindFramebuffer(36008, mainBuffer.fbo);
-      GlStateManager._glBindFramebuffer(36009, msaaBuffer.fbo);
+      msaaBuffer.resize(mainBuffer.width, mainBuffer.height, false);
+      GlStateManager._glBindFramebuffer(36008, mainBuffer.frameBufferId);
+      GlStateManager._glBindFramebuffer(36009, msaaBuffer.frameBufferId);
       GlStateManager._glBlitFrameBuffer(
-         0, 0, msaaBuffer.textureWidth, msaaBuffer.textureHeight, 0, 0, msaaBuffer.textureWidth, msaaBuffer.textureHeight, 16384, 9729
+         0, 0, msaaBuffer.width, msaaBuffer.height, 0, 0, msaaBuffer.width, msaaBuffer.height, 16384, 9729
       );
-      msaaBuffer.beginWrite(true);
+      msaaBuffer.bindWrite(true);
       drawAction.run();
-      msaaBuffer.endWrite();
-      GlStateManager._glBindFramebuffer(36008, msaaBuffer.fbo);
-      GlStateManager._glBindFramebuffer(36009, mainBuffer.fbo);
+      msaaBuffer.unbindWrite();
+      GlStateManager._glBindFramebuffer(36008, msaaBuffer.frameBufferId);
+      GlStateManager._glBindFramebuffer(36009, mainBuffer.frameBufferId);
       GlStateManager._glBlitFrameBuffer(
-         0, 0, msaaBuffer.textureWidth, msaaBuffer.textureHeight, 0, 0, msaaBuffer.textureWidth, msaaBuffer.textureHeight, 16384, 9729
+         0, 0, msaaBuffer.width, msaaBuffer.height, 0, 0, msaaBuffer.width, msaaBuffer.height, 16384, 9729
       );
       msaaBuffer.clear(false);
-      mainBuffer.beginWrite(false);
+      mainBuffer.bindWrite(false);
    }
 
    public void resize(int width, int height, boolean getError) {
-      if (this.textureWidth != width || this.textureHeight != height) {
+      if (this.width != width || this.height != height) {
          super.resize(width, height, getError);
       }
    }
 
-   public void initFbo(int width, int height, boolean getError) {
+   public void createBuffers(int width, int height, boolean getError) {
       RenderSystem.assertOnRenderThreadOrInit();
-      this.viewportWidth = width;
-      this.viewportHeight = height;
-      this.textureWidth = width;
-      this.textureHeight = height;
-      this.fbo = GlStateManager.glGenFramebuffers();
-      GlStateManager._glBindFramebuffer(36160, this.fbo);
+      this.viewWidth = width;
+      this.viewHeight = height;
+      this.width = width;
+      this.height = height;
+      this.frameBufferId = GlStateManager.glGenFramebuffers();
+      GlStateManager._glBindFramebuffer(36160, this.frameBufferId);
       this.rboColor = GlStateManager.glGenRenderbuffers();
       GlStateManager._glBindRenderbuffer(36161, this.rboColor);
       GL30.glRenderbufferStorageMultisample(36161, this.samples, 32856, width, height);
@@ -75,21 +75,21 @@ public class MSAAFramebuffer extends Framebuffer {
       GlStateManager._glBindRenderbuffer(36161, 0);
       GL30.glFramebufferRenderbuffer(36160, 36064, 36161, this.rboColor);
       GL30.glFramebufferRenderbuffer(36160, 36096, 36161, this.rboDepth);
-      this.colorAttachment = MinecraftClient.getInstance().getFramebuffer().getColorAttachment();
-      this.depthAttachment = MinecraftClient.getInstance().getFramebuffer().getDepthAttachment();
-      this.checkFramebufferStatus();
+      this.colorTextureId = Minecraft.getInstance().getMainRenderTarget().getColorTextureId();
+      this.depthBufferId = Minecraft.getInstance().getMainRenderTarget().getDepthTextureId();
+      this.checkStatus();
       this.clear(getError);
-      this.endRead();
+      this.unbindRead();
    }
 
-   public void delete() {
+   public void destroyBuffers() {
       RenderSystem.assertOnRenderThreadOrInit();
-      this.endRead();
-      this.endWrite();
-      if (this.fbo > -1) {
+      this.unbindRead();
+      this.unbindWrite();
+      if (this.frameBufferId > -1) {
          GlStateManager._glBindFramebuffer(36160, 0);
-         GlStateManager._glDeleteFramebuffers(this.fbo);
-         this.fbo = -1;
+         GlStateManager._glDeleteFramebuffers(this.frameBufferId);
+         this.frameBufferId = -1;
       }
 
       if (this.rboColor > -1) {
@@ -102,9 +102,9 @@ public class MSAAFramebuffer extends Framebuffer {
          this.rboDepth = -1;
       }
 
-      this.colorAttachment = -1;
-      this.depthAttachment = -1;
-      this.textureWidth = -1;
-      this.textureHeight = -1;
+      this.colorTextureId = -1;
+      this.depthBufferId = -1;
+      this.width = -1;
+      this.height = -1;
    }
 }

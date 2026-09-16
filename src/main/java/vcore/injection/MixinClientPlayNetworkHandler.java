@@ -1,14 +1,14 @@
 package vcore.injection;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.NetworkThreadUtils;
-import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.protocol.PacketUtils;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,14 +21,14 @@ import vcore.events.impl.EventChunkData;
 import vcore.features.modules.Module;
 import vcore.features.modules.misc.UnHook;
 
-@Mixin(ClientPlayNetworkHandler.class)
+@Mixin(ClientPacketListener.class)
 public class MixinClientPlayNetworkHandler {
-   @Inject(method = "onEntityStatus", at = @At("HEAD"))
-   private void hookPopEffectTotemStatus(@NotNull EntityStatusS2CPacket packet, CallbackInfo ci) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      NetworkThreadUtils.forceMainThread(packet, (ClientPlayNetworkHandler)(Object)this, client);
-      if (client.world != null && packet.getStatus() == 35) {
-         Entity entity = packet.getEntity(client.world);
+   @Inject(method = "handleEntityEvent", at = @At("HEAD"))
+   private void hookPopEffectTotemStatus(@NotNull ClientboundEntityEventPacket packet, CallbackInfo ci) {
+      Minecraft client = Minecraft.getInstance();
+      PacketUtils.ensureRunningOnSameThread(packet, (ClientPacketListener)(Object)this, client);
+      if (client.level != null && packet.getEventId() == 35) {
+         Entity entity = packet.getEntity(client.level);
          if (entity != null) {
             ModuleManager.popEffect.addEffect(entity);
          }
@@ -36,22 +36,22 @@ public class MixinClientPlayNetworkHandler {
    }
 
    @Inject(
-      method = "onEntityStatus",
+      method = "handleEntityEvent",
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/network/packet/s2c/play/EntityStatusS2CPacket;getEntity(Lnet/minecraft/world/World;)Lnet/minecraft/entity/Entity;"
+         target = "Lnet/minecraft/network/protocol/game/ClientboundEntityEventPacket;getEntity(Lnet/minecraft/world/level/Level;)Lnet/minecraft/world/entity/Entity;"
       )
    )
-   private void hookPopEffectChamsNewStatus(@NotNull EntityStatusS2CPacket packet, CallbackInfo ci) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.world != null && packet.getStatus() == 35) {
-         if (packet.getEntity(client.world) instanceof PlayerEntity player) {
+   private void hookPopEffectChamsNewStatus(@NotNull ClientboundEntityEventPacket packet, CallbackInfo ci) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.level != null && packet.getEventId() == 35) {
+         if (packet.getEntity(client.level) instanceof Player player) {
             ModuleManager.popEffect.addChamsNewFromStatus(player);
          }
       }
    }
 
-   @Inject(method = "sendChatMessage", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "sendChat", at = @At("HEAD"), cancellable = true)
    private void sendChatMessageHook(@NotNull String message, CallbackInfo ci) {
       if (message.equals(String.valueOf(ModuleManager.unHook.code)) && UnHook.isActive()) {
          ModuleManager.unHook.disable();
@@ -69,11 +69,11 @@ public class MixinClientPlayNetworkHandler {
       }
    }
 
-   @Inject(method = "onChunkData", at = @At("TAIL"))
-   private void hookChunkData(ChunkDataS2CPacket packet, CallbackInfo ci) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.world != null) {
-         WorldChunk chunk = client.world.getChunkManager().getWorldChunk(packet.getChunkX(), packet.getChunkZ(), false);
+   @Inject(method = "handleLevelChunkWithLight", at = @At("TAIL"))
+   private void hookChunkData(ClientboundLevelChunkWithLightPacket packet, CallbackInfo ci) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.level != null) {
+         LevelChunk chunk = client.level.getChunkSource().getChunk(packet.getX(), packet.getZ(), false);
          if (chunk != null) {
             Vcore.EVENT_BUS.post(new EventChunkData(chunk));
          }

@@ -1,6 +1,6 @@
 package vcore.events.impl;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 import vcore.events.Event;
 
 public class EventEatFood extends Event {

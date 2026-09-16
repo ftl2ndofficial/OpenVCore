@@ -1,13 +1,13 @@
 package vcore.injection;
 
-import net.minecraft.client.particle.BlockDustParticle;
 import net.minecraft.client.particle.CampfireSmokeParticle;
-import net.minecraft.client.particle.ElderGuardianAppearanceParticle;
-import net.minecraft.client.particle.ExplosionLargeParticle;
+import net.minecraft.client.particle.FireworkParticles.OverlayParticle;
+import net.minecraft.client.particle.FireworkParticles.Starter;
+import net.minecraft.client.particle.HugeExplosionParticle;
+import net.minecraft.client.particle.MobAppearanceParticle;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleManager;
-import net.minecraft.client.particle.FireworksSparkParticle.FireworkParticle;
-import net.minecraft.client.particle.FireworksSparkParticle.Flash;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.particle.TerrainParticle;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,9 +15,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.render.NoRender;
 
-@Mixin(ParticleManager.class)
+@Mixin(ParticleEngine.class)
 public class MixinParticleManager {
-   @Inject(at = @At("HEAD"), method = "addParticle(Lnet/minecraft/client/particle/Particle;)V", cancellable = true)
+   @Inject(at = @At("HEAD"), method = "add(Lnet/minecraft/client/particle/Particle;)V", cancellable = true)
    public void addParticleHook(Particle p, CallbackInfo e) {
       NoRender nR = ModuleManager.noRender;
       if (nR.isEnabled()) {
@@ -28,11 +28,11 @@ public class MixinParticleManager {
             }
          }
 
-         if (nR.elderGuardian.getValue() && p instanceof ElderGuardianAppearanceParticle) {
+         if (nR.elderGuardian.getValue() && p instanceof MobAppearanceParticle) {
             e.cancel();
          }
 
-         if (nR.explosions.getValue() && p instanceof ExplosionLargeParticle) {
+         if (nR.explosions.getValue() && p instanceof HugeExplosionParticle) {
             e.cancel();
          }
 
@@ -40,11 +40,11 @@ public class MixinParticleManager {
             e.cancel();
          }
 
-         if (nR.breakParticles.getValue() && p instanceof BlockDustParticle) {
+         if (nR.breakParticles.getValue() && p instanceof TerrainParticle) {
             e.cancel();
          }
 
-         if (nR.fireworks.getValue() && (p instanceof FireworkParticle || p instanceof Flash)) {
+         if (nR.fireworks.getValue() && (p instanceof Starter || p instanceof OverlayParticle)) {
             e.cancel();
          }
       }

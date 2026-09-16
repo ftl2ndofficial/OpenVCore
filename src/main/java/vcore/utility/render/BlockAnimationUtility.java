@@ -1,16 +1,16 @@
 package vcore.utility.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
 
 public final class BlockAnimationUtility {
    private static final Map<BlockAnimationUtility.BlockRenderData, Long> blocks = new ConcurrentHashMap<>();
 
-   public static void onRender(MatrixStack matrixStack) {
+   public static void onRender(PoseStack matrixStack) {
       blocks.forEach((animation, time) -> {
          if ((float)(System.currentTimeMillis() - time) > 300.0F) {
             blocks.remove(animation);
@@ -57,19 +57,19 @@ public final class BlockAnimationUtility {
       BlockAnimationUtility.BlockAnimationMode animationMode,
       BlockAnimationUtility.BlockRenderMode renderMode
    ) {
-      void renderWithTime(Long time, MatrixStack stack) {
+      void renderWithTime(Long time, PoseStack stack) {
          switch (this.animationMode) {
             case Fade: {
-               Box box = new Box(this.pos);
+               AABB box = new AABB(this.pos);
                renderBox(time, stack, box, this.renderMode, this.lineColor, this.lineWidth, this.fillColor);
                break;
             }
             case Hover: {
                float scale = 1.0F + (float)time.longValue() / 1500.0F;
-               Box box = new Box(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
+               AABB box = new AABB(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
                   Render3DEngine.drawBoxOutline(
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5F, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5F, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
                      Render2DEngine.injectAlpha(this.lineColor, (int)(this.lineColor.getAlpha() * (1.0F - (float)time.longValue() / 300.0F))),
                      this.lineWidth
                   );
@@ -78,7 +78,7 @@ public final class BlockAnimationUtility {
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Fill) {
                   Render3DEngine.drawFilledBox(
                      stack,
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
                      Render2DEngine.injectAlpha(this.fillColor, (int)(this.fillColor.getAlpha() * (1.0F - (float)time.longValue() / 300.0F)))
                   );
                }
@@ -86,17 +86,17 @@ public final class BlockAnimationUtility {
             }
             case Decrease: {
                float scale = 1.0F - (float)time.longValue() / 300.0F;
-               Box box = new Box(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
+               AABB box = new AABB(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
                   Render3DEngine.drawBoxOutline(
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
                   );
                }
 
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Fill) {
                   Render3DEngine.drawFilledBox(
                      stack,
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
                      Render2DEngine.injectAlpha(this.fillColor, (int)(this.fillColor.getAlpha() * (1.0F - (float)time.longValue() / 300.0F)))
                   );
                }
@@ -104,11 +104,11 @@ public final class BlockAnimationUtility {
             }
             case Static:
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
-                  Render3DEngine.drawBoxOutline(new Box(this.pos), this.lineColor, this.lineWidth);
+                  Render3DEngine.drawBoxOutline(new AABB(this.pos), this.lineColor, this.lineWidth);
                }
 
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Fill) {
-                  Render3DEngine.drawFilledBox(stack, new Box(this.pos), this.fillColor);
+                  Render3DEngine.drawFilledBox(stack, new AABB(this.pos), this.fillColor);
                }
                break;
             case Flash: {
@@ -119,17 +119,17 @@ public final class BlockAnimationUtility {
                   scale = (float)time.longValue() / 100.0F;
                }
 
-               Box box = new Box(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
+               AABB box = new AABB(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
                   Render3DEngine.drawBoxOutline(
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
                   );
                }
 
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Fill) {
                   Render3DEngine.drawFilledBox(
                      stack,
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
                      Render2DEngine.injectAlpha(this.fillColor, (int)(this.fillColor.getAlpha() * scale))
                   );
                }
@@ -137,7 +137,7 @@ public final class BlockAnimationUtility {
             }
             case Grow: {
                float scale = (float)time.longValue() / 300.0F;
-               Box box = new Box(this.pos.getX(), this.pos.getY() + scale, this.pos.getZ(), this.pos.getX() + 1, this.pos.getY(), this.pos.getZ() + 1);
+               AABB box = new AABB(this.pos.getX(), this.pos.getY() + scale, this.pos.getZ(), this.pos.getX() + 1, this.pos.getY(), this.pos.getZ() + 1);
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
                   Render3DEngine.drawBoxOutline(box, this.lineColor, this.lineWidth);
                }
@@ -151,17 +151,17 @@ public final class BlockAnimationUtility {
             }
             case Fill: {
                float scale = (float)time.longValue() / 300.0F;
-               Box box = new Box(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
+               AABB box = new AABB(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
                   Render3DEngine.drawBoxOutline(
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
                   );
                }
 
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Fill) {
                   Render3DEngine.drawFilledBox(
                      stack,
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
                      Render2DEngine.injectAlpha(this.fillColor, (int)(this.fillColor.getAlpha() * ((float)time.longValue() / 300.0F)))
                   );
                }
@@ -175,17 +175,17 @@ public final class BlockAnimationUtility {
                   scale = 1.0F + ((float)time.longValue() - 200.0F) / 400.0F;
                }
 
-               Box box = new Box(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
+               AABB box = new AABB(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
                   Render3DEngine.drawBoxOutline(
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5F, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5F, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
                   );
                }
 
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Fill) {
                   Render3DEngine.drawFilledBox(
                      stack,
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
                      Render2DEngine.injectAlpha(this.fillColor, (int)(this.fillColor.getAlpha() * scale))
                   );
                }
@@ -199,17 +199,17 @@ public final class BlockAnimationUtility {
                   scale = 1.0F;
                }
 
-               Box box = new Box(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
+               AABB box = new AABB(this.pos.getX(), this.pos.getY(), this.pos.getZ(), this.pos.getX(), this.pos.getY(), this.pos.getZ());
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
                   Render3DEngine.drawBoxOutline(
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5F, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5F, 0.5 + scale * 0.5, 0.5 + scale * 0.5), this.lineColor, this.lineWidth
                   );
                }
 
                if (this.renderMode == BlockAnimationUtility.BlockRenderMode.All || this.renderMode == BlockAnimationUtility.BlockRenderMode.Fill) {
                   Render3DEngine.drawFilledBox(
                      stack,
-                     box.shrink(scale, scale, scale).offset(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
+                     box.contract(scale, scale, scale).move(0.5 + scale * 0.5, 0.5 + scale * 0.5, 0.5 + scale * 0.5),
                      Render2DEngine.injectAlpha(this.fillColor, (int)(this.fillColor.getAlpha() * scale))
                   );
                }
@@ -218,7 +218,7 @@ public final class BlockAnimationUtility {
       }
 
       private static void renderBox(
-         Long time, MatrixStack stack, Box box, BlockAnimationUtility.BlockRenderMode renderMode, Color lineColor, int lineWidth, Color fillColor
+         Long time, PoseStack stack, AABB box, BlockAnimationUtility.BlockRenderMode renderMode, Color lineColor, int lineWidth, Color fillColor
       ) {
          if (renderMode == BlockAnimationUtility.BlockRenderMode.All || renderMode == BlockAnimationUtility.BlockRenderMode.Line) {
             Render3DEngine.drawBoxOutline(

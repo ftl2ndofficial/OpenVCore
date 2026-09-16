@@ -2,46 +2,46 @@ package vcore.features.modules.render.popeffect;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleFactory;
-import net.minecraft.client.particle.ParticleTextureSheet;
-import net.minecraft.client.particle.SpriteBillboardParticle;
-import net.minecraft.client.particle.SpriteProvider;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.SimpleParticleType;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.particle.TextureSheetParticle;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import vcore.core.manager.client.ModuleManager;
 
 @Environment(EnvType.CLIENT)
-public final class PopEffectReviveSparkParticle extends SpriteBillboardParticle {
+public final class PopEffectReviveSparkParticle extends TextureSheetParticle {
    private LivingEntity target;
-   private Vec3d targetDirection;
+   private Vec3 targetDirection;
 
    private PopEffectReviveSparkParticle(
-      @NotNull ClientWorld clientWorld,
+      @NotNull ClientLevel clientWorld,
       double x,
       double y,
       double z,
-      @NotNull SpriteProvider spriteProvider,
+      @NotNull SpriteSet spriteProvider,
       double velocityX,
       double velocityY,
       double velocityZ
    ) {
       super(clientWorld, x, y, z, velocityX, velocityY, velocityZ);
-      this.maxAge = this.random.nextBetween(30, 48);
+      this.lifetime = this.random.nextIntBetweenInclusive(30, 48);
       this.alpha = getEffectOpacity();
-      this.scale = 0.1F;
-      this.velocityX = this.random.nextBetween(-10, 10) / 25.0F;
-      this.velocityY = this.random.nextBetween(-10, 10) / 25.0F;
-      this.velocityZ = this.random.nextBetween(-10, 10) / 25.0F;
-      this.velocityMultiplier = 1.0F;
-      this.collidesWithWorld = true;
-      this.setSpriteForAge(spriteProvider);
-      if (clientWorld.getEntityById((int)velocityX) instanceof LivingEntity livingEntity) {
+      this.quadSize = 0.1F;
+      this.xd = this.random.nextIntBetweenInclusive(-10, 10) / 25.0F;
+      this.yd = this.random.nextIntBetweenInclusive(-10, 10) / 25.0F;
+      this.zd = this.random.nextIntBetweenInclusive(-10, 10) / 25.0F;
+      this.friction = 1.0F;
+      this.hasPhysics = true;
+      this.setSpriteFromAge(spriteProvider);
+      if (clientWorld.getEntity((int)velocityX) instanceof LivingEntity livingEntity) {
          this.target = livingEntity;
       }
 
@@ -55,7 +55,7 @@ public final class PopEffectReviveSparkParticle extends SpriteBillboardParticle 
    public void tick() {
       super.tick();
       if (this.target != null) {
-         this.targetDirection = new Vec3d(
+         this.targetDirection = new Vec3(
                this.target.getX() - this.x,
                this.target.getY() + this.target.getDimensions(this.target.getPose()).height() / 2.0F - this.y,
                this.target.getZ() - this.z
@@ -63,26 +63,26 @@ public final class PopEffectReviveSparkParticle extends SpriteBillboardParticle 
             .normalize();
       }
 
-      if (this.age >= this.maxAge / 5.0F && this.age < this.maxAge / 4.0F) {
-         this.velocityMultiplier = 0.0F;
+      if (this.age >= this.lifetime / 5.0F && this.age < this.lifetime / 4.0F) {
+         this.friction = 0.0F;
       }
 
-      if (this.target != null && this.age >= this.maxAge / 4.0F && this.target.getPos().distanceTo(new Vec3d(this.x, this.y, this.z)) < 20.0) {
-         this.alpha = MathHelper.clamp(1.0F - (this.age - this.maxAge / 1.5F) / 20.0F, 0.0F, 1.0F) * getEffectOpacity();
-         this.velocityMultiplier = 1.0F;
-         this.velocityX = this.targetDirection.x * ((this.age - 15) * 0.05F);
-         this.velocityY = this.targetDirection.y * ((this.age - 15) * 0.05F);
-         this.velocityZ = this.targetDirection.z * ((this.age - 15) * 0.05F);
-         if (this.target.getPos().distanceTo(new Vec3d(this.x, this.y, this.z)) < 2.0) {
+      if (this.target != null && this.age >= this.lifetime / 4.0F && this.target.position().distanceTo(new Vec3(this.x, this.y, this.z)) < 20.0) {
+         this.alpha = Mth.clamp(1.0F - (this.age - this.lifetime / 1.5F) / 20.0F, 0.0F, 1.0F) * getEffectOpacity();
+         this.friction = 1.0F;
+         this.xd = this.targetDirection.x * ((this.age - 15) * 0.05F);
+         this.yd = this.targetDirection.y * ((this.age - 15) * 0.05F);
+         this.zd = this.targetDirection.z * ((this.age - 15) * 0.05F);
+         if (this.target.position().distanceTo(new Vec3(this.x, this.y, this.z)) < 2.0) {
             this.alpha = 0.0F;
-            this.dead = true;
+            this.removed = true;
          }
       }
    }
 
    @NotNull
-   public ParticleTextureSheet getType() {
-      return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
    }
 
    private static float getEffectOpacity() {
@@ -90,16 +90,16 @@ public final class PopEffectReviveSparkParticle extends SpriteBillboardParticle 
    }
 
    @Environment(EnvType.CLIENT)
-   public static final class Factory implements ParticleFactory<SimpleParticleType> {
-      private final SpriteProvider spriteProvider;
+   public static final class Factory implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet spriteProvider;
 
-      public Factory(@NotNull SpriteProvider spriteProvider) {
+      public Factory(@NotNull SpriteSet spriteProvider) {
          this.spriteProvider = spriteProvider;
       }
 
       @Nullable
       public Particle createParticle(
-         SimpleParticleType parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ
+         SimpleParticleType parameters, ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ
       ) {
          return new PopEffectReviveSparkParticle(world, x, y, z, this.spriteProvider, velocityX, velocityY, velocityZ);
       }

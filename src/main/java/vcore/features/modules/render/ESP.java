@@ -1,22 +1,22 @@
 package vcore.features.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector4f;
 import vcore.core.Managers;
@@ -76,7 +76,7 @@ public class ESP extends Module {
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       if (fullNullCheck()) {
          this.projectedBounds.clear();
       } else {
@@ -92,7 +92,7 @@ public class ESP extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack matrices) {
+   public void onRender3D(PoseStack matrices) {
       if (!fullNullCheck() && this.mode.getValue() == ESP.Mode.Box) {
          for (LivingEntity entity : this.collectTargets()) {
             this.drawFilledHitbox(matrices, entity);
@@ -101,10 +101,10 @@ public class ESP extends Module {
    }
 
    private List<LivingEntity> collectTargets() {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          double size = 256.0;
-         Box search = Box.of(mc.player.getPos(), size * 2.0, size * 2.0, size * 2.0);
-         return mc.world.getEntitiesByClass(LivingEntity.class, search, this::isTargetValid);
+         AABB search = AABB.ofSize(mc.player.position(), size * 2.0, size * 2.0, size * 2.0);
+         return mc.level.getEntitiesOfClass(LivingEntity.class, search, this::isTargetValid);
       } else {
          return List.of();
       }
@@ -119,7 +119,7 @@ public class ESP extends Module {
          return false;
       }
 
-      if (entity instanceof PlayerEntity player) {
+      if (entity instanceof Player player) {
          if (ModuleManager.antiBot.isEnabled() && ModuleManager.antiBot.mode.getValue() == AntiBot.Mode.Matrix && AntiBot.isBot(player)) {
             return false;
          } else if (player.isSpectator()) {
@@ -131,16 +131,16 @@ public class ESP extends Module {
          } else {
             return this.nakedOnly.getValue() ? true : !this.isNaked(player);
          }
-      } else if (entity instanceof VillagerEntity) {
+      } else if (entity instanceof Villager) {
          return this.villagers.getValue();
-      } else if (entity instanceof AnimalEntity) {
+      } else if (entity instanceof Animal) {
          return this.animals.getValue();
       } else {
-         return entity instanceof HostileEntity ? this.mobs.getValue() : false;
+         return entity instanceof Monster ? this.mobs.getValue() : false;
       }
    }
 
-   private boolean isNaked(PlayerEntity player) {
+   private boolean isNaked(Player player) {
       for (ItemStack stack : player.getInventory().armor) {
          if (!stack.isEmpty()) {
             return false;
@@ -150,8 +150,8 @@ public class ESP extends Module {
       return true;
    }
 
-   private void renderEntity(DrawContext context, LivingEntity entity, Vector4f rect) {
-      MatrixStack matrices = context.getMatrices();
+   private void renderEntity(GuiGraphics context, LivingEntity entity, Vector4f rect) {
+      PoseStack matrices = context.pose();
       if (this.mode.getValue() == ESP.Mode.TwoD) {
          this.draw2DBox(matrices, rect, entity);
       }
@@ -160,7 +160,7 @@ public class ESP extends Module {
          this.drawHealthBar(matrices, rect, entity);
       }
 
-      if (this.drawArmor.getValue() && entity instanceof PlayerEntity player) {
+      if (this.drawArmor.getValue() && entity instanceof Player player) {
          this.drawArmorStrip(context, rect, player);
       }
 
@@ -169,7 +169,7 @@ public class ESP extends Module {
       }
    }
 
-   private void draw2DBox(MatrixStack matrices, Vector4f rect, LivingEntity entity) {
+   private void draw2DBox(PoseStack matrices, Vector4f rect, LivingEntity entity) {
       float left = rect.x;
       float top = rect.y;
       float right = rect.z;
@@ -185,7 +185,7 @@ public class ESP extends Module {
          float vertical = height * 0.3F;
          float corner = thin + 0.2F;
          boolean gradient = this.syncColor.getValue() && !this.isFriend(entity);
-         int gradientOffset = entity.age * 2;
+         int gradientOffset = entity.tickCount * 2;
          this.draw2DBoxRect(matrices, left, top, horizontal, corner, color, gradient, left, top, width, height, alpha, gradientOffset);
          this.draw2DBoxRect(matrices, right - horizontal, top, horizontal, corner, color, gradient, left, top, width, height, alpha, gradientOffset);
          this.draw2DBoxRect(matrices, left, bottom - corner, horizontal, corner, color, gradient, left, top, width, height, alpha, gradientOffset);
@@ -198,7 +198,7 @@ public class ESP extends Module {
    }
 
    private void draw2DBoxRect(
-      MatrixStack matrices,
+      PoseStack matrices,
       float x,
       float y,
       float width,
@@ -232,18 +232,18 @@ public class ESP extends Module {
    private Color get2DGradientColor(float x, float y, float boxLeft, float boxTop, float boxWidth, float boxHeight, int alpha, int offset) {
       float xProgress = boxWidth <= 0.0F ? 0.0F : (x - boxLeft) / boxWidth;
       float yProgress = boxHeight <= 0.0F ? 0.0F : (y - boxTop) / boxHeight;
-      float progress = MathHelper.clamp((xProgress + yProgress) * 0.5F, 0.0F, 1.0F);
+      float progress = Mth.clamp((xProgress + yProgress) * 0.5F, 0.0F, 1.0F);
       return Render2DEngine.injectAlpha(HudEditor.getColor(offset + Math.round(progress * 180.0F)), alpha);
    }
 
-   private void drawFilledHitbox(MatrixStack matrices, LivingEntity entity) {
-      Box box = this.getInterpolatedBox(entity);
+   private void drawFilledHitbox(PoseStack matrices, LivingEntity entity) {
+      AABB box = this.getInterpolatedBox(entity);
       float alpha = this.getFadeAlpha(entity);
       if (!(alpha <= 0.0F)) {
          int bottomAlpha = Math.round(120.0F * alpha);
          int topAlpha = Math.round(30.0F * alpha);
          if (this.syncColor.getValue() && !this.isFriend(entity)) {
-            int offset = entity.age * 2;
+            int offset = entity.tickCount * 2;
             Render3DEngine.drawGradientFilledFadeBox(matrices, box, this.getBoxGradientColors(bottomAlpha, offset), this.getBoxGradientColors(topAlpha, offset));
          } else {
             Color baseColor = this.getEspColor(entity);
@@ -258,12 +258,12 @@ public class ESP extends Module {
       if (this.isFriend(entity)) {
          return FRIEND_COLOR;
       } else {
-         return this.syncColor.getValue() ? HudEditor.getColor(entity.age) : this.boxColor.getValue().getColorObject();
+         return this.syncColor.getValue() ? HudEditor.getColor(entity.tickCount) : this.boxColor.getValue().getColorObject();
       }
    }
 
    private boolean isFriend(LivingEntity entity) {
-      return entity instanceof PlayerEntity player && Managers.FRIEND.isFriend(player);
+      return entity instanceof Player player && Managers.FRIEND.isFriend(player);
    }
 
    private Color[] getBoxGradientColors(int alpha, int offset) {
@@ -287,25 +287,25 @@ public class ESP extends Module {
    private float getFadeAlpha(LivingEntity entity) {
       float distance = this.fadeDistance.getValue();
       if (!(distance <= 0.0F) && mc.gameRenderer != null) {
-         double cameraDistance = mc.gameRenderer.getCamera().getPos().distanceTo(entity.getEyePos());
-         return MathHelper.clamp((float)(cameraDistance / distance), 0.0F, 1.0F);
+         double cameraDistance = mc.gameRenderer.getMainCamera().getPosition().distanceTo(entity.getEyePosition());
+         return Mth.clamp((float)(cameraDistance / distance), 0.0F, 1.0F);
       } else {
          return 1.0F;
       }
    }
 
-   private void drawHealthBar(MatrixStack matrices, Vector4f rect, LivingEntity entity) {
+   private void drawHealthBar(PoseStack matrices, Vector4f rect, LivingEntity entity) {
       float barWidth = 1.2F;
       float left = rect.x - (barWidth + 2.0F);
       float top = rect.y;
       float height = rect.w - rect.y;
       Render2DEngine.drawRect(matrices, left, top, barWidth, height, HEALTH_BACKGROUND);
       float maxHealth = Math.max(entity.getMaxHealth(), 1.0F);
-      float currentHealth = entity instanceof PlayerEntity player && ModuleManager.fixHP.isEnabled()
+      float currentHealth = entity instanceof Player player && ModuleManager.fixHP.isEnabled()
          ? FixHP.getHealth(player)
          : entity.getHealth() + entity.getAbsorptionAmount();
-      float health = MathHelper.clamp(currentHealth, 0.0F, maxHealth);
-      float ratio = MathHelper.clamp(health / maxHealth, 0.0F, 1.0F);
+      float health = Mth.clamp(currentHealth, 0.0F, maxHealth);
+      float ratio = Mth.clamp(health / maxHealth, 0.0F, 1.0F);
       float filled = height * ratio;
       Render2DEngine.verticalGradient(matrices, left, top, left + barWidth, top + height, HEALTH_TOP_COLOR, HEALTH_BOTTOM_COLOR);
       if (ratio < 1.0F) {
@@ -314,13 +314,13 @@ public class ESP extends Module {
       }
    }
 
-   private void drawNameTag(DrawContext context, Vector4f rect, LivingEntity entity) {
+   private void drawNameTag(GuiGraphics context, Vector4f rect, LivingEntity entity) {
       if (mc.player != null) {
          String name;
-         if (entity instanceof PlayerEntity player) {
+         if (entity instanceof Player player) {
             name = NameProtect.getDisplayName(player);
          } else {
-            Text display = entity.getDisplayName();
+            Component display = entity.getDisplayName();
             name = display != null ? display.getString() : "";
          }
 
@@ -344,20 +344,20 @@ public class ESP extends Module {
          float bgY = rect.y - bgHeight - 2.0F;
          float bgCenterY = bgY + bgHeight / 2.0F;
          float scale = 0.75F;
-         MatrixStack matrices = context.getMatrices();
-         matrices.push();
+         PoseStack matrices = context.pose();
+         matrices.pushPose();
          matrices.translate(centerX, bgCenterY, 0.0F);
          matrices.scale(scale, scale, 1.0F);
          matrices.translate(-centerX, -bgCenterY, 0.0F);
          Color fillColor = TAG_FILL_COLOR;
-         if (entity instanceof PlayerEntity player && Managers.FRIEND.isFriend(player)) {
+         if (entity instanceof Player player && Managers.FRIEND.isFriend(player)) {
             fillColor = FRIEND_COLOR;
          }
 
          Render2DEngine.drawRect(matrices, bgX, bgY, bgWidth, bgHeight, fillColor);
          float textX = bgX + (bgWidth - textWidth) / 2.0F;
          float textY = bgY + (bgHeight - textHeight) / 2.0F;
-         matrices.push();
+         matrices.pushPose();
          matrices.translate(0.0F, 3.0F, 0.0F);
          FontRenderers.sf_medium.drawString(matrices, name, textX, textY, TEXT_COLOR.getRGB());
          if (showHealthText) {
@@ -367,8 +367,8 @@ public class ESP extends Module {
             FontRenderers.sf_medium.drawString(matrices, closeBracket, hpStartX + openWidth + healthValueWidth, textY, TEXT_COLOR.getRGB());
          }
 
-         matrices.pop();
-         matrices.pop();
+         matrices.popPose();
+         matrices.popPose();
       }
    }
 
@@ -381,7 +381,7 @@ public class ESP extends Module {
    }
 
    private float getDisplayHealth(LivingEntity entity) {
-      return entity instanceof PlayerEntity player && ModuleManager.fixHP.isEnabled()
+      return entity instanceof Player player && ModuleManager.fixHP.isEnabled()
          ? FixHP.getHealth(player)
          : entity.getHealth() + entity.getAbsorptionAmount();
    }
@@ -389,17 +389,17 @@ public class ESP extends Module {
    private int getHealthColor(LivingEntity entity) {
       float maxHealth = Math.max(entity.getMaxHealth(), 1.0F);
       float current = this.getDisplayHealth(entity);
-      current = MathHelper.clamp(current, 0.0F, maxHealth);
+      current = Mth.clamp(current, 0.0F, maxHealth);
       float ratio = current / maxHealth;
       Color color = Render2DEngine.interpolateColorC(new Color(240, 20, 0), new Color(0, 240, 20), ratio);
       return color.getRGB();
    }
 
-   private void drawArmorStrip(DrawContext context, Vector4f rect, PlayerEntity player) {
+   private void drawArmorStrip(GuiGraphics context, Vector4f rect, Player player) {
       List<ItemStack> stacks = new ArrayList<>();
-      stacks.add(player.getOffHandStack());
+      stacks.add(player.getOffhandItem());
       stacks.addAll(player.getInventory().armor);
-      stacks.add(player.getMainHandStack());
+      stacks.add(player.getMainHandItem());
       stacks.removeIf(ItemStack::isEmpty);
       if (!stacks.isEmpty()) {
          float totalWidth = stacks.size() * 18.0F;
@@ -408,8 +408,8 @@ public class ESP extends Module {
          float scale = 0.55F;
          float centerX = rect.x + (rect.z - rect.x) / 2.0F;
          float centerY = y + 7.0F;
-         MatrixStack matrices = context.getMatrices();
-         matrices.push();
+         PoseStack matrices = context.pose();
+         matrices.pushPose();
          matrices.translate(centerX, centerY, 0.0F);
          matrices.scale(scale, scale, 1.0F);
          matrices.translate(-centerX, -centerY, 0.0F);
@@ -417,11 +417,11 @@ public class ESP extends Module {
          for (int i = 0; i < stacks.size(); i++) {
             ItemStack stack = stacks.get(i);
             float x = startX + i * 18.0F;
-            context.drawItem(stack, (int)x, (int)y);
-            context.drawItemInSlot(mc.textRenderer, stack, (int)x, (int)y);
+            context.renderItem(stack, (int)x, (int)y);
+            context.renderItemDecorations(mc.font, stack, (int)x, (int)y);
          }
 
-         matrices.pop();
+         matrices.popPose();
       }
    }
 
@@ -431,14 +431,14 @@ public class ESP extends Module {
          return null;
       }
 
-      Box box = this.getInterpolatedBox(entity);
+      AABB box = this.getInterpolatedBox(entity);
       Vector4f bounds = null;
 
       for (int i = 0; i < 8; i++) {
          double x = (i & 1) == 0 ? box.minX : box.maxX;
          double y = (i & 2) == 0 ? box.minY : box.maxY;
          double z = (i & 4) == 0 ? box.minZ : box.maxZ;
-         Vec3d screen = Render3DEngine.worldSpaceToScreenSpace(new Vec3d(x, y, z));
+         Vec3 screen = Render3DEngine.worldSpaceToScreenSpace(new Vec3(x, y, z));
          if (!Double.isNaN(screen.x) && !Double.isNaN(screen.y) && !(screen.z <= 0.0) && !(screen.z >= 1.0)) {
             if (bounds == null) {
                bounds = new Vector4f((float)screen.x, (float)screen.y, (float)screen.x, (float)screen.y);
@@ -454,11 +454,11 @@ public class ESP extends Module {
       return bounds;
    }
 
-   private Box getInterpolatedBox(LivingEntity entity) {
-      double interpolatedX = entity.prevX + (entity.getX() - entity.prevX) * Render3DEngine.getTickDelta();
-      double interpolatedY = entity.prevY + (entity.getY() - entity.prevY) * Render3DEngine.getTickDelta();
-      double interpolatedZ = entity.prevZ + (entity.getZ() - entity.prevZ) * Render3DEngine.getTickDelta();
-      return HitBox.getBaseBoundingBox(entity).offset(interpolatedX - entity.getX(), interpolatedY - entity.getY(), interpolatedZ - entity.getZ());
+   private AABB getInterpolatedBox(LivingEntity entity) {
+      double interpolatedX = entity.xo + (entity.getX() - entity.xo) * Render3DEngine.getTickDelta();
+      double interpolatedY = entity.yo + (entity.getY() - entity.yo) * Render3DEngine.getTickDelta();
+      double interpolatedZ = entity.zo + (entity.getZ() - entity.zo) * Render3DEngine.getTickDelta();
+      return HitBox.getBaseBoundingBox(entity).move(interpolatedX - entity.getX(), interpolatedY - entity.getY(), interpolatedZ - entity.getZ());
    }
 
    public boolean shouldHideVanillaNameTag(LivingEntity entity) {
@@ -470,7 +470,7 @@ public class ESP extends Module {
    }
 
    private boolean isInFirstPersonView() {
-      return mc.options != null && mc.options.getPerspective().isFirstPerson();
+      return mc.options != null && mc.options.getCameraType().isFirstPerson();
    }
 
    private boolean isFreeCamActive() {

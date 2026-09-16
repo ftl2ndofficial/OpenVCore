@@ -1,10 +1,10 @@
 package vcore.features.cmd.impl;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import java.lang.reflect.Field;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.command.CommandSource;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import vcore.core.Managers;
@@ -18,7 +18,7 @@ public class MacroCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(
          literal("list")
             .executes(
@@ -55,12 +55,12 @@ public class MacroCommand extends Command {
                      String name = (String)context.getArgument("name", String.class);
                      String bind = ((String)context.getArgument("bind", String.class)).toUpperCase();
                      String args = (String)context.getArgument("args", String.class);
-                     if (InputUtil.fromTranslationKey("key.keyboard." + bind.toLowerCase()).getCode() == -1) {
+                     if (InputConstants.getKey("key.keyboard." + bind.toLowerCase()).getValue() == -1) {
                         sendMessage("Wrong bind!");
                         return 1;
                      } else {
                         MacroManager.Macro macro = new MacroManager.Macro(
-                           name, args, InputUtil.fromTranslationKey("key.keyboard." + bind.toLowerCase()).getCode()
+                           name, args, InputConstants.getKey("key.keyboard." + bind.toLowerCase()).getValue()
                         );
                         MacroManager.addMacro(macro);
                         sendMessage("Added macro " + name + " to " + this.toString(macro.getBind()));

@@ -1,9 +1,9 @@
 package vcore.features.cmd.impl;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import net.minecraft.command.CommandSource;
-import net.minecraft.entity.passive.HorseEntity;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.world.entity.animal.horse.Horse;
 import org.jetbrains.annotations.NotNull;
 import vcore.features.cmd.Command;
 
@@ -13,15 +13,15 @@ public class HorseSpeedCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.executes(context -> {
-         if (mc.player.getVehicle() != null && mc.player.getVehicle() instanceof HorseEntity horse) {
+         if (mc.player.getVehicle() != null && mc.player.getVehicle() instanceof Horse horse) {
             if (!horse.isSaddled()) {
-               sendMessage(Formatting.RED + "You don't have a saddle!");
+               sendMessage(ChatFormatting.RED + "You don't have a saddle!");
                return 1;
             }
 
-            float speed = horse.forwardSpeed * 43.17F;
+            float speed = horse.zza * 43.17F;
             float ratio = speed / 14.512F;
             String verbose = "";
             if (ratio < 0.3) {
@@ -40,9 +40,9 @@ public class HorseSpeedCommand extends Command {
                verbose = "Your horse is very good :)";
             }
 
-            sendMessage(Formatting.GREEN + "Horse speed: " + speed + " out of 14.512. " + verbose);
+            sendMessage(ChatFormatting.GREEN + "Horse speed: " + speed + " out of 14.512. " + verbose);
          } else {
-            sendMessage(Formatting.RED + "You don't have a horse!");
+            sendMessage(ChatFormatting.RED + "You don't have a horse!");
          }
 
          return 1;

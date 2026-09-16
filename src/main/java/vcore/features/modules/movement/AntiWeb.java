@@ -24,14 +24,14 @@ public class AntiWeb extends Module {
          && ModuleManager.antiWeb.isEnabled()
          && mode.is(AntiWeb.Mode.Fly)
          && mc.player != null
-         && mc.world != null
+         && mc.level != null
          && Managers.PLAYER.isInWeb();
    }
 
    @EventHandler
    public void onPlayerUpdate(PlayerUpdateEvent event) {
       if (shouldControlFlyMovement()) {
-         mc.player.setVelocity(0.0, 0.0, 0.0);
+         mc.player.setDeltaMovement(0.0, 0.0, 0.0);
       }
    }
 
@@ -39,8 +39,8 @@ public class AntiWeb extends Module {
    public void onMove(EventMove event) {
       if (shouldControlFlyMovement()) {
          double vertical = 0.0;
-         if (mc.options.jumpKey.isPressed() != mc.options.sneakKey.isPressed()) {
-            vertical = mc.options.jumpKey.isPressed() ? this.ySpeed.getValue().floatValue() : -this.ySpeed.getValue();
+         if (mc.options.keyJump.isDown() != mc.options.keyShift.isDown()) {
+            vertical = mc.options.keyJump.isDown() ? this.ySpeed.getValue().floatValue() : -this.ySpeed.getValue();
          }
 
          MovementUtility.modifyEventSpeed(event, this.xzSpeed.getValue().floatValue());

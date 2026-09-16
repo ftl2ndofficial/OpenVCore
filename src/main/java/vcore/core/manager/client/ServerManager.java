@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.manager.IManager;
 import vcore.events.impl.PacketEvent;
@@ -37,7 +37,7 @@ public class ServerManager implements IManager {
 
    @EventHandler
    public void onPacketReceive(PacketEvent.@NotNull Receive event) {
-      if (event.getPacket() instanceof WorldTimeUpdateS2CPacket) {
+      if (event.getPacket() instanceof ClientboundSetTimePacket) {
          if (this.time != 0L) {
             this.tickTime = System.currentTimeMillis() - this.time;
             if (this.tpsResult.size() > 20) {
@@ -59,8 +59,8 @@ public class ServerManager implements IManager {
    }
 
    public int getPing() {
-      if (mc.getNetworkHandler() != null && mc.player != null) {
-         PlayerListEntry playerListEntry = mc.getNetworkHandler().getPlayerListEntry(mc.player.getUuid());
+      if (mc.getConnection() != null && mc.player != null) {
+         PlayerInfo playerListEntry = mc.getConnection().getPlayerInfo(mc.player.getUUID());
          return playerListEntry == null ? 0 : playerListEntry.getLatency();
       } else {
          return 0;

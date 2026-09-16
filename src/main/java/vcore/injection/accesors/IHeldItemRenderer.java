@@ -1,27 +1,27 @@
 package vcore.injection.accesors;
 
-import net.minecraft.client.render.item.HeldItemRenderer;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(HeldItemRenderer.class)
+@Mixin(ItemInHandRenderer.class)
 public interface IHeldItemRenderer {
-   @Accessor("equipProgressMainHand")
+   @Accessor("mainHandHeight")
    void setEquippedProgressMainHand(float var1);
 
-   @Accessor("equipProgressOffHand")
+   @Accessor("offHandHeight")
    void setEquippedProgressOffHand(float var1);
 
-   @Accessor("equipProgressMainHand")
+   @Accessor("mainHandHeight")
    float getEquippedProgressMainHand();
 
-   @Accessor("equipProgressOffHand")
+   @Accessor("offHandHeight")
    float getEquippedProgressOffHand();
 
-   @Accessor("mainHand")
+   @Accessor("mainHandItem")
    void setItemStackMainHand(ItemStack var1);
 
-   @Accessor("offHand")
+   @Accessor("offHandItem")
    void setItemStackOffHand(ItemStack var1);
 }

@@ -1,7 +1,7 @@
 package vcore.gui.clickui.impl;
 
 import java.awt.Color;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 import vcore.core.Managers;
 import vcore.core.manager.IManager;
@@ -27,23 +27,23 @@ public class BooleanElement extends AbstractElement {
    }
 
    @Override
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       super.render(context, mouseX, mouseY, delta);
       this.drawGroupGuide(context, this.height);
       this.animation = AnimationUtility.fast(this.animation, (Boolean)this.setting.getValue() ? 1.0F : 0.0F, 20.0F);
       float checkboxX = this.x + this.width - 10.0F - 7.0F;
       float checkboxY = this.y + this.height / 2.0F - 5.0F;
-      SettingControlRenderer.drawCheckbox(context.getMatrices(), checkboxX, checkboxY, this.animation);
+      SettingControlRenderer.drawCheckbox(context.pose(), checkboxX, checkboxY, this.animation);
       if (Render2DEngine.isHovered(mouseX, mouseY, checkboxX, checkboxY, 10.0, 10.0)) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(IManager.mc.getWindow().getHandle(), GLFW.glfwCreateStandardCursor(221188));
+            GLFW.glfwSetCursor(IManager.mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221188));
          }
 
          ClickGUI.anyHovered = true;
       }
 
       FontRenderers.sf_medium_mini
-         .drawString(context.getMatrices(), this.setting.getName(), this.getSettingNameX(), this.y + this.height / 2.0F - 3.0F + 2.0F, new Color(-1).getRGB());
+         .drawString(context.pose(), this.setting.getName(), this.getSettingNameX(), this.y + this.height / 2.0F - 3.0F + 2.0F, new Color(-1).getRGB());
    }
 
    @Override

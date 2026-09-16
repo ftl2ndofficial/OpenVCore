@@ -9,9 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import vcore.features.modules.Module;
 
 public final class MathUtility {
@@ -56,7 +56,7 @@ public final class MathUtility {
       return Math.round(n * factor) / factor;
    }
 
-   public static Vec3d fromTo(Vec3d from, double x, double y, double z) {
+   public static Vec3 fromTo(Vec3 from, double x, double y, double z) {
       return fromTo(from.x, from.y, from.z, x, y, z);
    }
 
@@ -64,8 +64,8 @@ public final class MathUtility {
       return st + f * (en - st);
    }
 
-   public static Vec3d fromTo(double x, double y, double z, double x2, double y2, double z2) {
-      return new Vec3d(x2 - x, y2 - y, z2 - z);
+   public static Vec3 fromTo(double x, double y, double z, double x2, double y2, double z2) {
+      return new Vec3(x2 - x, y2 - y, z2 - z);
    }
 
    public static float rad(float angle) {
@@ -85,19 +85,19 @@ public final class MathUtility {
    }
 
    public static float sin(float value) {
-      return MathHelper.sin(value);
+      return Mth.sin(value);
    }
 
    public static float cos(float value) {
-      return MathHelper.cos(value);
+      return Mth.cos(value);
    }
 
    public static float wrapDegrees(float value) {
-      return MathHelper.wrapDegrees(value);
+      return Mth.wrapDegrees(value);
    }
 
    public static double wrapDegrees(double value) {
-      return MathHelper.wrapDegrees(value);
+      return Mth.wrapDegrees(value);
    }
 
    public static double round(double value, int places) {

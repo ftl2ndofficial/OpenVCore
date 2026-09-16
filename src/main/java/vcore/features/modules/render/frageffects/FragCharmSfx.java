@@ -14,10 +14,10 @@ import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundSource;
 import javax.sound.sampled.DataLine.Info;
 import javax.sound.sampled.LineEvent.Type;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.sound.SoundCategory;
 import vcore.utility.Timer;
 
 public final class FragCharmSfx {
@@ -71,8 +71,8 @@ public final class FragCharmSfx {
    }
 
    private float getMinecraftMasterPC() {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      return mc.options.getSoundVolume(SoundCategory.MASTER) / 1.3F;
+      Minecraft mc = Minecraft.getInstance();
+      return mc.options.getSoundSourceVolume(SoundSource.MASTER) / 1.3F;
    }
 
    private void playSoundInstant(String location, float volume) {

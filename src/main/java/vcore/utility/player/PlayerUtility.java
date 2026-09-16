@@ -1,44 +1,44 @@
 package vcore.utility.player;
 
 import java.util.Objects;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import vcore.features.modules.Module;
 import vcore.utility.world.ExplosionUtility;
 
 public final class PlayerUtility {
    public static boolean isInHell() {
-      return Module.mc.world == null ? false : Objects.equals(Module.mc.world.getRegistryKey().getValue().getPath(), "the_nether");
+      return Module.mc.level == null ? false : Objects.equals(Module.mc.level.dimension().location().getPath(), "the_nether");
    }
 
    public static boolean isInEnd() {
-      return Module.mc.world == null ? false : Objects.equals(Module.mc.world.getRegistryKey().getValue().getPath(), "the_end");
+      return Module.mc.level == null ? false : Objects.equals(Module.mc.level.dimension().location().getPath(), "the_end");
    }
 
    public static boolean isInOver() {
-      return Module.mc.world == null ? false : Objects.equals(Module.mc.world.getRegistryKey().getValue().getPath(), "overworld");
+      return Module.mc.level == null ? false : Objects.equals(Module.mc.level.dimension().location().getPath(), "overworld");
    }
 
    public static boolean isEating() {
       return Module.mc.player == null
          ? false
          : (
-               Module.mc.player.getMainHandStack().getComponents().contains(DataComponentTypes.FOOD)
-                  || Module.mc.player.getOffHandStack().getComponents().contains(DataComponentTypes.FOOD)
+               Module.mc.player.getMainHandItem().getComponents().has(DataComponents.FOOD)
+                  || Module.mc.player.getOffhandItem().getComponents().has(DataComponents.FOOD)
             )
             && Module.mc.player.isUsingItem();
    }
 
    public static boolean isMining() {
-      return Module.mc.interactionManager == null ? false : Module.mc.interactionManager.isBreakingBlock();
+      return Module.mc.gameMode == null ? false : Module.mc.gameMode.isDestroying();
    }
 
-   public static float squaredDistanceFromEyes(@NotNull Vec3d targetPos) {
+   public static float squaredDistanceFromEyes(@NotNull Vec3 targetPos) {
       if (Module.mc.player == null) {
          return 0.0F;
       }
@@ -49,7 +49,7 @@ public final class PlayerUtility {
       return (float)(dx * dx + dy * dy + dz * dz);
    }
 
-   public static float squaredDistance2d(@NotNull Vec2f point) {
+   public static float squaredDistance2d(@NotNull Vec2 point) {
       if (Module.mc.player == null) {
          return 0.0F;
       }
@@ -59,12 +59,12 @@ public final class PlayerUtility {
       return (float)(d * d + f * f);
    }
 
-   public static ClientPlayerEntity getPlayer() {
+   public static LocalPlayer getPlayer() {
       return Module.mc.player;
    }
 
    public static float calculatePercentage(@NotNull ItemStack stack) {
-      float durability = stack.getMaxDamage() - stack.getDamage();
+      float durability = stack.getMaxDamage() - stack.getDamageValue();
       return durability / stack.getMaxDamage() * 100.0F;
    }
 
@@ -73,7 +73,7 @@ public final class PlayerUtility {
    }
 
    public static float getGCD() {
-      double sensitivity = (Double)Module.mc.options.getMouseSensitivity().getValue();
+      double sensitivity = (Double)Module.mc.options.sensitivity().get();
       double value = sensitivity * 0.6 + 0.2;
       double result = Math.pow(value, 3.0) * 8.0;
       return (float)result;
@@ -89,18 +89,18 @@ public final class PlayerUtility {
       return (float)(d * d + f * f);
    }
 
-   public static float getSquaredDistance2D(Vec3d vec) {
-      double d0 = Module.mc.player.getX() - vec.getX();
-      double d2 = Module.mc.player.getZ() - vec.getZ();
+   public static float getSquaredDistance2D(Vec3 vec) {
+      double d0 = Module.mc.player.getX() - vec.x();
+      double d2 = Module.mc.player.getZ() - vec.z();
       return (float)(d0 * d0 + d2 * d2);
    }
 
-   public static boolean canSee(Vec3d pos) {
-      Vec3d vec3d = new Vec3d(Module.mc.player.getX(), Module.mc.player.getEyeY(), Module.mc.player.getZ());
+   public static boolean canSee(Vec3 pos) {
+      Vec3 vec3d = new Vec3(Module.mc.player.getX(), Module.mc.player.getEyeY(), Module.mc.player.getZ());
       return pos.distanceTo(vec3d) > 128.0 ? false : ExplosionUtility.raycast(vec3d, pos, false) == Type.MISS;
    }
 
    public static boolean isFalling() {
-      return Module.mc.player == null ? false : !Module.mc.player.isOnGround() && !Module.mc.player.isCreative() && Module.mc.player.getVelocity().y < 0.0;
+      return Module.mc.player == null ? false : !Module.mc.player.onGround() && !Module.mc.player.isCreative() && Module.mc.player.getDeltaMovement().y < 0.0;
    }
 }

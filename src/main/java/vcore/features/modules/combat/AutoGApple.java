@@ -1,7 +1,7 @@
 package vcore.features.modules.combat;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Items;
+import net.minecraft.world.item.Items;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.PostPlayerUpdateEvent;
 import vcore.features.modules.Module;
@@ -29,18 +29,18 @@ public final class AutoGApple extends Module {
             if (mc.player.getHealth() + (this.absorption.getValue() ? mc.player.getAbsorptionAmount() : 0.0F) <= this.health.getValue()
                && this.useDelay.passedMs(this.Delay.getValue().intValue())) {
                this.isActive = true;
-               if (mc.currentScreen != null && !mc.player.isUsingItem()) {
+               if (mc.screen != null && !mc.player.isUsingItem()) {
                   ((IMinecraftClient)mc).idoItemUse();
                } else {
-                  mc.options.useKey.setPressed(true);
+                  mc.options.keyUse.setDown(true);
                }
             } else if (this.isActive) {
                this.isActive = false;
-               mc.options.useKey.setPressed(false);
+               mc.options.keyUse.setDown(false);
             }
          } else if (this.isActive) {
             this.isActive = false;
-            mc.options.useKey.setPressed(false);
+            mc.options.keyUse.setDown(false);
          }
       }
    }
@@ -50,7 +50,7 @@ public final class AutoGApple extends Module {
             && ModuleManager.autoTotem.isEnabled()
             && InventoryUtility.findItemInHotBar(Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE).found()
          ? true
-         : !mc.player.getOffHandStack().isEmpty()
-            && (mc.player.getOffHandStack().getItem() == Items.GOLDEN_APPLE || mc.player.getOffHandStack().getItem() == Items.ENCHANTED_GOLDEN_APPLE);
+         : !mc.player.getOffhandItem().isEmpty()
+            && (mc.player.getOffhandItem().getItem() == Items.GOLDEN_APPLE || mc.player.getOffhandItem().getItem() == Items.ENCHANTED_GOLDEN_APPLE);
    }
 }

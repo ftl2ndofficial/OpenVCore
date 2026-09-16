@@ -1,8 +1,8 @@
 package vcore.gui.clickui;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.util.InputUtil;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import vcore.features.modules.misc.ClickGui;
 import vcore.features.modules.render.HudEditor;
 import vcore.setting.Setting;
@@ -28,7 +28,7 @@ public abstract class AbstractElement {
       this.setting = setting;
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       this.hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height);
    }
 
@@ -36,7 +36,7 @@ public abstract class AbstractElement {
    }
 
    public void mouseClicked(int mouseX, int mouseY, int button) {
-      if (InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow().getHandle(), 261) && button == 2 && this.hovered) {
+      if (InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), 261) && button == 2 && this.hovered) {
          if (this.setting.getValue() instanceof ColorSetting cs) {
             cs.setDefault();
          } else {
@@ -128,7 +128,7 @@ public abstract class AbstractElement {
       return this.x + 6.0F + this.getGroupIndent();
    }
 
-   protected void drawGroupGuide(DrawContext context, float requestedHeight) {
+   protected void drawGroupGuide(GuiGraphics context, float requestedHeight) {
       if (!this.directGroupGuideSuppressed) {
          if (this.setting.group != null) {
             this.drawGuideAt(context, this.getGroupGuideX(), requestedHeight);
@@ -136,10 +136,10 @@ public abstract class AbstractElement {
       }
    }
 
-   protected void drawGuideAt(DrawContext context, float lineX, float requestedHeight) {
+   protected void drawGuideAt(GuiGraphics context, float lineX, float requestedHeight) {
       float guideHeight = this.getClippedGuideHeight(lineX, lineX + 1.0F, requestedHeight);
       if (!(guideHeight <= 0.0F)) {
-         Render2DEngine.drawRect(context.getMatrices(), lineX, this.y, 1.0F, guideHeight, Render2DEngine.applyOpacity(HudEditor.getColor(1), 0.55F));
+         Render2DEngine.drawRect(context.pose(), lineX, this.y, 1.0F, guideHeight, Render2DEngine.applyOpacity(HudEditor.getColor(1), 0.55F));
       }
    }
 

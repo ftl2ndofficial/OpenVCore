@@ -1,9 +1,9 @@
 package vcore.features.modules.combat;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import vcore.events.impl.EventSync;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -67,7 +67,7 @@ public class MaceSwap extends Module {
    private void swapToSlot(int slot) {
       if (mc.player != null && mc.player.getInventory() != null) {
          if (slot >= 0 && slot <= 8) {
-            mc.player.getInventory().selectedSlot = slot;
+            mc.player.getInventory().selected = slot;
          }
       }
    }
@@ -75,7 +75,7 @@ public class MaceSwap extends Module {
    private int findMaceInHotbar() {
       if (mc.player != null && mc.player.getInventory() != null) {
          for (int i = 0; i < 9; i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
+            ItemStack stack = mc.player.getInventory().getItem(i);
             if (this.isValidMaceStack(stack)) {
                return i;
             }
@@ -90,7 +90,7 @@ public class MaceSwap extends Module {
    private int findMaceInInventory() {
       if (mc.player != null && mc.player.getInventory() != null) {
          for (int i = 0; i < 36; i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
+            ItemStack stack = mc.player.getInventory().getItem(i);
             if (this.isValidMaceStack(stack)) {
                return i < 9 ? i + 36 : i;
             }
@@ -112,7 +112,7 @@ public class MaceSwap extends Module {
          return false;
       }
 
-      String key = item.getTranslationKey() != null ? item.getTranslationKey().toLowerCase() : item.toString().toLowerCase();
+      String key = item.getDescriptionId() != null ? item.getDescriptionId().toLowerCase() : item.toString().toLowerCase();
       if (!key.contains("mace") && !item.toString().toLowerCase().contains("mace")) {
          return false;
       }
@@ -125,7 +125,7 @@ public class MaceSwap extends Module {
    }
 
    private boolean hasEnchantment(ItemStack stack, String enchantName) {
-      return stack != null && stack.hasEnchantments() ? stack.getEnchantments().getEnchantments().stream().anyMatch(enchant -> {
+      return stack != null && stack.isEnchanted() ? stack.getEnchantments().keySet().stream().anyMatch(enchant -> {
          String enchantId = enchant.toString().toLowerCase();
          return enchantId.contains(enchantName.toLowerCase());
       }) : false;
@@ -140,7 +140,7 @@ public class MaceSwap extends Module {
          return this.previousSlot;
       }
 
-      int currentSlot = mc.player.getInventory().selectedSlot;
+      int currentSlot = mc.player.getInventory().selected;
       int maceSlot = this.findMaceInHotbar();
       if (maceSlot == currentSlot) {
          return -1;
@@ -156,7 +156,7 @@ public class MaceSwap extends Module {
             return -1;
          }
 
-         clickSlot(inventorySlot, currentSlot, SlotActionType.SWAP);
+         clickSlot(inventorySlot, currentSlot, ClickType.SWAP);
          this.inventorySwapSlot = inventorySlot;
          this.inventorySwapHotbarSlot = currentSlot;
       }
@@ -193,7 +193,7 @@ public class MaceSwap extends Module {
             this.currentSwitchDelay++;
          } else {
             if (this.inventorySwapSlot != -1 && this.inventorySwapHotbarSlot != -1) {
-               clickSlot(this.inventorySwapSlot, this.inventorySwapHotbarSlot, SlotActionType.SWAP);
+               clickSlot(this.inventorySwapSlot, this.inventorySwapHotbarSlot, ClickType.SWAP);
             } else {
                this.swapToSlot(this.previousSlot);
             }

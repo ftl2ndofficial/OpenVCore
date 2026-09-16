@@ -1,8 +1,8 @@
 package vcore.injection;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemPlacementContext;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,11 +14,11 @@ import vcore.features.modules.Module;
 
 @Mixin(BlockItem.class)
 public class MixinBlockItem {
-   @Inject(method = "place(Lnet/minecraft/item/ItemPlacementContext;Lnet/minecraft/block/BlockState;)Z", at = @At("RETURN"))
-   private void onPlace(@NotNull ItemPlacementContext context, BlockState state, CallbackInfoReturnable<Boolean> info) {
+   @Inject(method = "placeBlock(Lnet/minecraft/world/item/context/BlockPlaceContext;Lnet/minecraft/world/level/block/state/BlockState;)Z", at = @At("RETURN"))
+   private void onPlace(@NotNull BlockPlaceContext context, BlockState state, CallbackInfoReturnable<Boolean> info) {
       if (!Module.fullNullCheck()) {
-         if (context.getWorld().isClient) {
-            Vcore.EVENT_BUS.post(new EventPlaceBlock(context.getBlockPos(), state.getBlock()));
+         if (context.getLevel().isClientSide) {
+            Vcore.EVENT_BUS.post(new EventPlaceBlock(context.getClickedPos(), state.getBlock()));
          }
       }
    }

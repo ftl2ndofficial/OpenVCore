@@ -111,9 +111,9 @@ public class MacroManager implements IManager {
       public void runMacro() {
          if (IManager.mc.player != null) {
             if (this.text.contains("/")) {
-               IManager.mc.player.networkHandler.sendChatCommand(this.text.replace("/", ""));
+               IManager.mc.player.connection.sendCommand(this.text.replace("/", ""));
             } else {
-               IManager.mc.player.networkHandler.sendChatMessage(this.text);
+               IManager.mc.player.connection.sendChat(this.text);
             }
          }
       }

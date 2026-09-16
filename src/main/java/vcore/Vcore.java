@@ -9,8 +9,8 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModMetadata;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vcore.core.Core;
@@ -37,12 +37,12 @@ public class Vcore implements ModInitializer {
    public static BlockPos gps_position;
    public static float TICK_TIMER = 1.0F;
    public static float FRAG_EFFECT_TIMER = 1.0F;
-   public static MinecraftClient mc;
+   public static Minecraft mc;
    public static long initTime;
    public static Core core = new Core();
 
    public void onInitialize() {
-      mc = MinecraftClient.getInstance();
+      mc = Minecraft.getInstance();
       initTime = System.currentTimeMillis();
       EVENT_BUS.registerLambdaFactory("vcore", (lookupInMethod, klass) -> (Lookup)lookupInMethod.invoke(null, klass, MethodHandles.lookup()));
       EVENT_BUS.subscribe(core);

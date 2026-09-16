@@ -1,9 +1,9 @@
 package vcore.utility.render.shaders;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import vcore.features.modules.Module;
 import vcore.utility.render.shaders.satin.api.managed.ManagedCoreShader;
 import vcore.utility.render.shaders.satin.api.managed.ShaderEffectManager;
@@ -19,18 +19,18 @@ public class CheckboxShader {
    private Uniform1f progress;
    private Uniform4f color;
    public static final ManagedCoreShader CHECKBOX_SHADER = ShaderEffectManager.getInstance()
-      .manageCoreShader(Identifier.of("vcore", "checkbox"), VertexFormats.POSITION);
+      .manageCoreShader(ResourceLocation.fromNamespaceAndPath("vcore", "checkbox"), DefaultVertexFormat.POSITION);
 
    public CheckboxShader() {
       this.setup();
    }
 
    public void setParameters(float x, float y, float width, float height, float radius, float thickness, float progress, Color color) {
-      float scale = (float)Module.mc.getWindow().getScaleFactor();
+      float scale = (float)Module.mc.getWindow().getGuiScale();
       this.radius.set(radius * scale);
       this.thickness.set(thickness * scale);
       this.progress.set(progress);
-      this.uLocation.set(x * scale, -y * scale + Module.mc.getWindow().getScaledHeight() * scale - height * scale);
+      this.uLocation.set(x * scale, -y * scale + Module.mc.getWindow().getGuiScaledHeight() * scale - height * scale);
       this.uSize.set(width * scale, height * scale);
       this.color.set(color.getRed() / 255.0F, color.getGreen() / 255.0F, color.getBlue() / 255.0F, color.getAlpha() / 255.0F);
    }

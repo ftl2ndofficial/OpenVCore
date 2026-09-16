@@ -1,12 +1,12 @@
 package vcore.injection;
 
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -32,14 +32,14 @@ public abstract class MixinEntity implements IEntity, CameraOverriddenEntity {
    @Unique
    private float cameraPitch;
    @Shadow
-   private Box boundingBox;
+   private AABB bb;
 
    @Shadow
-   protected abstract BlockPos getVelocityAffectingPos();
+   protected abstract BlockPos getBlockPosBelowThatAffectsMyMovement();
 
    @Override
    public BlockPos Vcore$getVelocityBP() {
-      return this.getVelocityAffectingPos();
+      return this.getBlockPosBelowThatAffectsMyMovement();
    }
 
    @ModifyArgs(method = "pushAwayFrom", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;addVelocity(DDD)V"))
@@ -51,26 +51,26 @@ public abstract class MixinEntity implements IEntity, CameraOverriddenEntity {
       }
    }
 
-   @Inject(method = "updateVelocity", at = @At("HEAD"), cancellable = true)
-   public void updateVelocityHook(float speed, Vec3d movementInput, CallbackInfo ci) {
+   @Inject(method = "moveRelative", at = @At("HEAD"), cancellable = true)
+   public void updateVelocityHook(float speed, Vec3 movementInput, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          if ((Object)this == Module.mc.player) {
             ci.cancel();
             EventFixVelocity event = new EventFixVelocity(
-               movementInput, speed, Module.mc.player.getYaw(), movementInputToVelocityC(movementInput, speed, Module.mc.player.getYaw())
+               movementInput, speed, Module.mc.player.getYRot(), movementInputToVelocityC(movementInput, speed, Module.mc.player.getYRot())
             );
             Vcore.EVENT_BUS.post(event);
-            Module.mc.player.setVelocity(Module.mc.player.getVelocity().add(event.getVelocity()));
+            Module.mc.player.setDeltaMovement(Module.mc.player.getDeltaMovement().add(event.getVelocity()));
          }
       }
    }
 
-   @Inject(method = "changeLookDirection", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "turn", at = @At("HEAD"), cancellable = true)
    private void onChangeLookDirection(double deltaX, double deltaY, CallbackInfo ci) {
       Entity self = (Entity)(Object)this;
-      if (FreeLookState.active && self instanceof ClientPlayerEntity) {
+      if (FreeLookState.active && self instanceof LocalPlayer) {
          this.cameraYaw += (float)deltaX * 0.15F;
-         this.cameraPitch = MathHelper.clamp(this.cameraPitch + (float)deltaY * 0.15F, -90.0F, 90.0F);
+         this.cameraPitch = Mth.clamp(this.cameraPitch + (float)deltaY * 0.15F, -90.0F, 90.0F);
          ci.cancel();
       }
    }
@@ -96,36 +96,36 @@ public abstract class MixinEntity implements IEntity, CameraOverriddenEntity {
    }
 
    @Unique
-   private static Vec3d movementInputToVelocityC(Vec3d movementInput, float speed, float yaw) {
-      double d = movementInput.lengthSquared();
+   private static Vec3 movementInputToVelocityC(Vec3 movementInput, float speed, float yaw) {
+      double d = movementInput.lengthSqr();
       if (d < 1.0E-7) {
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       }
 
-      Vec3d vec3d = (d > 1.0 ? movementInput.normalize() : movementInput).multiply(speed);
-      float f = MathHelper.sin(yaw * (float) (Math.PI / 180.0));
-      float g = MathHelper.cos(yaw * (float) (Math.PI / 180.0));
-      return new Vec3d(vec3d.x * g - vec3d.z * f, vec3d.y, vec3d.z * g + vec3d.x * f);
+      Vec3 vec3d = (d > 1.0 ? movementInput.normalize() : movementInput).scale(speed);
+      float f = Mth.sin(yaw * (float) (Math.PI / 180.0));
+      float g = Mth.cos(yaw * (float) (Math.PI / 180.0));
+      return new Vec3(vec3d.x * g - vec3d.z * f, vec3d.y, vec3d.z * g + vec3d.x * f);
    }
 
    @Inject(method = "getBoundingBox", at = @At("HEAD"), cancellable = true)
-   public final void getBoundingBox(CallbackInfoReturnable<Box> cir) {
+   public final void getBoundingBox(CallbackInfoReturnable<AABB> cir) {
       Entity self = (Entity)(Object)this;
       if (!HitBox.isSkippingExpand()
          && ModuleManager.hitBox.isEnabled()
          && Module.mc != null
          && Module.mc.player != null
-         && self instanceof PlayerEntity
+         && self instanceof Player
          && self.getId() != Module.mc.player.getId()
          && ModuleManager.hitBox.shouldExpand(self)) {
          cir.setReturnValue(
-            new Box(
-               this.boundingBox.minX - HitBox.XZExpand.getValue() / 2.0F,
-               this.boundingBox.minY - HitBox.YExpand.getValue() / 2.0F,
-               this.boundingBox.minZ - HitBox.XZExpand.getValue() / 2.0F,
-               this.boundingBox.maxX + HitBox.XZExpand.getValue() / 2.0F,
-               this.boundingBox.maxY + HitBox.YExpand.getValue() / 2.0F,
-               this.boundingBox.maxZ + HitBox.XZExpand.getValue() / 2.0F
+            new AABB(
+               this.bb.minX - HitBox.XZExpand.getValue() / 2.0F,
+               this.bb.minY - HitBox.YExpand.getValue() / 2.0F,
+               this.bb.minZ - HitBox.XZExpand.getValue() / 2.0F,
+               this.bb.maxX + HitBox.XZExpand.getValue() / 2.0F,
+               this.bb.maxY + HitBox.YExpand.getValue() / 2.0F,
+               this.bb.maxZ + HitBox.XZExpand.getValue() / 2.0F
             )
          );
       }
@@ -142,7 +142,7 @@ public abstract class MixinEntity implements IEntity, CameraOverriddenEntity {
    public void isInLavaHook(CallbackInfoReturnable<Boolean> cir) {
    }
 
-   @Inject(method = "isTouchingWater", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "isInWater", at = @At("HEAD"), cancellable = true)
    public void isTouchingWaterHook(CallbackInfoReturnable<Boolean> cir) {
    }
 

@@ -1,7 +1,6 @@
 package vcore.events.impl;
 
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.ClickEvent.Action;
+import net.minecraft.network.chat.ClickEvent;
 
 public class ClientClickEvent extends ClickEvent {
    public ClientClickEvent(Action action, String value) {

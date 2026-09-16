@@ -35,10 +35,10 @@ public class TickTimer {
    }
 
    public void reset() {
-      this.time = IManager.mc.player == null ? 0 : IManager.mc.player.age;
+      this.time = IManager.mc.player == null ? 0 : IManager.mc.player.tickCount;
    }
 
    private int getPassedTicks() {
-      return IManager.mc.player == null ? 0 : IManager.mc.player.age - this.time;
+      return IManager.mc.player == null ? 0 : IManager.mc.player.tickCount - this.time;
    }
 }

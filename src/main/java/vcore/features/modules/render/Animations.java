@@ -1,21 +1,21 @@
 package vcore.features.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.CrossbowItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.util.Arm;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.NotNull;
 import vcore.Vcore;
 import vcore.core.manager.client.ModuleManager;
@@ -68,81 +68,81 @@ public class Animations extends Module {
    @Override
    public void onUpdate() {
       if (!fullNullCheck() && this.shouldRunAnimationLogic()) {
-         if (((IHeldItemRenderer)mc.getEntityRenderDispatcher().getHeldItemRenderer()).getEquippedProgressMainHand() <= 1.0F) {
-            ((IHeldItemRenderer)mc.getEntityRenderDispatcher().getHeldItemRenderer()).setEquippedProgressMainHand(1.0F);
-            ((IHeldItemRenderer)mc.getEntityRenderDispatcher().getHeldItemRenderer()).setItemStackMainHand(mc.player.getMainHandStack());
+         if (((IHeldItemRenderer)mc.getEntityRenderDispatcher().getItemInHandRenderer()).getEquippedProgressMainHand() <= 1.0F) {
+            ((IHeldItemRenderer)mc.getEntityRenderDispatcher().getItemInHandRenderer()).setEquippedProgressMainHand(1.0F);
+            ((IHeldItemRenderer)mc.getEntityRenderDispatcher().getItemInHandRenderer()).setItemStackMainHand(mc.player.getMainHandItem());
          }
 
-         if (((IHeldItemRenderer)mc.getEntityRenderDispatcher().getHeldItemRenderer()).getEquippedProgressOffHand() <= 1.0F) {
-            ((IHeldItemRenderer)mc.getEntityRenderDispatcher().getHeldItemRenderer()).setEquippedProgressOffHand(1.0F);
-            ((IHeldItemRenderer)mc.getEntityRenderDispatcher().getHeldItemRenderer()).setItemStackOffHand(mc.player.getOffHandStack());
+         if (((IHeldItemRenderer)mc.getEntityRenderDispatcher().getItemInHandRenderer()).getEquippedProgressOffHand() <= 1.0F) {
+            ((IHeldItemRenderer)mc.getEntityRenderDispatcher().getItemInHandRenderer()).setEquippedProgressOffHand(1.0F);
+            ((IHeldItemRenderer)mc.getEntityRenderDispatcher().getItemInHandRenderer()).setItemStackOffHand(mc.player.getOffhandItem());
          }
       }
    }
 
    @EventHandler
    public void onPacketSend(PacketEvent.Send e) {
-      if (e.getPacket() instanceof HandSwingC2SPacket) {
+      if (e.getPacket() instanceof ServerboundSwingPacket) {
          this.flip = !this.flip;
       }
    }
 
-   private void renderSwordAnimation(MatrixStack matrices, float f, float swingProgress, float equipProgress, Arm arm, Hand hand, Animations.Mode animMode) {
-      if (arm != Arm.LEFT || animMode != Animations.Mode.Self && animMode != Animations.Mode.Old) {
+   private void renderSwordAnimation(PoseStack matrices, float f, float swingProgress, float equipProgress, HumanoidArm arm, InteractionHand hand, Animations.Mode animMode) {
+      if (arm != HumanoidArm.LEFT || animMode != Animations.Mode.Self && animMode != Animations.Mode.Old) {
          switch (animMode) {
             case Default:
                this.applyEquipOffset(matrices, arm, equipProgress);
                this.translateToViewModel(matrices);
-               float sin2_def = MathHelper.sin(MathHelper.sqrt(swingProgress) * (float) Math.PI);
-               matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(sin2_def * -(this.power.getValue().intValue() * 10.0F)));
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(sin2_def * 45.0F));
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(sin2_def * 15.0F));
+               float sin2_def = Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
+               matrices.mulPose(Axis.XP.rotationDegrees(sin2_def * -(this.power.getValue().intValue() * 10.0F)));
+               matrices.mulPose(Axis.ZP.rotationDegrees(sin2_def * 45.0F));
+               matrices.mulPose(Axis.YP.rotationDegrees(sin2_def * 15.0F));
                this.translateBack(matrices);
                break;
             case Smooth:
                this.applyEquipOffset(matrices, arm, equipProgress);
                this.translateToViewModel(matrices);
-               float s_f = MathHelper.sin(swingProgress * swingProgress * (float) Math.PI);
-               float s_sin2 = MathHelper.sin(MathHelper.sqrt(swingProgress) * (float) Math.PI);
-               float s_f1 = MathHelper.sin(MathHelper.sqrt(swingProgress) * (float) Math.PI);
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(s_sin2 * (45.0F + s_f * -20.0F)));
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(s_sin2 * s_f1 * -20.0F));
-               matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(s_f1 * -(this.power.getValue().intValue() * 10.0F)));
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(s_sin2 * -45.0F));
+               float s_f = Mth.sin(swingProgress * swingProgress * (float) Math.PI);
+               float s_sin2 = Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
+               float s_f1 = Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
+               matrices.mulPose(Axis.YP.rotationDegrees(s_sin2 * (45.0F + s_f * -20.0F)));
+               matrices.mulPose(Axis.ZP.rotationDegrees(s_sin2 * s_f1 * -20.0F));
+               matrices.mulPose(Axis.XP.rotationDegrees(s_f1 * -(this.power.getValue().intValue() * 10.0F)));
+               matrices.mulPose(Axis.YP.rotationDegrees(s_sin2 * -45.0F));
                this.translateBack(matrices);
                break;
             case Fade:
                this.applyEquipOffset(matrices, arm, equipProgress);
                this.translateToViewModel(matrices);
-               int handDir = arm == Arm.RIGHT ? 1 : -1;
-               float sinSq = MathHelper.sin(swingProgress * swingProgress * (float) Math.PI);
-               float sinSqrt = MathHelper.sin(MathHelper.sqrt(swingProgress) * (float) Math.PI);
-               float sinLinear = MathHelper.sin(swingProgress * (float) Math.PI);
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(handDir * sinSqrt * (45.0F + sinSq * -5.0F)));
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(handDir * sinSqrt * sinLinear * -20.0F));
-               matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(sinLinear * -((this.power.getValue().intValue() + 2.0F) * 8.0F)));
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(handDir * sinSqrt * -45.0F));
+               int handDir = arm == HumanoidArm.RIGHT ? 1 : -1;
+               float sinSq = Mth.sin(swingProgress * swingProgress * (float) Math.PI);
+               float sinSqrt = Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
+               float sinLinear = Mth.sin(swingProgress * (float) Math.PI);
+               matrices.mulPose(Axis.YP.rotationDegrees(handDir * sinSqrt * (45.0F + sinSq * -5.0F)));
+               matrices.mulPose(Axis.ZP.rotationDegrees(handDir * sinSqrt * sinLinear * -20.0F));
+               matrices.mulPose(Axis.XP.rotationDegrees(sinLinear * -((this.power.getValue().intValue() + 2.0F) * 8.0F)));
+               matrices.mulPose(Axis.YP.rotationDegrees(handDir * sinSqrt * -45.0F));
                this.translateBack(matrices);
                break;
             case Self: {
-               float anim = MathHelper.sin(swingProgress * (float) Math.PI);
+               float anim = Mth.sin(swingProgress * (float) Math.PI);
                this.applyEquipOffset(matrices, arm, 0.0F);
                this.translateToSelfOldViewModel(matrices, hand, animMode);
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90.0F));
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-70.0F));
+               matrices.mulPose(Axis.YP.rotationDegrees(90.0F));
+               matrices.mulPose(Axis.ZP.rotationDegrees(-70.0F));
                float baseX = -90.0F + this.offset.getValue().intValue() * 10.0F;
-               matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(baseX - this.power.getValue().intValue() * 10.0F * anim));
+               matrices.mulPose(Axis.XP.rotationDegrees(baseX - this.power.getValue().intValue() * 10.0F * anim));
                this.translateBackSelfOldViewModel(matrices, hand, animMode);
                break;
             }
             case Old: {
-               float anim = MathHelper.sin(swingProgress * (float) Math.PI);
+               float anim = Mth.sin(swingProgress * (float) Math.PI);
                this.applyEquipOffset(matrices, arm, 0.0F);
                this.translateToSelfOldViewModel(matrices, hand, animMode);
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90.0F));
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-30.0F));
+               matrices.mulPose(Axis.YP.rotationDegrees(90.0F));
+               matrices.mulPose(Axis.ZP.rotationDegrees(-30.0F));
                float baseX = -90.0F + this.offset.getValue().intValue() * 10.0F;
-               matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(baseX - this.power.getValue().intValue() * 10.0F * anim));
+               matrices.mulPose(Axis.XP.rotationDegrees(baseX - this.power.getValue().intValue() * 10.0F * anim));
                this.translateBackSelfOldViewModel(matrices, hand, animMode);
             }
          }
@@ -158,44 +158,44 @@ public class Animations extends Module {
    }
 
    public void renderFirstPersonItemCustom(
-      AbstractClientPlayerEntity player,
+      AbstractClientPlayer player,
       float tickDelta,
       float pitch,
-      Hand hand,
+      InteractionHand hand,
       float swingProgress,
       ItemStack item,
       float equipProgress,
-      MatrixStack matrices,
-      VertexConsumerProvider vertexConsumers,
+      PoseStack matrices,
+      MultiBufferSource vertexConsumers,
       int light
    ) {
-      if (!player.isUsingSpyglass()) {
+      if (!player.isScoping()) {
          if (this.onlyaura.getValue() && (!ModuleManager.aura.isEnabled() || Aura.target == null)) {
             return;
          }
 
-         boolean bl = hand == Hand.MAIN_HAND;
-         Arm arm = bl ? player.getMainArm() : player.getMainArm().getOpposite();
-         matrices.push();
+         boolean bl = hand == InteractionHand.MAIN_HAND;
+         HumanoidArm arm = bl ? player.getMainArm() : player.getMainArm().getOpposite();
+         matrices.pushPose();
          float f = 0.0F;
-         if (item.isOf(Items.CROSSBOW)) {
+         if (item.is(Items.CROSSBOW)) {
             boolean bl2 = CrossbowItem.isCharged(item);
-            boolean bl3 = arm == Arm.RIGHT;
+            boolean bl3 = arm == HumanoidArm.RIGHT;
             int i = bl3 ? 1 : -1;
-            if (player.isUsingItem() && player.getItemUseTimeLeft() > 0 && player.getActiveHand() == hand) {
+            if (player.isUsingItem() && player.getUseItemRemainingTicks() > 0 && player.getUsedItemHand() == hand) {
                this.applyEquipOffset(matrices, arm, equipProgress);
                matrices.translate(i * -0.4785682F, -0.094387F, 0.05731531F);
-               matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-11.935F));
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * 65.3F));
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i * -9.785F));
-               f = item.getMaxUseTime(mc.player) - (mc.player.getItemUseTimeLeft() - tickDelta + 1.0F);
-               float g = f / CrossbowItem.getPullTime(item, mc.player);
+               matrices.mulPose(Axis.XP.rotationDegrees(-11.935F));
+               matrices.mulPose(Axis.YP.rotationDegrees(i * 65.3F));
+               matrices.mulPose(Axis.ZP.rotationDegrees(i * -9.785F));
+               f = item.getUseDuration(mc.player) - (mc.player.getUseItemRemainingTicks() - tickDelta + 1.0F);
+               float g = f / CrossbowItem.getChargeDuration(item, mc.player);
                if (g > 1.0F) {
                   g = 1.0F;
                }
 
                if (g > 0.1F) {
-                  float h = MathHelper.sin((f - 0.1F) * 1.3F);
+                  float h = Mth.sin((f - 0.1F) * 1.3F);
                   float j = g - 0.1F;
                   float k = h * j;
                   matrices.translate(k * 0.0F, k * 0.004F, k * 0.0F);
@@ -203,40 +203,40 @@ public class Animations extends Module {
 
                matrices.translate(g * 0.0F, g * 0.0F, g * 0.04F);
                matrices.scale(1.0F, 1.0F, 1.0F + g * 0.2F);
-               matrices.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(i * 45.0F));
+               matrices.mulPose(Axis.YN.rotationDegrees(i * 45.0F));
             } else {
-               f = -0.4F * MathHelper.sin(MathHelper.sqrt(swingProgress) * (float) Math.PI);
-               float g = 0.2F * MathHelper.sin(MathHelper.sqrt(swingProgress) * (float) (Math.PI * 2));
-               float h = -0.2F * MathHelper.sin(swingProgress * (float) Math.PI);
+               f = -0.4F * Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
+               float g = 0.2F * Mth.sin(Mth.sqrt(swingProgress) * (float) (Math.PI * 2));
+               float h = -0.2F * Mth.sin(swingProgress * (float) Math.PI);
                matrices.translate(i * f, g, h);
                this.applyEquipOffset(matrices, arm, equipProgress);
                this.applySwingOffset(matrices, arm, swingProgress);
                if (bl2 && swingProgress < 0.001F && bl) {
                   matrices.translate(i * -0.641864F, 0.0F, 0.0F);
-                  matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * 10.0F));
+                  matrices.mulPose(Axis.YP.rotationDegrees(i * 10.0F));
                }
             }
 
             this.renderItem(
                player,
                item,
-               bl3 ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND : ModelTransformationMode.FIRST_PERSON_LEFT_HAND,
+               bl3 ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
                !bl3,
                matrices,
                vertexConsumers,
                light
             );
          } else if (this.shouldAnimate(item)) {
-            boolean bl2 = arm == Arm.RIGHT;
+            boolean bl2 = arm == HumanoidArm.RIGHT;
             float m = 0.0F;
             Animations.Mode chosenMode = Animations.Mode.Fade;
             if (this.isSword(item.getItem()) || this.isAxe(item.getItem()) || this.isPickaxe(item.getItem())) {
                chosenMode = this.mode.getValue();
             }
 
-            if (player.isUsingItem() && player.getItemUseTimeLeft() > 0 && player.getActiveHand() == hand) {
+            if (player.isUsingItem() && player.getUseItemRemainingTicks() > 0 && player.getUsedItemHand() == hand) {
                int l = bl2 ? 1 : -1;
-               switch (item.getUseAction()) {
+               switch (item.getUseAnimation()) {
                   case NONE:
                   case BLOCK:
                      this.applyEquipOffset(matrices, arm, equipProgress);
@@ -249,10 +249,10 @@ public class Animations extends Module {
                   case BOW:
                      this.applyEquipOffset(matrices, arm, equipProgress);
                      matrices.translate(l * -0.2785682F, 0.18344387F, 0.15731531F);
-                     matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-13.935F));
-                     matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(l * 35.3F));
-                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(l * -9.785F));
-                     m = item.getMaxUseTime(mc.player) - (mc.player.getItemUseTimeLeft() - tickDelta + 1.0F);
+                     matrices.mulPose(Axis.XP.rotationDegrees(-13.935F));
+                     matrices.mulPose(Axis.YP.rotationDegrees(l * 35.3F));
+                     matrices.mulPose(Axis.ZP.rotationDegrees(l * -9.785F));
+                     m = item.getUseDuration(mc.player) - (mc.player.getUseItemRemainingTicks() - tickDelta + 1.0F);
                      f = m / 20.0F;
                      f = (f * f + f * 2.0F) / 3.0F;
                      if (f > 1.0F) {
@@ -260,7 +260,7 @@ public class Animations extends Module {
                      }
 
                      if (f > 0.1F) {
-                        float g = MathHelper.sin((m - 0.1F) * 1.3F);
+                        float g = Mth.sin((m - 0.1F) * 1.3F);
                         float h = f - 0.1F;
                         float j = g * h;
                         matrices.translate(j * 0.0F, j * 0.004F, j * 0.0F);
@@ -268,22 +268,22 @@ public class Animations extends Module {
 
                      matrices.translate(f * 0.0F, f * 0.0F, f * 0.04F);
                      matrices.scale(1.0F, 1.0F, 1.0F + f * 0.2F);
-                     matrices.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(l * 45.0F));
+                     matrices.mulPose(Axis.YN.rotationDegrees(l * 45.0F));
                      break;
                   case SPEAR:
                      this.applyEquipOffset(matrices, arm, equipProgress);
                      matrices.translate(l * -0.5F, 0.7F, 0.1F);
-                     matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-55.0F));
-                     matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(l * 35.3F));
-                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(l * -9.785F));
-                     m = item.getMaxUseTime(mc.player) - (mc.player.getItemUseTimeLeft() - tickDelta + 1.0F);
+                     matrices.mulPose(Axis.XP.rotationDegrees(-55.0F));
+                     matrices.mulPose(Axis.YP.rotationDegrees(l * 35.3F));
+                     matrices.mulPose(Axis.ZP.rotationDegrees(l * -9.785F));
+                     m = item.getUseDuration(mc.player) - (mc.player.getUseItemRemainingTicks() - tickDelta + 1.0F);
                      f = m / 10.0F;
                      if (f > 1.0F) {
                         f = 1.0F;
                      }
 
                      if (f > 0.1F) {
-                        float g = MathHelper.sin((m - 0.1F) * 1.3F);
+                        float g = Mth.sin((m - 0.1F) * 1.3F);
                         float h = f - 0.1F;
                         float j = g * h;
                         matrices.translate(j * 0.0F, j * 0.004F, j * 0.0F);
@@ -291,7 +291,7 @@ public class Animations extends Module {
 
                      matrices.translate(0.0F, 0.0F, f * 0.2F);
                      matrices.scale(1.0F, 1.0F, 1.0F + f * 0.2F);
-                     matrices.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(l * 45.0F));
+                     matrices.mulPose(Axis.YN.rotationDegrees(l * 45.0F));
                      break;
                   case BRUSH:
                      this.applyBrushTransformation(matrices, tickDelta, arm, item, equipProgress);
@@ -299,12 +299,12 @@ public class Animations extends Module {
                   default:
                      this.applyEquipOffset(matrices, arm, equipProgress);
                }
-            } else if (player.isUsingRiptide()) {
+            } else if (player.isAutoSpinAttack()) {
                this.applyEquipOffset(matrices, arm, equipProgress);
                int l = bl2 ? 1 : -1;
                matrices.translate(l * -0.4F, 0.8F, 0.3F);
-               matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(l * 65.0F));
-               matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(l * -85.0F));
+               matrices.mulPose(Axis.YP.rotationDegrees(l * 65.0F));
+               matrices.mulPose(Axis.ZP.rotationDegrees(l * -85.0F));
             } else {
                this.renderSwordAnimation(matrices, f, swingProgress, equipProgress, arm, hand, chosenMode);
             }
@@ -315,18 +315,18 @@ public class Animations extends Module {
             this.renderItem(
                player,
                item,
-               bl2 ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND : ModelTransformationMode.FIRST_PERSON_LEFT_HAND,
+               bl2 ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
                !bl2,
                matrices,
                vertexConsumers,
                light
             );
          } else {
-            boolean isRight = arm == Arm.RIGHT;
+            boolean isRight = arm == HumanoidArm.RIGHT;
             this.renderItem(
                player,
                item,
-               isRight ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND : ModelTransformationMode.FIRST_PERSON_LEFT_HAND,
+               isRight ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
                !isRight,
                matrices,
                vertexConsumers,
@@ -334,88 +334,88 @@ public class Animations extends Module {
             );
          }
 
-         matrices.pop();
+         matrices.popPose();
       }
    }
 
-   private void applyBrushTransformation(MatrixStack matrices, float tickDelta, Arm arm, @NotNull ItemStack stack, float equipProgress) {
+   private void applyBrushTransformation(PoseStack matrices, float tickDelta, HumanoidArm arm, @NotNull ItemStack stack, float equipProgress) {
       this.applyEquipOffset(matrices, arm, equipProgress);
-      float f = mc.player.getItemUseTimeLeft() - tickDelta + 1.0F;
-      float g = 1.0F - f / stack.getMaxUseTime(mc.player);
-      float m = -15.0F + 75.0F * MathHelper.cos(g * 45.0F * (float) Math.PI);
-      if (arm != Arm.RIGHT) {
+      float f = mc.player.getUseItemRemainingTicks() - tickDelta + 1.0F;
+      float g = 1.0F - f / stack.getUseDuration(mc.player);
+      float m = -15.0F + 75.0F * Mth.cos(g * 45.0F * (float) Math.PI);
+      if (arm != HumanoidArm.RIGHT) {
          matrices.translate(0.1, 0.83, 0.35);
-         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-80.0F));
-         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-90.0F));
-         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(m));
+         matrices.mulPose(Axis.XP.rotationDegrees(-80.0F));
+         matrices.mulPose(Axis.YP.rotationDegrees(-90.0F));
+         matrices.mulPose(Axis.XP.rotationDegrees(m));
          matrices.translate(-0.3, 0.22, 0.35);
       } else {
          matrices.translate(-0.25, 0.22, 0.35);
-         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-80.0F));
-         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90.0F));
-         matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(0.0F));
-         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(m));
+         matrices.mulPose(Axis.XP.rotationDegrees(-80.0F));
+         matrices.mulPose(Axis.YP.rotationDegrees(90.0F));
+         matrices.mulPose(Axis.ZP.rotationDegrees(0.0F));
+         matrices.mulPose(Axis.XP.rotationDegrees(m));
       }
    }
 
-   private void applyEquipOffset(@NotNull MatrixStack matrices, Arm arm, float equipProgress) {
-      int i = arm == Arm.RIGHT ? 1 : -1;
+   private void applyEquipOffset(@NotNull PoseStack matrices, HumanoidArm arm, float equipProgress) {
+      int i = arm == HumanoidArm.RIGHT ? 1 : -1;
       matrices.translate(i * 0.56F, -0.52F + equipProgress * -0.6F, -0.72F);
    }
 
-   private void applySwingOffset(@NotNull MatrixStack matrices, Arm arm, float swingProgress) {
-      int i = arm == Arm.RIGHT ? 1 : -1;
-      float f = MathHelper.sin(swingProgress * swingProgress * (float) Math.PI);
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * (45.0F + f * -20.0F)));
-      float g = MathHelper.sin(MathHelper.sqrt(swingProgress) * (float) Math.PI);
-      matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i * g * -20.0F));
-      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(g * -80.0F));
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * -45.0F));
+   private void applySwingOffset(@NotNull PoseStack matrices, HumanoidArm arm, float swingProgress) {
+      int i = arm == HumanoidArm.RIGHT ? 1 : -1;
+      float f = Mth.sin(swingProgress * swingProgress * (float) Math.PI);
+      matrices.mulPose(Axis.YP.rotationDegrees(i * (45.0F + f * -20.0F)));
+      float g = Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
+      matrices.mulPose(Axis.ZP.rotationDegrees(i * g * -20.0F));
+      matrices.mulPose(Axis.XP.rotationDegrees(g * -80.0F));
+      matrices.mulPose(Axis.YP.rotationDegrees(i * -45.0F));
    }
 
    public void renderItem(
       LivingEntity entity,
       ItemStack stack,
-      ModelTransformationMode renderMode,
+      ItemDisplayContext renderMode,
       boolean leftHanded,
-      MatrixStack matrices,
-      VertexConsumerProvider vertexConsumers,
+      PoseStack matrices,
+      MultiBufferSource vertexConsumers,
       int light
    ) {
       if (!stack.isEmpty()) {
          mc.getItemRenderer()
-            .renderItem(
+            .renderStatic(
                entity,
                stack,
                renderMode,
                leftHanded,
                matrices,
                vertexConsumers,
-               entity.getWorld(),
+               entity.level(),
                light,
-               OverlayTexture.DEFAULT_UV,
+               OverlayTexture.NO_OVERLAY,
                entity.getId() + renderMode.ordinal()
             );
       }
    }
 
-   private void applyEatOrDrinkTransformationCustom(MatrixStack matrices, float tickDelta, Arm arm, @NotNull ItemStack stack) {
-      float f = mc.player.getItemUseTimeLeft() - tickDelta + 1.0F;
-      float g = f / stack.getMaxUseTime(mc.player);
+   private void applyEatOrDrinkTransformationCustom(PoseStack matrices, float tickDelta, HumanoidArm arm, @NotNull ItemStack stack) {
+      float f = mc.player.getUseItemRemainingTicks() - tickDelta + 1.0F;
+      float g = f / stack.getUseDuration(mc.player);
       if (g < 0.8F) {
-         float h = MathHelper.abs(MathHelper.cos(f / 4.0F * (float) Math.PI) * 0.005F);
+         float h = Mth.abs(Mth.cos(f / 4.0F * (float) Math.PI) * 0.005F);
          matrices.translate(0.0F, h, 0.0F);
       }
 
       float h = 1.0F - (float)Math.pow(g, 27.0);
-      int i = arm == Arm.RIGHT ? 1 : -1;
+      int i = arm == HumanoidArm.RIGHT ? 1 : -1;
       matrices.translate(h * 0.6F * i * ModuleManager.viewModel.getEatXFactor(), h * -0.5F * ModuleManager.viewModel.eatY.getValue(), h * 0.0F);
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * h * 90.0F));
-      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(h * 10.0F));
-      matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i * h * 30.0F));
+      matrices.mulPose(Axis.YP.rotationDegrees(i * h * 90.0F));
+      matrices.mulPose(Axis.XP.rotationDegrees(h * 10.0F));
+      matrices.mulPose(Axis.ZP.rotationDegrees(i * h * 30.0F));
    }
 
-   private void translateToViewModel(MatrixStack matrices) {
+   private void translateToViewModel(PoseStack matrices) {
       if (ModuleManager.viewModel.isEnabled()) {
          matrices.translate(
             ModuleManager.viewModel.positionMainX.getValue(),
@@ -425,7 +425,7 @@ public class Animations extends Module {
       }
    }
 
-   private void translateToViewModelOff(MatrixStack matrices) {
+   private void translateToViewModelOff(PoseStack matrices) {
       if (ModuleManager.viewModel.isEnabled()) {
          matrices.translate(
             -ModuleManager.viewModel.positionMainX.getValue(),
@@ -435,7 +435,7 @@ public class Animations extends Module {
       }
    }
 
-   private void translateBack(MatrixStack matrices) {
+   private void translateBack(PoseStack matrices) {
       if (ModuleManager.viewModel.isEnabled()) {
          matrices.translate(
             -ModuleManager.viewModel.positionMainX.getValue(),
@@ -445,20 +445,20 @@ public class Animations extends Module {
       }
    }
 
-   private void translateToSelfOldViewModel(MatrixStack matrices, Hand hand, Animations.Mode animMode) {
+   private void translateToSelfOldViewModel(PoseStack matrices, InteractionHand hand, Animations.Mode animMode) {
       matrices.translate(this.getSelfOldViewModelX(hand, animMode), this.getSelfOldViewModelY(hand, animMode), this.getViewModelZ());
    }
 
-   private void translateBackSelfOldViewModel(MatrixStack matrices, Hand hand, Animations.Mode animMode) {
+   private void translateBackSelfOldViewModel(PoseStack matrices, InteractionHand hand, Animations.Mode animMode) {
       matrices.translate(-this.getSelfOldViewModelX(hand, animMode), -this.getSelfOldViewModelY(hand, animMode), -this.getViewModelZ());
    }
 
-   private float getSelfOldViewModelX(Hand hand, Animations.Mode animMode) {
+   private float getSelfOldViewModelX(InteractionHand hand, Animations.Mode animMode) {
       float x = ModuleManager.viewModel.isEnabled() ? ModuleManager.viewModel.positionMainX.getValue() : 0.0F;
       return x + this.getSelfOldMainHandXOffset(hand, animMode);
    }
 
-   private float getSelfOldViewModelY(Hand hand, Animations.Mode animMode) {
+   private float getSelfOldViewModelY(InteractionHand hand, Animations.Mode animMode) {
       return this.getViewModelY() + this.getSelfMainHandYOffset(hand, animMode);
    }
 
@@ -470,7 +470,7 @@ public class Animations extends Module {
       return ModuleManager.viewModel.isEnabled() ? ModuleManager.viewModel.positionMainZ.getValue() : 0.0F;
    }
 
-   private void applySelfOldMainHandOffset(MatrixStack matrices, Hand hand, Animations.Mode animMode) {
+   private void applySelfOldMainHandOffset(PoseStack matrices, InteractionHand hand, Animations.Mode animMode) {
       float xOffset = this.getSelfOldMainHandXOffset(hand, animMode);
       float yOffset = this.getSelfMainHandYOffset(hand, animMode);
       if (xOffset != 0.0F || yOffset != 0.0F) {
@@ -478,15 +478,15 @@ public class Animations extends Module {
       }
    }
 
-   private float getSelfOldMainHandXOffset(Hand hand, Animations.Mode animMode) {
-      return hand != Hand.MAIN_HAND || animMode != Animations.Mode.Self && animMode != Animations.Mode.Old ? 0.0F : 0.12F;
+   private float getSelfOldMainHandXOffset(InteractionHand hand, Animations.Mode animMode) {
+      return hand != InteractionHand.MAIN_HAND || animMode != Animations.Mode.Self && animMode != Animations.Mode.Old ? 0.0F : 0.12F;
    }
 
-   private float getSelfMainHandYOffset(Hand hand, Animations.Mode animMode) {
-      return hand != Hand.MAIN_HAND || animMode != Animations.Mode.Self && animMode != Animations.Mode.Old ? 0.0F : 0.1F;
+   private float getSelfMainHandYOffset(InteractionHand hand, Animations.Mode animMode) {
+      return hand != InteractionHand.MAIN_HAND || animMode != Animations.Mode.Self && animMode != Animations.Mode.Old ? 0.0F : 0.1F;
    }
 
-   private void translateBacklOff(MatrixStack matrices) {
+   private void translateBacklOff(PoseStack matrices) {
       if (ModuleManager.viewModel.isEnabled()) {
          matrices.translate(
             ModuleManager.viewModel.positionMainX.getValue(),

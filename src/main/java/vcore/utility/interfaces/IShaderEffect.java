@@ -1,7 +1,7 @@
 package vcore.utility.interfaces;
 
-import net.minecraft.client.gl.Framebuffer;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 
 public interface IShaderEffect {
-   void addFakeTargetHook(String var1, Framebuffer var2);
+   void addFakeTargetHook(String var1, RenderTarget var2);
 }

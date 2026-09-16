@@ -2,8 +2,8 @@ package vcore.features.cmd.impl;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import net.minecraft.command.CommandSource;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.NotNull;
 import vcore.Vcore;
 import vcore.features.cmd.Command;
@@ -14,7 +14,7 @@ public class GpsCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(literal("off").executes(context -> {
          Vcore.gps_position = null;
          return 1;

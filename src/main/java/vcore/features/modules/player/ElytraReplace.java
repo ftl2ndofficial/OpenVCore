@@ -1,10 +1,10 @@
 package vcore.features.modules.player;
 
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ElytraItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ElytraItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import vcore.core.Managers;
 import vcore.features.modules.Module;
 import vcore.gui.notification.Notification;
@@ -21,18 +21,18 @@ public class ElytraReplace extends Module {
 
    @Override
    public void onUpdate() {
-      ItemStack is = mc.player.getEquippedStack(EquipmentSlot.CHEST);
-      if (is.isOf(Items.ELYTRA) && 100.0F - (float)is.getDamage() / is.getMaxDamage() * 100.0F <= this.durability.getValue().intValue()) {
+      ItemStack is = mc.player.getItemBySlot(EquipmentSlot.CHEST);
+      if (is.is(Items.ELYTRA) && 100.0F - (float)is.getDamageValue() / is.getMaxDamage() * 100.0F <= this.durability.getValue().intValue()) {
          SearchInvResult result = InventoryUtility.findInInventory(
             stack -> stack.getItem() instanceof ElytraItem
-               ? 100.0F - (float)stack.getDamage() / stack.getMaxDamage() * 100.0F > this.durability.getValue().intValue()
+               ? 100.0F - (float)stack.getDamageValue() / stack.getMaxDamage() * 100.0F > this.durability.getValue().intValue()
                : false
          );
          if (result.found()) {
             clickSlot(result.slot());
             clickSlot(6);
             clickSlot(result.slot());
-            this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+            this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
             Managers.NOTIFICATION.publicity("ElytraReplace", "Swapping the old elytra for a new one!", 2, Notification.Type.SUCCESS);
             this.sendMessage("Swapping the old elytra for a new one!");
          }

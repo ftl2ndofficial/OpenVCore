@@ -1,12 +1,12 @@
 package vcore.features.modules.player;
 
 import baritone.api.BaritoneAPI;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.Hand;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import vcore.Vcore;
 import vcore.features.modules.Module;
 import vcore.injection.accesors.IMinecraftClient;
@@ -30,9 +30,9 @@ public class AutoEat extends Module {
 
    @Override
    public void onUpdate() {
-      if (mc.player.getHungerManager().getFoodLevel() <= this.hunger.getValue()) {
+      if (mc.player.getFoodData().getFoodLevel() <= this.hunger.getValue()) {
          boolean found;
-         if (!this.isHandGood(Hand.MAIN_HAND) && !this.isHandGood(Hand.OFF_HAND)) {
+         if (!this.isHandGood(InteractionHand.MAIN_HAND) && !this.isHandGood(InteractionHand.OFF_HAND)) {
             found = this.switchToFood();
          } else {
             found = true;
@@ -54,22 +54,22 @@ public class AutoEat extends Module {
 
    public void startEating() {
       this.eating = true;
-      if (mc.currentScreen != null && !mc.player.isUsingItem()) {
+      if (mc.screen != null && !mc.player.isUsingItem()) {
          ((IMinecraftClient)mc).idoItemUse();
       } else {
          if (this.pauseBaritone.getValue() && Vcore.baritone) {
             BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("pause");
          }
 
-         mc.options.useKey.setPressed(true);
+         mc.options.keyUse.setDown(true);
       }
    }
 
    public void stopEating() {
       this.eating = false;
-      mc.options.useKey.setPressed(false);
+      mc.options.keyUse.setDown(false);
       if (this.swapBack.getValue()) {
-         mc.player.getInventory().selectedSlot = this.prevSlot;
+         mc.player.getInventory().selected = this.prevSlot;
       }
 
       if (this.pauseBaritone.getValue() && Vcore.baritone) {
@@ -79,16 +79,16 @@ public class AutoEat extends Module {
 
    public boolean switchToFood() {
       for (int i = 0; i < 9; i++) {
-         ItemStack stack = mc.player.getInventory().getStack(i);
-         if (stack.getComponents().contains(DataComponentTypes.FOOD)
+         ItemStack stack = mc.player.getInventory().getItem(i);
+         if (stack.getComponents().has(DataComponents.FOOD)
             && (this.gapple.getValue() || stack.getItem() != Items.GOLDEN_APPLE && stack.getItem() != Items.ENCHANTED_GOLDEN_APPLE)
             && (this.chorus.getValue() || stack.getItem() != Items.CHORUS_FRUIT)
             && (this.rottenFlesh.getValue() || stack.getItem() != Items.ROTTEN_FLESH)
             && (this.spiderEye.getValue() || stack.getItem() != Items.SPIDER_EYE)
             && (this.pufferfish.getValue() || stack.getItem() != Items.PUFFERFISH)) {
-            this.prevSlot = mc.player.getInventory().selectedSlot;
-            mc.player.getInventory().selectedSlot = i;
-            this.sendPacket(new UpdateSelectedSlotC2SPacket(i));
+            this.prevSlot = mc.player.getInventory().selected;
+            mc.player.getInventory().selected = i;
+            this.sendPacket(new ServerboundSetCarriedItemPacket(i));
             return true;
          }
       }
@@ -96,10 +96,10 @@ public class AutoEat extends Module {
       return false;
    }
 
-   private boolean isHandGood(Hand hand) {
-      ItemStack stack = hand == Hand.MAIN_HAND ? mc.player.getMainHandStack() : mc.player.getOffHandStack();
+   private boolean isHandGood(InteractionHand hand) {
+      ItemStack stack = hand == InteractionHand.MAIN_HAND ? mc.player.getMainHandItem() : mc.player.getOffhandItem();
       Item item = stack.getItem();
-      return stack.getComponents().contains(DataComponentTypes.FOOD)
+      return stack.getComponents().has(DataComponents.FOOD)
          && (this.gapple.getValue() || item != Items.GOLDEN_APPLE && item != Items.ENCHANTED_GOLDEN_APPLE)
          && (this.chorus.getValue() || item != Items.CHORUS_FRUIT)
          && (this.rottenFlesh.getValue() || item != Items.ROTTEN_FLESH)

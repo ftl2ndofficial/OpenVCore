@@ -1,33 +1,33 @@
 package vcore.injection;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.hud.InGameOverlayRenderer;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.util.math.MatrixStack;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.ScreenEffectRenderer;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.core.manager.client.ModuleManager;
 
-@Mixin(InGameOverlayRenderer.class)
+@Mixin(ScreenEffectRenderer.class)
 public class MixinInGameOverlayRenderer {
-   @Inject(method = "renderFireOverlay", at = @At("HEAD"), cancellable = true)
-   private static void renderFireOverlayHook(MinecraftClient minecraftClient, MatrixStack matrixStack, CallbackInfo ci) {
+   @Inject(method = "renderFire", at = @At("HEAD"), cancellable = true)
+   private static void renderFireOverlayHook(Minecraft minecraftClient, PoseStack matrixStack, CallbackInfo ci) {
       if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.fireOverlay.getValue()) {
          ci.cancel();
       }
    }
 
-   @Inject(method = "renderUnderwaterOverlay", at = @At("HEAD"), cancellable = true)
-   private static void renderUnderwaterOverlayHook(MinecraftClient minecraftClient, MatrixStack matrixStack, CallbackInfo ci) {
+   @Inject(method = "renderWater", at = @At("HEAD"), cancellable = true)
+   private static void renderUnderwaterOverlayHook(Minecraft minecraftClient, PoseStack matrixStack, CallbackInfo ci) {
       if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.waterOverlay.getValue()) {
          ci.cancel();
       }
    }
 
-   @Inject(method = "renderInWallOverlay", at = @At("HEAD"), cancellable = true)
-   private static void renderInWallOverlayHook(Sprite sprite, MatrixStack matrices, CallbackInfo ci) {
+   @Inject(method = "renderTex", at = @At("HEAD"), cancellable = true)
+   private static void renderInWallOverlayHook(TextureAtlasSprite sprite, PoseStack matrices, CallbackInfo ci) {
       if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.blockOverlay.getValue()) {
          ci.cancel();
       }

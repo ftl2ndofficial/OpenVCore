@@ -1,11 +1,11 @@
 package vcore.features.cmd.impl;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import java.util.Objects;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.command.CommandSource;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.features.cmd.Command;
@@ -20,19 +20,19 @@ public class BindCommand extends Command {
    }
 
    @Override
-   public void executeBuild(@NotNull LiteralArgumentBuilder<CommandSource> builder) {
+   public void executeBuild(@NotNull LiteralArgumentBuilder<SharedSuggestionProvider> builder) {
       builder.then(arg("module", ModuleArgumentType.create()).then(arg("key", StringArgumentType.word()).executes(context -> {
          Module module = (Module)context.getArgument("module", Module.class);
          String stringKey = (String)context.getArgument("key", String.class);
          if (stringKey == null) {
-            sendMessage(module.getName() + " is bound to " + Formatting.GRAY + module.getBind().getBind());
+            sendMessage(module.getName() + " is bound to " + ChatFormatting.GRAY + module.getBind().getBind());
             return 1;
          }
 
          int key;
          if (!stringKey.equalsIgnoreCase("none") && !stringKey.equalsIgnoreCase("null")) {
             try {
-               key = InputUtil.fromTranslationKey("key.keyboard." + stringKey.toLowerCase()).getCode();
+               key = InputConstants.getKey("key.keyboard." + stringKey.toLowerCase()).getValue();
             } catch (NumberFormatException e) {
                sendMessage("There is no such button");
                return 1;
@@ -46,7 +46,7 @@ public class BindCommand extends Command {
             return 1;
          } else {
             module.setBind(key, !stringKey.equals("M") && stringKey.contains("M"), false);
-            sendMessage("Bind for " + Formatting.GREEN + module.getName() + Formatting.WHITE + " set to " + Formatting.GRAY + stringKey.toUpperCase());
+            sendMessage("Bind for " + ChatFormatting.GREEN + module.getName() + ChatFormatting.WHITE + " set to " + ChatFormatting.GRAY + stringKey.toUpperCase());
             return 1;
          }
       })));

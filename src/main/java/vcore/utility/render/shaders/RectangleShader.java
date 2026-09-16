@@ -1,9 +1,9 @@
 package vcore.utility.render.shaders;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
 import vcore.utility.render.shaders.satin.api.managed.ManagedCoreShader;
@@ -21,16 +21,16 @@ public class RectangleShader {
    private Uniform4f color3;
    private Uniform4f color4;
    public static final ManagedCoreShader RECTANGLE_SHADER = ShaderEffectManager.getInstance()
-      .manageCoreShader(Identifier.of("vcore", "rectangle"), VertexFormats.POSITION);
+      .manageCoreShader(ResourceLocation.fromNamespaceAndPath("vcore", "rectangle"), DefaultVertexFormat.POSITION);
 
    public RectangleShader() {
       this.setup();
    }
 
    public void setParameters(float x, float y, float width, float height, float r, float alpha) {
-      float i = (float)Module.mc.getWindow().getScaleFactor();
+      float i = (float)Module.mc.getWindow().getGuiScale();
       this.radius.set(r * i);
-      this.uLocation.set(x * i, -y * i + Module.mc.getWindow().getScaledHeight() * i - height * i);
+      this.uLocation.set(x * i, -y * i + Module.mc.getWindow().getGuiScaledHeight() * i - height * i);
       this.uSize.set(width * i, height * i);
       Color c1 = HudEditor.getColor(270);
       Color c2 = HudEditor.getColor(0);
@@ -43,9 +43,9 @@ public class RectangleShader {
    }
 
    public void setParameters(float x, float y, float width, float height, float r, float alpha, Color c1, Color c2, Color c3, Color c4) {
-      int i = (Integer)Module.mc.options.getGuiScale().getValue();
+      int i = (Integer)Module.mc.options.guiScale().get();
       this.radius.set(r * i);
-      this.uLocation.set(x * i, -y * i + Module.mc.getWindow().getScaledHeight() * i - height * i);
+      this.uLocation.set(x * i, -y * i + Module.mc.getWindow().getGuiScaledHeight() * i - height * i);
       this.uSize.set(width * i, height * i);
       this.color1.set(c1.getRed() / 255.0F, c1.getGreen() / 255.0F, c1.getBlue() / 255.0F, alpha);
       this.color2.set(c2.getRed() / 255.0F, c2.getGreen() / 255.0F, c2.getBlue() / 255.0F, alpha);

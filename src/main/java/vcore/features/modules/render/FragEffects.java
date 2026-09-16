@@ -1,20 +1,20 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DstFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SrcFactor;
+import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
+import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.VertexFormat.DrawMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import org.joml.Matrix4f;
 import vcore.Vcore;
 import vcore.events.impl.EventAttack;
@@ -29,7 +29,7 @@ import vcore.utility.Timer;
 import vcore.utility.render.Render2DEngine;
 
 public final class FragEffects extends Module {
-   private static final Identifier VIGNETTE_TEXTURE = Identifier.of("vcore", "textures/effects/lightarroundscreen.png");
+   private static final ResourceLocation VIGNETTE_TEXTURE = ResourceLocation.fromNamespaceAndPath("vcore", "textures/effects/lightarroundscreen.png");
    private static final long EFFECT_MS_MAX = 2800L;
    private static final int COLOR_5 = -65536;
    private static final int COLOR_6 = -1;
@@ -61,7 +61,7 @@ public final class FragEffects extends Module {
 
    @Override
    public void onUpdate() {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          this.updateTickTimerValues();
          this.updateTargetMemories();
          this.deathMemory.updateAutoMemories();
@@ -73,14 +73,14 @@ public final class FragEffects extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack matrices) {
-      if (mc.player != null && mc.world != null) {
+   public void onRender3D(PoseStack matrices) {
+      if (mc.player != null && mc.level != null) {
          this.particles.renderParticles(matrices);
       }
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       this.drawVignetteTextureIfEffectMoment(context);
       this.charmSfx.inRenderThreadUpdate();
    }
@@ -102,7 +102,7 @@ public final class FragEffects extends Module {
    }
 
    public float getMulCameraZoomValue() {
-      if (this.isEnabled() && mc.options.getPerspective().isFirstPerson()) {
+      if (this.isEnabled() && mc.options.getCameraType().isFirstPerson()) {
          float effectPC = Math.min(this.getEffectPC() * 3.0F, 1.0F);
          if (effectPC > 0.0F) {
             float input = (effectPC > 0.5F ? 1.0F - effectPC : effectPC) * 2.0F;
@@ -127,7 +127,7 @@ public final class FragEffects extends Module {
    }
 
    private void updateTargetMemories() {
-      for (Entity entity : mc.world.getEntities()) {
+      for (Entity entity : mc.level.entitiesForRendering()) {
          if (entity instanceof LivingEntity living && this.isWasTargeted(living)) {
             this.deathMemory.controllingAddingMemoryToEntity(living, this.mobDetect());
          }
@@ -180,13 +180,13 @@ public final class FragEffects extends Module {
       }
    }
 
-   private void drawVignetteTextureIfEffectMoment(DrawContext context) {
+   private void drawVignetteTextureIfEffectMoment(GuiGraphics context) {
       float effectPC = this.getEffectPC();
       if (effectPC != 0.0F) {
          float alphaPC = (float)FragEffectMath.easeQuintOut(effectPC);
          float scalePC = Math.min((alphaPC > 0.5F ? 1.0F - alphaPC : alphaPC) * 4.25F, 1.0F);
-         float width = mc.getWindow().getScaledWidth();
-         float height = mc.getWindow().getScaledHeight();
+         float width = mc.getWindow().getGuiScaledWidth();
+         float height = mc.getWindow().getGuiScaledHeight();
          float extPCX = width / 2.0F * (1.0F - scalePC);
          float extPCY = height / 2.0F * (1.0F - scalePC);
          float x = -extPCX;
@@ -196,17 +196,17 @@ public final class FragEffects extends Module {
          int color = FragEffectMath.multAlpha(FragEffectMath.getOverallColorFrom(-65536, -1, effectPC), alphaPC);
          Color renderColor = new Color(color, true);
          RenderSystem.enableBlend();
-         RenderSystem.blendFuncSeparate(SrcFactor.SRC_ALPHA, DstFactor.ONE, SrcFactor.ZERO, DstFactor.ONE);
-         RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+         RenderSystem.blendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ZERO, DestFactor.ONE);
+         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
          RenderSystem.setShaderTexture(0, VIGNETTE_TEXTURE);
-         BufferBuilder buffer = Tessellator.getInstance().begin(DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
-         Matrix4f matrix = context.getMatrices().peek().getPositionMatrix();
+         BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+         Matrix4f matrix = context.pose().last().pose();
 
          for (int i = 0; i < 4; i++) {
-            buffer.vertex(matrix, x, y2, 0.0F).texture(0.0F, 1.0F).color(renderColor.getRGB());
-            buffer.vertex(matrix, x2, y2, 0.0F).texture(1.0F, 1.0F).color(renderColor.getRGB());
-            buffer.vertex(matrix, x2, y, 0.0F).texture(1.0F, 0.0F).color(renderColor.getRGB());
-            buffer.vertex(matrix, x, y, 0.0F).texture(0.0F, 0.0F).color(renderColor.getRGB());
+            buffer.addVertex(matrix, x, y2, 0.0F).setUv(0.0F, 1.0F).setColor(renderColor.getRGB());
+            buffer.addVertex(matrix, x2, y2, 0.0F).setUv(1.0F, 1.0F).setColor(renderColor.getRGB());
+            buffer.addVertex(matrix, x2, y, 0.0F).setUv(1.0F, 0.0F).setColor(renderColor.getRGB());
+            buffer.addVertex(matrix, x, y, 0.0F).setUv(0.0F, 0.0F).setColor(renderColor.getRGB());
          }
 
          Render2DEngine.endBuilding(buffer);

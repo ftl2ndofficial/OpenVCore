@@ -2,14 +2,14 @@ package vcore.gui.clickui;
 
 import com.google.common.collect.Lists;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.List;
 import java.util.Objects;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
@@ -52,7 +52,7 @@ public class ClickGUI extends Screen {
    private static ClickGUI INSTANCE = new ClickGUI();
 
    public ClickGUI() {
-      super(Text.of("NewClickGUI"));
+      super(Component.nullToEmpty("NewClickGUI"));
       windows = Lists.newArrayList();
       this.setInstance();
    }
@@ -84,7 +84,7 @@ public class ClickGUI extends Screen {
       INSTANCE = this;
    }
 
-   public void onDisplayed() {
+   public void added() {
       this.prepareOpen();
    }
 
@@ -94,7 +94,7 @@ public class ClickGUI extends Screen {
       this.syncWindowState();
    }
 
-   public boolean shouldPause() {
+   public boolean isPauseScreen() {
       return false;
    }
 
@@ -104,10 +104,10 @@ public class ClickGUI extends Screen {
       this.themeSelector.tick();
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       this.updateOpenAnimation();
       if (ModuleManager.clickGui.blur.getValue()) {
-         this.applyBlur(delta);
+         this.renderBlurredBackground(delta);
       }
 
       anyHovered = false;
@@ -119,8 +119,8 @@ public class ClickGUI extends Screen {
 
       List<Module.Category> visibleCategories = Lists.newArrayList(Managers.MODULE.getCategories());
       int totalWidth = visibleCategories.size() * 133 - 8;
-      int startX = (Module.mc.getWindow().getScaledWidth() - totalWidth) / 2;
-      int startY = (Module.mc.getWindow().getScaledHeight() - 280) / 2;
+      int startX = (Module.mc.getWindow().getGuiScaledWidth() - totalWidth) / 2;
+      int startY = (Module.mc.getWindow().getGuiScaledHeight() - 280) / 2;
       float anim = this.getOpenProgress();
       float rawAnim = this.getRawOpenProgress();
       int i = 0;
@@ -147,7 +147,7 @@ public class ClickGUI extends Screen {
       for (AbstractCategory w : windows) {
          float progress = this.getCategoryOpenProgress(rawAnim, w.getName());
          if (!(progress <= 0.0F)) {
-            float alpha = MathHelper.clamp(progress, 0.0F, 1.0F);
+            float alpha = Mth.clamp(progress, 0.0F, 1.0F);
             Render2DEngine.setGlobalAlpha(alpha);
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
             w.render(context, mouseX, mouseY, delta);
@@ -161,7 +161,7 @@ public class ClickGUI extends Screen {
       this.renderBottomBar(context, mouseX, mouseY, delta, anim);
       Render2DEngine.setGlobalAlpha(1.0F);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      this.renderInteractionHints(context.getMatrices());
+      this.renderInteractionHints(context.pose());
       boolean fullyOpen = anim >= 0.999F && imageDirection;
       if (fullyOpen && descriptionActive && !Objects.equals(currentDescription, "")) {
          float paddingX = 8.0F;
@@ -171,15 +171,15 @@ public class ClickGUI extends Screen {
          float descWidth = Math.max(60.0F, textWidth + paddingX * 2.0F);
          float descHeight = textHeight + paddingY * 2.0F;
          float descY = startY - descHeight - 10.0F;
-         float descX = (Module.mc.getWindow().getScaledWidth() - descWidth) / 2.0F;
+         float descX = (Module.mc.getWindow().getGuiScaledWidth() - descWidth) / 2.0F;
          float textY = descY + (descHeight - textHeight) / 2.0F + 3.0F;
          Color bg = new Color(25, 25, 28, 200);
-         Render2DEngine.drawClickGuiRound(context.getMatrices(), descX, descY, descWidth, descHeight, descHeight / 2.0F, bg);
-         FontRenderers.sf_medium.drawCenteredString(context.getMatrices(), currentDescription, descX + descWidth / 2.0F, textY, Color.WHITE.getRGB());
+         Render2DEngine.drawClickGuiRound(context.pose(), descX, descY, descWidth, descHeight, descHeight / 2.0F, bg);
+         FontRenderers.sf_medium.drawCenteredString(context.pose(), currentDescription, descX + descWidth / 2.0F, textY, Color.WHITE.getRGB());
       }
 
       if (!HudElement.anyHovered && !anyHovered && GLFW.glfwGetPlatform() != 393219) {
-         GLFW.glfwSetCursor(Module.mc.getWindow().getHandle(), GLFW.glfwCreateStandardCursor(221185));
+         GLFW.glfwSetCursor(Module.mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221185));
       }
    }
 
@@ -214,21 +214,21 @@ public class ClickGUI extends Screen {
       return super.mouseReleased(mouseX, mouseY, button);
    }
 
-   private void renderBottomBar(DrawContext context, int mouseX, int mouseY, float delta, float anim) {
-      float searchWidth = Math.min(180.0F, Module.mc.getWindow().getScaledWidth() - 40.0F);
+   private void renderBottomBar(GuiGraphics context, int mouseX, int mouseY, float delta, float anim) {
+      float searchWidth = Math.min(180.0F, Module.mc.getWindow().getGuiScaledWidth() - 40.0F);
       float searchHeight = 20.0F;
       float searchMarginBottom = 10.0F;
       float themeButtonSize = 16.0F;
       float gap = 5.0F;
       float themeHeight = 16.0F;
       float themeMarginBottom = 40.0F;
-      float searchX = (Module.mc.getWindow().getScaledWidth() - searchWidth) / 2.0F;
-      float searchY = (Module.mc.getWindow().getScaledHeight() + 280) / 2.0F + searchMarginBottom;
+      float searchX = (Module.mc.getWindow().getGuiScaledWidth() - searchWidth) / 2.0F;
+      float searchY = (Module.mc.getWindow().getGuiScaledHeight() + 280) / 2.0F + searchMarginBottom;
       float buttonX = searchX + searchWidth + gap;
       float buttonY = searchY + (searchHeight - themeButtonSize) / 2.0F;
       float themeWidth = searchWidth;
-      float paletteX = (Module.mc.getWindow().getScaledWidth() - themeWidth) / 2.0F;
-      float paletteY = (Module.mc.getWindow().getScaledHeight() + 280) / 2.0F + themeMarginBottom;
+      float paletteX = (Module.mc.getWindow().getGuiScaledWidth() - themeWidth) / 2.0F;
+      float paletteY = (Module.mc.getWindow().getGuiScaledHeight() + 280) / 2.0F + themeMarginBottom;
       float bottomOffset = 60.0F * (1.0F - anim);
       searchY += bottomOffset;
       buttonY += bottomOffset;
@@ -247,12 +247,12 @@ public class ClickGUI extends Screen {
       int hudAlpha = Math.round(255.0F * HudEditor.getAlpha());
       Color btnBg = Render2DEngine.injectAlpha(new Color(25, 25, 28), hudAlpha);
       Render2DEngine.drawClickGuiRound(
-         context.getMatrices(), this.managerBtnX, this.managerBtnY, this.managerBtnSize, this.managerBtnSize, this.managerBtnSize / 4.0F, btnBg
+         context.pose(), this.managerBtnX, this.managerBtnY, this.managerBtnSize, this.managerBtnSize, this.managerBtnSize / 4.0F, btnBg
       );
       Color iconCol = Render2DEngine.injectAlpha(Color.WHITE, hudAlpha);
       FontRenderers.sf_bold_mini
          .drawString(
-            context.getMatrices(),
+            context.pose(),
             "...",
             this.managerBtnX + this.managerBtnSize / 2.0F - FontRenderers.sf_bold_mini.getStringWidth("...") / 2.0F,
             this.managerBtnY + this.managerBtnSize / 2.0F - FontRenderers.sf_bold_mini.getFontHeight("...") / 2.0F + 1.0F,
@@ -267,12 +267,12 @@ public class ClickGUI extends Screen {
       }
    }
 
-   private void renderInteractionHints(MatrixStack matrices) {
+   private void renderInteractionHints(PoseStack matrices) {
       if (Module.mc.getWindow() != null) {
          FontRenderer font = FontRenderers.sf_bold_mini;
          List<String> hints = this.getInteractionHints(font);
          float lineHeight = font.getFontHeight("A") + 2.0F;
-         float startY = Module.mc.getWindow().getScaledHeight() - 8.0F - lineHeight * hints.size();
+         float startY = Module.mc.getWindow().getGuiScaledHeight() - 8.0F - lineHeight * hints.size();
          float startX = 8.0F;
 
          for (int i = 0; i < hints.size(); i++) {
@@ -294,7 +294,7 @@ public class ClickGUI extends Screen {
          .toList();
    }
 
-   private void drawOutlinedHintText(MatrixStack matrices, FontRenderer font, String text, float x, float y) {
+   private void drawOutlinedHintText(PoseStack matrices, FontRenderer font, String text, float x, float y) {
       int outlineColor = Render2DEngine.injectAlpha(Color.BLACK, 255).getRGB();
       int fillColor = Render2DEngine.injectAlpha(Color.WHITE, 255).getRGB();
       font.drawString(matrices, text, x - 0.45F, y, outlineColor);
@@ -323,11 +323,11 @@ public class ClickGUI extends Screen {
    }
 
    private float getOpenProgress() {
-      return MathHelper.clamp((float)Easing.EASE_OUT_CIRC.apply(this.openProgress), 0.0F, 1.0F);
+      return Mth.clamp((float)Easing.EASE_OUT_CIRC.apply(this.openProgress), 0.0F, 1.0F);
    }
 
    private float getRawOpenProgress() {
-      return MathHelper.clamp(this.openProgress, 0.0F, 1.0F);
+      return Mth.clamp(this.openProgress, 0.0F, 1.0F);
    }
 
    private void resetOpenAnimation() {
@@ -340,7 +340,7 @@ public class ClickGUI extends Screen {
       long elapsed = Math.min(Math.max(0L, now - this.lastOpenFrameTimeMs), 22L);
       this.lastOpenFrameTimeMs = now;
       if (!(this.openProgress >= 1.0F)) {
-         this.openProgress = MathHelper.clamp(this.openProgress + (float)elapsed / 460.0F, 0.0F, 1.0F);
+         this.openProgress = Mth.clamp(this.openProgress + (float)elapsed / 460.0F, 0.0F, 1.0F);
       }
    }
 
@@ -383,8 +383,8 @@ public class ClickGUI extends Screen {
    private void layoutWindowsAtRest() {
       List<Module.Category> visibleCategories = Lists.newArrayList(Managers.MODULE.getCategories());
       int totalWidth = visibleCategories.size() * 133 - 8;
-      int startX = (Module.mc.getWindow().getScaledWidth() - totalWidth) / 2;
-      int startY = (Module.mc.getWindow().getScaledHeight() - 280) / 2;
+      int startX = (Module.mc.getWindow().getGuiScaledWidth() - totalWidth) / 2;
+      int startY = (Module.mc.getWindow().getGuiScaledHeight() - 280) / 2;
       int i = 0;
 
       for (AbstractCategory window : windows) {
@@ -410,8 +410,8 @@ public class ClickGUI extends Screen {
          return 0.0F;
       }
 
-      float delayedProgress = MathHelper.clamp((progress - delay) / (1.0F - delay), 0.0F, 1.0F);
-      return MathHelper.clamp((float)Easing.EASE_OUT_CIRC.apply(delayedProgress), 0.0F, 1.0F);
+      float delayedProgress = Mth.clamp((progress - delay) / (1.0F - delay), 0.0F, 1.0F);
+      return Mth.clamp((float)Easing.EASE_OUT_CIRC.apply(delayedProgress), 0.0F, 1.0F);
    }
 
    private float getCategoryGroupDelay(String name) {

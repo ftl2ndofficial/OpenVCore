@@ -1,9 +1,9 @@
 package vcore.features.modules.misc;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.world.entity.player.Player;
 import vcore.core.Managers;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
@@ -27,8 +27,8 @@ public class AutoTpAccept extends Module {
    @EventHandler
    public void onPacketReceive(PacketEvent.Receive event) {
       if (!fullNullCheck()) {
-         if (event.getPacket() instanceof GameMessageS2CPacket) {
-            GameMessageS2CPacket packet = event.getPacket();
+         if (event.getPacket() instanceof ClientboundSystemChatPacket) {
+            ClientboundSystemChatPacket packet = event.getPacket();
             if (packet.content().getString().contains("Ñ‚ÐµÐ»ÐµÐ¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒÑ\u0081Ñ\u008f") || packet.content().getString().contains("tpaccept")) {
                if (this.onlyFriends.getValue()) {
                   if (Managers.FRIEND.isFriend(VcoreUtility.solveName(packet.content().getString()))) {
@@ -47,16 +47,16 @@ public class AutoTpAccept extends Module {
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       if (this.duo.getValue() && this.tpTask != null) {
          String text = "Awaiting target "
             + MathUtility.round((float)(this.timeOut.getValue() * 1000 - (System.currentTimeMillis() - this.tpTask.time())) / 1000.0F, 1);
          FontRenderers.sf_bold
             .drawCenteredString(
-               context.getMatrices(),
+               context.pose(),
                text,
-               mc.getWindow().getScaledWidth() / 2.0F,
-               mc.getWindow().getScaledHeight() / 2.0F + 30.0F,
+               mc.getWindow().getGuiScaledWidth() / 2.0F,
+               mc.getWindow().getGuiScaledHeight() / 2.0F + 30.0F,
                HudEditor.getColor(1).getRGB()
             );
       }
@@ -70,7 +70,7 @@ public class AutoTpAccept extends Module {
             return;
          }
 
-         for (PlayerEntity pl : mc.world.getPlayers()) {
+         for (Player pl : mc.level.players()) {
             if (pl != mc.player && !Managers.FRIEND.isFriend(pl)) {
                this.tpTask.task.run();
                this.tpTask = null;
@@ -82,9 +82,9 @@ public class AutoTpAccept extends Module {
 
    public void acceptRequest(String name) {
       if (this.grief.getValue()) {
-         mc.getNetworkHandler().sendChatCommand("tpaccept " + VcoreUtility.solveName(name));
+         mc.getConnection().sendCommand("tpaccept " + VcoreUtility.solveName(name));
       } else {
-         mc.getNetworkHandler().sendChatCommand("tpaccept");
+         mc.getConnection().sendCommand("tpaccept");
       }
    }
 

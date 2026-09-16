@@ -1,18 +1,18 @@
 package vcore.injection;
 
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.feature.FeatureRenderer;
-import net.minecraft.client.render.entity.feature.FeatureRendererContext;
-import net.minecraft.client.render.entity.feature.HeldItemFeatureRenderer;
-import net.minecraft.client.render.entity.model.EntityModel;
-import net.minecraft.client.render.entity.model.ModelWithArms;
-import net.minecraft.client.render.item.HeldItemRenderer;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Arm;
-import net.minecraft.util.math.RotationAxis;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import net.minecraft.client.model.ArmedModel;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.ItemInHandLayer;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -21,13 +21,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.core.manager.client.ModuleManager;
 
-@Mixin(HeldItemFeatureRenderer.class)
-public abstract class MixinHeldItemFeatureRenderer<T extends LivingEntity, M extends EntityModel<T> & ModelWithArms> extends FeatureRenderer<T, M> {
+@Mixin(ItemInHandLayer.class)
+public abstract class MixinHeldItemFeatureRenderer<T extends LivingEntity, M extends EntityModel<T> & ArmedModel> extends RenderLayer<T, M> {
    @Shadow
    @Final
-   private HeldItemRenderer heldItemRenderer;
+   private ItemInHandRenderer itemInHandRenderer;
 
-   protected MixinHeldItemFeatureRenderer(FeatureRendererContext<T, M> context) {
+   protected MixinHeldItemFeatureRenderer(RenderLayerParent<T, M> context) {
       super(context);
    }
 
@@ -35,13 +35,13 @@ public abstract class MixinHeldItemFeatureRenderer<T extends LivingEntity, M ext
       method = "render",
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/render/entity/feature/HeldItemFeatureRenderer;renderItem(Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/render/model/json/ModelTransformationMode;Lnet/minecraft/util/Arm;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
+         target = "Lnet/minecraft/client/renderer/entity/layers/ItemInHandLayer;renderArmWithItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;Lnet/minecraft/world/entity/HumanoidArm;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
          ordinal = 0
       )
    )
    private void applyCustomModelHeldItemRoot(
-      MatrixStack matrices,
-      VertexConsumerProvider vertexConsumers,
+      PoseStack matrices,
+      MultiBufferSource vertexConsumers,
       int light,
       T entity,
       float limbAngle,
@@ -57,31 +57,31 @@ public abstract class MixinHeldItemFeatureRenderer<T extends LivingEntity, M ext
       }
    }
 
-   @Inject(method = "renderItem", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "renderArmWithItem", at = @At("HEAD"), cancellable = true)
    private void renderCustomModelHeldItem(
       LivingEntity entity,
       ItemStack stack,
-      ModelTransformationMode renderMode,
-      Arm arm,
-      MatrixStack matrices,
-      VertexConsumerProvider vertexConsumers,
+      ItemDisplayContext renderMode,
+      HumanoidArm arm,
+      PoseStack matrices,
+      MultiBufferSource vertexConsumers,
       int light,
       CallbackInfo ci
    ) {
       if (ModuleManager.customModel != null && ModuleManager.customModel.shouldTransformHeldItem(entity)) {
          ci.cancel();
          if (!stack.isEmpty()) {
-            matrices.push();
-            ((ModelWithArms)this.getContextModel()).setArmAngle(arm, matrices);
-            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-90.0F));
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F));
-            if (renderMode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND || renderMode == ModelTransformationMode.THIRD_PERSON_RIGHT_HAND) {
-               boolean leftHanded = arm == Arm.LEFT;
+            matrices.pushPose();
+            ((ArmedModel)this.getParentModel()).translateToHand(arm, matrices);
+            matrices.mulPose(Axis.XP.rotationDegrees(-90.0F));
+            matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+            if (renderMode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND || renderMode == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND) {
+               boolean leftHanded = arm == HumanoidArm.LEFT;
                matrices.translate((leftHanded ? -1.0F : 1.0F) / 6.0F, 0.125F, -0.999F);
             }
 
-            this.heldItemRenderer.renderItem(entity, stack, renderMode, arm == Arm.LEFT, matrices, vertexConsumers, light);
-            matrices.pop();
+            this.itemInHandRenderer.renderItem(entity, stack, renderMode, arm == HumanoidArm.LEFT, matrices, vertexConsumers, light);
+            matrices.popPose();
          }
       }
    }

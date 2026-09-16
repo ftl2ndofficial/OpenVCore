@@ -1,8 +1,8 @@
 package vcore.features.modules.combat;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import vcore.core.InputBlocker;
 import vcore.features.modules.Module;
 import vcore.injection.accesors.IMinecraftClient;
@@ -63,7 +63,7 @@ public class BowSpam extends Module {
 
    private void tryStartAutoPull() {
       if (this.canUseBowNow()) {
-         Hand bowHand = this.getAvailableBowHand();
+         InteractionHand bowHand = this.getAvailableBowHand();
          if (bowHand != null && this.canUseBowFromHand(bowHand)) {
             this.startUsingBow(bowHand);
             this.holdStartAt = System.currentTimeMillis();
@@ -84,7 +84,7 @@ public class BowSpam extends Module {
    }
 
    private boolean canProcess() {
-      return mc.player != null && mc.interactionManager != null;
+      return mc.player != null && mc.gameMode != null;
    }
 
    private boolean canUseBowNow() {
@@ -97,49 +97,49 @@ public class BowSpam extends Module {
    }
 
    private boolean isUsingBow() {
-      return mc.player != null && mc.player.isUsingItem() && mc.player.getActiveItem().getItem() == Items.BOW;
+      return mc.player != null && mc.player.isUsingItem() && mc.player.getUseItem().getItem() == Items.BOW;
    }
 
-   private Hand getAvailableBowHand() {
+   private InteractionHand getAvailableBowHand() {
       if (mc.player == null) {
          return null;
-      } else if (this.isBow(mc.player.getMainHandStack())) {
-         return Hand.MAIN_HAND;
+      } else if (this.isBow(mc.player.getMainHandItem())) {
+         return InteractionHand.MAIN_HAND;
       } else {
-         return this.isBow(mc.player.getOffHandStack()) ? Hand.OFF_HAND : null;
+         return this.isBow(mc.player.getOffhandItem()) ? InteractionHand.OFF_HAND : null;
       }
    }
 
-   private boolean canUseBowFromHand(Hand hand) {
+   private boolean canUseBowFromHand(InteractionHand hand) {
       if (mc.player == null) {
          return false;
       }
 
-      ItemStack bowStack = mc.player.getStackInHand(hand);
-      return this.isBow(bowStack) && (mc.player.getAbilities().creativeMode || !mc.player.getProjectileType(bowStack).isEmpty());
+      ItemStack bowStack = mc.player.getItemInHand(hand);
+      return this.isBow(bowStack) && (mc.player.getAbilities().instabuild || !mc.player.getProjectile(bowStack).isEmpty());
    }
 
    private boolean isBow(ItemStack stack) {
       return stack.getItem() == Items.BOW;
    }
 
-   private void startUsingBow(Hand hand) {
-      if (mc.currentScreen != null) {
+   private void startUsingBow(InteractionHand hand) {
+      if (mc.screen != null) {
          ((IMinecraftClient)mc).idoItemUse();
       } else {
-         mc.options.useKey.setPressed(true);
+         mc.options.keyUse.setDown(true);
          this.useKeyHeld = true;
       }
    }
 
    private void releaseAutoPull(boolean stopUsingItem) {
       if (this.useKeyHeld) {
-         mc.options.useKey.setPressed(false);
+         mc.options.keyUse.setDown(false);
          this.useKeyHeld = false;
       }
 
       if (stopUsingItem && this.canProcess() && this.isUsingBow()) {
-         mc.interactionManager.stopUsingItem(mc.player);
+         mc.gameMode.releaseUsingItem(mc.player);
       }
 
       this.resetPullState();
@@ -154,7 +154,7 @@ public class BowSpam extends Module {
       this.resetPullState();
       this.lastShotAt = 0L;
       if (this.useKeyHeld) {
-         mc.options.useKey.setPressed(false);
+         mc.options.keyUse.setDown(false);
          this.useKeyHeld = false;
       }
    }

@@ -1,24 +1,24 @@
 package vcore.injection;
 
-import net.minecraft.block.entity.SignText;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.block.entity.SignBlockEntityRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.blockentity.SignRenderer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.entity.SignText;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.core.manager.client.ModuleManager;
 
-@Mixin(SignBlockEntityRenderer.class)
+@Mixin(SignRenderer.class)
 public class MixinSignBlockEntityRenderer {
-   @Inject(method = "renderText", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "renderSignText", at = @At("HEAD"), cancellable = true)
    public final void renderTextHook(
       BlockPos pos,
       SignText signText,
-      MatrixStack matrices,
-      VertexConsumerProvider vertexConsumers,
+      PoseStack matrices,
+      MultiBufferSource vertexConsumers,
       int light,
       int lineHeight,
       int lineWidth,

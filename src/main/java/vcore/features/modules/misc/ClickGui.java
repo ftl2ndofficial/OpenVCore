@@ -36,7 +36,7 @@ public class ClickGui extends Module {
 
    @Override
    public void onUpdate() {
-      if (!(mc.currentScreen instanceof ClickGUI)) {
+      if (!(mc.screen instanceof ClickGUI)) {
          this.disable();
       }
    }

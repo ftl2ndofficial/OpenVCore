@@ -1,10 +1,10 @@
 package vcore.injection;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import vcore.core.manager.client.ModuleManager;
@@ -14,8 +14,8 @@ import vcore.features.modules.misc.FakePlayer;
 import vcore.utility.interfaces.IEntityLiving;
 import vcore.utility.interfaces.IOtherClientPlayerEntity;
 
-@Mixin(OtherClientPlayerEntity.class)
-public class MixinOtherClientPlayerEntity extends AbstractClientPlayerEntity implements IOtherClientPlayerEntity {
+@Mixin(RemotePlayer.class)
+public class MixinOtherClientPlayerEntity extends AbstractClientPlayer implements IOtherClientPlayerEntity {
    @Unique
    private double backUpX;
    @Unique
@@ -23,7 +23,7 @@ public class MixinOtherClientPlayerEntity extends AbstractClientPlayerEntity imp
    @Unique
    private double backUpZ;
 
-   public MixinOtherClientPlayerEntity(ClientWorld world, GameProfile profile) {
+   public MixinOtherClientPlayerEntity(ClientLevel world, GameProfile profile) {
       super(world, profile);
    }
 
@@ -40,7 +40,7 @@ public class MixinOtherClientPlayerEntity extends AbstractClientPlayerEntity imp
             Aura.Position bestPos = null;
 
             for (Aura.Position p : ((IEntityLiving)(Object)this).getPositionHistory()) {
-               double dst = Module.mc.player.squaredDistanceTo(p.getX(), p.getY(), p.getZ());
+               double dst = Module.mc.player.distanceToSqr(p.getX(), p.getY(), p.getZ());
                if (dst < minDst) {
                   minDst = dst;
                   bestPos = p;
@@ -48,19 +48,19 @@ public class MixinOtherClientPlayerEntity extends AbstractClientPlayerEntity imp
             }
 
             if (bestPos != null) {
-               this.setPosition(bestPos.getX(), bestPos.getY(), bestPos.getZ());
+               this.setPos(bestPos.getX(), bestPos.getY(), bestPos.getZ());
                if ((Object)Aura.target == (Object)this) {
                   ModuleManager.aura.resolvedBox = this.getBoundingBox();
                }
             }
          } else {
-            Vec3d from = new Vec3d(((IEntityLiving)(Object)this).getPrevServerX(), ((IEntityLiving)(Object)this).getPrevServerY(), ((IEntityLiving)(Object)this).getPrevServerZ());
-            Vec3d to = new Vec3d(this.serverX, this.serverY, this.serverZ);
+            Vec3 from = new Vec3(((IEntityLiving)(Object)this).getPrevServerX(), ((IEntityLiving)(Object)this).getPrevServerY(), ((IEntityLiving)(Object)this).getPrevServerZ());
+            Vec3 to = new Vec3(this.lerpX, this.lerpY, this.lerpZ);
             if (mode == Aura.Resolver.Advantage) {
-               if (Module.mc.player.squaredDistanceTo(from) > Module.mc.player.squaredDistanceTo(to)) {
-                  this.setPosition(to.x, to.y, to.z);
+               if (Module.mc.player.distanceToSqr(from) > Module.mc.player.distanceToSqr(to)) {
+                  this.setPos(to.x, to.y, to.z);
                } else {
-                  this.setPosition(from.x, from.y, from.z);
+                  this.setPos(from.x, from.y, from.z);
                }
             }
 
@@ -74,7 +74,7 @@ public class MixinOtherClientPlayerEntity extends AbstractClientPlayerEntity imp
    @Override
    public void releaseResolver() {
       if (this.backUpY != -999.0) {
-         this.setPosition(this.backUpX, this.backUpY, this.backUpZ);
+         this.setPos(this.backUpX, this.backUpY, this.backUpZ);
          this.backUpY = -999.0;
       }
    }

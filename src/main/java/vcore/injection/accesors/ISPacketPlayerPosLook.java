@@ -1,14 +1,14 @@
 package vcore.injection.accesors;
 
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(PlayerPositionLookS2CPacket.class)
+@Mixin(ClientboundPlayerPositionPacket.class)
 public interface ISPacketPlayerPosLook {
-   @Accessor("yaw")
+   @Accessor("yRot")
    void setYaw(float var1);
 
-   @Accessor("pitch")
+   @Accessor("xRot")
    void setPitch(float var1);
 }

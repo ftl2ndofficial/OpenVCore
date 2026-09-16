@@ -1,6 +1,6 @@
 package vcore.utility.render.animation;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 import vcore.utility.render.Render3DEngine;
 
 public class EaseOutCirc {
@@ -20,7 +20,7 @@ public class EaseOutCirc {
 
    public void update() {
       this.prevStep = this.step;
-      this.step = MathHelper.clamp(this.step + 1, 0, this.maxTicks);
+      this.step = Mth.clamp(this.step + 1, 0, this.maxTicks);
    }
 
    public static double createAnimation(double value) {

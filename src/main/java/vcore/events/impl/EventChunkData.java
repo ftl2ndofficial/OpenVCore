@@ -1,16 +1,16 @@
 package vcore.events.impl;
 
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.world.level.chunk.LevelChunk;
 import vcore.events.Event;
 
 public class EventChunkData extends Event {
-   private final WorldChunk chunk;
+   private final LevelChunk chunk;
 
-   public EventChunkData(WorldChunk chunk) {
+   public EventChunkData(LevelChunk chunk) {
       this.chunk = chunk;
    }
 
-   public WorldChunk getChunk() {
+   public LevelChunk getChunk() {
       return this.chunk;
    }
 }

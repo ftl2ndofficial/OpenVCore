@@ -1,6 +1,6 @@
 package vcore.events.impl;
 
-import net.minecraft.entity.Entity;
+import net.minecraft.world.entity.Entity;
 import vcore.events.Event;
 
 public class EventAttack extends Event {

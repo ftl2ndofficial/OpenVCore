@@ -1,9 +1,9 @@
 package vcore.injection;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -13,15 +13,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import vcore.Vcore;
 import vcore.events.impl.EventSetBlockState;
 
-@Mixin(WorldChunk.class)
+@Mixin(LevelChunk.class)
 public class MixinWorldChunk {
    @Shadow
    @Final
-   World world;
+   Level level;
 
    @Inject(method = "setBlockState", at = @At("RETURN"))
    private void setBlockStateHook(BlockPos pos, BlockState state, boolean moved, CallbackInfoReturnable<BlockState> cir) {
-      if (this.world.isClient) {
+      if (this.level.isClientSide) {
          Vcore.EVENT_BUS.post(new EventSetBlockState(pos, state, (BlockState)cir.getReturnValue()));
       }
    }

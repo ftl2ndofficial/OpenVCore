@@ -1,6 +1,6 @@
 package vcore.events.impl;
 
-import net.minecraft.network.packet.Packet;
+import net.minecraft.network.protocol.Packet;
 import vcore.events.Event;
 
 public class PacketEvent extends Event {

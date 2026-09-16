@@ -1,18 +1,18 @@
 package vcore.injection;
 
+import com.mojang.blaze3d.platform.IconSet;
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.platform.Window;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.RunArgs;
-import net.minecraft.client.gui.screen.Overlay;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.util.Icons;
-import net.minecraft.client.util.Window;
-import net.minecraft.resource.ResourcePack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Overlay;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.main.GameConfig;
+import net.minecraft.server.packs.PackResources;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWImage;
@@ -43,7 +43,7 @@ import vcore.gui.clickui.ClickGUI;
 import vcore.gui.font.FontRenderers;
 import vcore.utility.render.WindowResizeCallback;
 
-@Mixin(MinecraftClient.class)
+@Mixin(Minecraft.class)
 public abstract class MixinMinecraftClient {
    @Shadow
    @Final
@@ -57,7 +57,7 @@ public abstract class MixinMinecraftClient {
    public abstract void setScreen(@Nullable Screen var1);
 
    @Inject(method = "<init>", at = @At("TAIL"))
-   void postWindowInit(RunArgs args, CallbackInfo ci) {
+   void postWindowInit(GameConfig args, CallbackInfo ci) {
       try {
          FontRenderers.settings = FontRenderers.create(12.0F, "comfortaa");
          FontRenderers.modules = FontRenderers.create(15.0F, "comfortaa");
@@ -85,7 +85,7 @@ public abstract class MixinMinecraftClient {
 
    @Inject(method = "tick", at = @At("HEAD"))
    void preTickHook(CallbackInfo ci) {
-      boolean inGame = Module.mc.player != null && Module.mc.world != null;
+      boolean inGame = Module.mc.player != null && Module.mc.level != null;
       if (this.wasInGame && !inGame) {
          Managers.MODULE.onLogout();
       }
@@ -103,12 +103,12 @@ public abstract class MixinMinecraftClient {
       }
    }
 
-   @Inject(method = "onResolutionChanged", at = @At("TAIL"))
+   @Inject(method = "resizeDisplay", at = @At("TAIL"))
    private void captureResize(CallbackInfo ci) {
-      ((WindowResizeCallback)WindowResizeCallback.EVENT.invoker()).onResized((MinecraftClient)(Object)this, this.window);
+      ((WindowResizeCallback)WindowResizeCallback.EVENT.invoker()).onResized((Minecraft)(Object)this, this.window);
    }
 
-   @Inject(method = "doItemPick", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "pickBlock", at = @At("HEAD"), cancellable = true)
    private void doItemPickHook(CallbackInfo ci) {
       if (ModuleManager.keyPearlAntiPickup) {
          ci.cancel();
@@ -139,9 +139,9 @@ public abstract class MixinMinecraftClient {
 
    @Redirect(
       method = "<init>",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/util/Window;setIcon(Lnet/minecraft/resource/ResourcePack;Lnet/minecraft/client/util/Icons;)V")
+      at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/Window;setIcon(Lnet/minecraft/server/packs/PackResources;Lcom/mojang/blaze3d/platform/IconSet;)V")
    )
-   private void onChangeIcon(Window instance, ResourcePack resourcePack, Icons icons) throws IOException {
+   private void onChangeIcon(Window instance, PackResources resourcePack, IconSet icons) throws IOException {
       try (
          InputStream img16x16 = MixinMinecraftClient.class.getResourceAsStream("/icon.png");
          InputStream img32x32 = MixinMinecraftClient.class.getResourceAsStream("/icon.png");
@@ -167,7 +167,7 @@ public abstract class MixinMinecraftClient {
             for (int i = 0; i < imgList.size(); i++) {
                NativeImage nativeImage = NativeImage.read(imgList.get(i));
                ByteBuffer bytebuffer = MemoryUtil.memAlloc(nativeImage.getWidth() * nativeImage.getHeight() * 4);
-               bytebuffer.asIntBuffer().put(nativeImage.copyPixelsRgba());
+               bytebuffer.asIntBuffer().put(nativeImage.getPixelsRGBA());
                buffer.position(i);
                buffer.width(nativeImage.getWidth());
                buffer.height(nativeImage.getHeight());
@@ -177,7 +177,7 @@ public abstract class MixinMinecraftClient {
 
             try {
                if (GLFW.glfwGetPlatform() != 393219) {
-                  GLFW.glfwSetWindowIcon(Module.mc.getWindow().getHandle(), buffer);
+                  GLFW.glfwSetWindowIcon(Module.mc.getWindow().getWindow(), buffer);
                }
             } catch (Exception var11) {
             }
@@ -202,7 +202,7 @@ public abstract class MixinMinecraftClient {
       }
    }
 
-   @Inject(method = "doAttack", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
    private void doAttackHook(CallbackInfoReturnable<Boolean> cir) {
       EventAttack event = new EventAttack(null, true);
       Vcore.EVENT_BUS.post(event);
@@ -211,7 +211,7 @@ public abstract class MixinMinecraftClient {
       }
    }
 
-   @Inject(method = "doItemUse", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true)
    private void doItemUseHook(CallbackInfo ci) {
       EventItemUse event = new EventItemUse();
       Vcore.EVENT_BUS.post(event);
@@ -220,7 +220,7 @@ public abstract class MixinMinecraftClient {
       }
    }
 
-   @Inject(method = "handleBlockBreaking", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "continueAttack", at = @At("HEAD"), cancellable = true)
    private void handleBlockBreakingHook(boolean breaking, CallbackInfo ci) {
       EventHandleBlockBreaking event = new EventHandleBlockBreaking();
       Vcore.EVENT_BUS.post(event);
@@ -229,7 +229,7 @@ public abstract class MixinMinecraftClient {
       }
    }
 
-   @Inject(method = "updateWindowTitle", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "updateTitle", at = @At("HEAD"), cancellable = true)
    private void overrideWindowTitle(CallbackInfo ci) {
       if (!UnHook.isActive()) {
          String title = "Vcore Release";

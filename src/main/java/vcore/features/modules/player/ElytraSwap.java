@@ -1,14 +1,14 @@
 package vcore.features.modules.player;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import vcore.core.InputBlocker;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
@@ -51,7 +51,7 @@ public class ElytraSwap extends Module {
          this.swapDelayTicks--;
       }
 
-      if (mc.currentScreen == null) {
+      if (mc.screen == null) {
          if (this.switchButton.getValue().getKey() != -1 && this.isKeyPressed(this.switchButton.getValue().getKey()) && this.switchTimer.every(500L)) {
             this.swapChest();
          }
@@ -67,14 +67,14 @@ public class ElytraSwap extends Module {
 
    @EventHandler
    public void onPacketSend(PacketEvent.SendPost e) {
-      if (e.getPacket() instanceof ClientCommandC2SPacket command && command.getMode() == Mode.START_FALL_FLYING && this.startFireWork.getValue()) {
+      if (e.getPacket() instanceof ServerboundPlayerCommandPacket command && command.getAction() == Action.START_FALL_FLYING && this.startFireWork.getValue()) {
          this.useFireWork();
       }
    }
 
    public void useFireWork() {
-      if (mc.player != null && mc.interactionManager != null) {
-         if (!mc.player.getItemCooldownManager().isCoolingDown(Items.FIREWORK_ROCKET)) {
+      if (mc.player != null && mc.gameMode != null) {
+         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
             if (ClientSettings.fireWorkMode.is(ClientSettings.FireWorkMode.OffHand)) {
                if (!this.useFireworkOffhand()) {
                   this.sendMessage("You've got no fireworks!");
@@ -93,34 +93,34 @@ public class ElytraSwap extends Module {
    }
 
    private void useFireworkMainHand() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          this.useFireworkOffhandPacket();
       } else {
          SearchInvResult fireWorkResult = InventoryUtility.findItemInInventory(Items.FIREWORK_ROCKET);
          if (!fireWorkResult.found()) {
             this.sendMessage("You've got no fireworks!");
          } else {
-            int currentSlot = mc.player.getInventory().selectedSlot;
+            int currentSlot = mc.player.getInventory().selected;
             int hotbarSlot = currentSlot % 8 + 1;
             int itemSlot = fireWorkResult.slot();
-            if (mc.player.isUsingItem() && mc.player.getActiveHand() == Hand.MAIN_HAND) {
+            if (mc.player.isUsingItem() && mc.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
                this.useFireworkWithOffhandSwap(itemSlot);
             } else if (itemSlot >= 36) {
                this.useFireworkFromHotbar(itemSlot - 36, currentSlot);
             } else {
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, itemSlot, hotbarSlot, SlotActionType.SWAP, mc.player);
-               this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, itemSlot, hotbarSlot, ClickType.SWAP, mc.player);
+               this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
                this.useFireworkFromHotbar(hotbarSlot, currentSlot);
-               mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, itemSlot, hotbarSlot, SlotActionType.SWAP, mc.player);
-               this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+               mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, itemSlot, hotbarSlot, ClickType.SWAP, mc.player);
+               this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
             }
          }
       }
    }
 
    private boolean useFireworkMainHandOnly(boolean notifyMissing) {
-      if (mc.player != null && mc.interactionManager != null) {
-         if (mc.player.getItemCooldownManager().isCoolingDown(Items.FIREWORK_ROCKET)) {
+      if (mc.player != null && mc.gameMode != null) {
+         if (mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
             return false;
          }
 
@@ -133,23 +133,23 @@ public class ElytraSwap extends Module {
 
             return false;
          } else {
-            int currentSlot = mc.player.getInventory().selectedSlot;
+            int currentSlot = mc.player.getInventory().selected;
             if (hotbarFirework.found()) {
                this.useFireworkFromHotbar(hotbarFirework.slot(), currentSlot);
                return true;
             }
 
-            if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
+            if (mc.player.containerMenu != mc.player.inventoryMenu) {
                return false;
             }
 
             int hotbarSlot = currentSlot % 8 + 1;
             int itemSlot = inventoryFirework.slot();
-            mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, itemSlot, hotbarSlot, SlotActionType.SWAP, mc.player);
-            this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+            mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, itemSlot, hotbarSlot, ClickType.SWAP, mc.player);
+            this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
             this.useFireworkFromHotbar(hotbarSlot, currentSlot);
-            mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, itemSlot, hotbarSlot, SlotActionType.SWAP, mc.player);
-            this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+            mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, itemSlot, hotbarSlot, ClickType.SWAP, mc.player);
+            this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
             return true;
          }
       } else {
@@ -158,7 +158,7 @@ public class ElytraSwap extends Module {
    }
 
    private boolean useFireworkOffhand() {
-      if (mc.player.getOffHandStack().getItem() == Items.FIREWORK_ROCKET) {
+      if (mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET) {
          this.useFireworkOffhandPacket();
          return true;
       }
@@ -168,36 +168,36 @@ public class ElytraSwap extends Module {
          return false;
       }
 
-      if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
+      if (mc.player.containerMenu != mc.player.inventoryMenu) {
          return true;
       }
 
       int slotIndex = convertFireworkSlot(fireWorkResult.slot());
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
       this.useFireworkOffhandPacket();
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
       return true;
    }
 
    private void useFireworkFromHotbar(int fireworkSlot, int returnSlot) {
       InventoryUtility.switchToSilent(fireworkSlot);
       float[] rotation = this.getUseRotation();
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, rotation[0], rotation[1]));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, rotation[0], rotation[1]));
       InventoryUtility.switchToSilent(returnSlot);
    }
 
    private void useFireworkWithOffhandSwap(int itemSlot) {
       int slotIndex = convertFireworkSlot(itemSlot);
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
-      this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
+      this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       this.useFireworkOffhandPacket();
-      mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotIndex, 40, SlotActionType.SWAP, mc.player);
-      this.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+      mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotIndex, 40, ClickType.SWAP, mc.player);
+      this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
    }
 
    private void useFireworkOffhandPacket() {
       float[] rotation = this.getUseRotation();
-      this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.OFF_HAND, id, rotation[0], rotation[1]));
+      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.OFF_HAND, id, rotation[0], rotation[1]));
    }
 
    private static int convertFireworkSlot(int slotIndex) {
@@ -205,8 +205,8 @@ public class ElytraSwap extends Module {
    }
 
    private float[] getUseRotation() {
-      float yaw = mc.player.getYaw();
-      float pitch = mc.player.getPitch();
+      float yaw = mc.player.getYRot();
+      float pitch = mc.player.getXRot();
       if (ModuleManager.aura.isEnabled() && Aura.target != null) {
          yaw = ModuleManager.aura.rotationYaw;
          pitch = ModuleManager.aura.rotationPitch;
@@ -295,7 +295,7 @@ public class ElytraSwap extends Module {
       clickSlot(6);
       clickSlot(request.slot);
       if (request.startFirework) {
-         this.sendPacket(new ClientCommandC2SPacket(mc.player, Mode.START_FALL_FLYING));
+         this.sendPacket(new ServerboundPlayerCommandPacket(mc.player, Action.START_FALL_FLYING));
       }
 
       swapping = false;
@@ -304,7 +304,7 @@ public class ElytraSwap extends Module {
    }
 
    private ElytraSwap.SwapRequest getSwapRequest() {
-      if (mc.player.getInventory().getStack(38).getItem() == Items.ELYTRA) {
+      if (mc.player.getInventory().getItem(38).getItem() == Items.ELYTRA) {
          int slot = getChestPlateSlot();
          if (slot == -1) {
             this.sendMessage("You don't have a chestplate!");

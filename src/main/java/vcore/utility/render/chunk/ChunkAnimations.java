@@ -2,13 +2,13 @@ package vcore.utility.render.chunk;
 
 import java.util.HashMap;
 import java.util.WeakHashMap;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.chunk.ChunkBuilder.BuiltChunk;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.render.ChunkAnimation;
 import vcore.utility.render.chunk.impl.Cubic;
@@ -20,17 +20,17 @@ import vcore.utility.render.chunk.impl.Quint;
 public class ChunkAnimations {
    public static final ChunkAnimations INSTANCE = new ChunkAnimations();
    public int mode;
-   private final MinecraftClient mc = MinecraftClient.getInstance();
-   private final WeakHashMap<BuiltChunk, BlockPos> chunkOrigins = new WeakHashMap<>();
+   private final Minecraft mc = Minecraft.getInstance();
+   private final WeakHashMap<RenderSection, BlockPos> chunkOrigins = new WeakHashMap<>();
    private final HashMap<Long, ChunkAnimations.AnimationData> timeStamps = new HashMap<>();
 
-   public Vec3d getOffset(BuiltChunk chunk) {
-      return chunk == null ? Vec3d.ZERO : this.getOffset(chunk.getOrigin());
+   public Vec3 getOffset(RenderSection chunk) {
+      return chunk == null ? Vec3.ZERO : this.getOffset(chunk.getOrigin());
    }
 
-   public Vec3d getOffset(BlockPos origin) {
+   public Vec3 getOffset(BlockPos origin) {
       if (origin == null) {
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       }
 
       ChunkAnimation chunkAnimation = ModuleManager.chunkAnimation;
@@ -38,7 +38,7 @@ public class ChunkAnimations {
          long key = origin.asLong();
          ChunkAnimations.AnimationData animationData = this.timeStamps.get(key);
          if (animationData == null) {
-            return Vec3d.ZERO;
+            return Vec3.ZERO;
          }
 
          int animationDuration = chunkAnimation.time.getValue();
@@ -60,11 +60,11 @@ public class ChunkAnimations {
             switch (animationMode) {
                case 0: {
                   double dy = -chunkY + this.getFunctionValue((float)timeDif, 0.0F, chunkY, animationDuration);
-                  return new Vec3d(0.0, dy, 0.0);
+                  return new Vec3(0.0, dy, 0.0);
                }
                case 1: {
                   double dy = 256 - chunkY - this.getFunctionValue((float)timeDif, 0.0F, 256 - chunkY, animationDuration);
-                  return new Vec3d(0.0, dy, 0.0);
+                  return new Vec3(0.0, dy, 0.0);
                }
                case 2:
                default:
@@ -72,24 +72,24 @@ public class ChunkAnimations {
                case 3:
                   Direction chunkFacing = animationData.chunkFacing;
                   if (chunkFacing != null) {
-                     Vec3i vec = chunkFacing.getVector();
+                     Vec3i vec = chunkFacing.getNormal();
                      double mod = -(200.0F - this.getFunctionValue((float)timeDif, 0.0F, 200.0F, animationDuration));
-                     return new Vec3d(vec.getX() * mod, 0.0, vec.getZ() * mod);
+                     return new Vec3(vec.getX() * mod, 0.0, vec.getZ() * mod);
                   }
             }
          } else {
             this.timeStamps.remove(key);
          }
 
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       } else {
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       }
    }
 
-   public void setPosition(BuiltChunk renderChunk, BlockPos position) {
+   public void setPosition(RenderSection renderChunk, BlockPos position) {
       if (this.mc.player != null) {
-         BlockPos immutablePos = position.toImmutable();
+         BlockPos immutablePos = position.immutable();
          BlockPos previousOrigin = this.chunkOrigins.put(renderChunk, immutablePos);
          if (previousOrigin != null && !previousOrigin.equals(immutablePos)) {
             this.timeStamps.remove(previousOrigin.asLong());
@@ -101,10 +101,10 @@ public class ChunkAnimations {
 
    public void setPosition(BlockPos position) {
       if (this.mc.player != null && position != null) {
-         BlockPos immutablePos = position.toImmutable();
+         BlockPos immutablePos = position.immutable();
          BlockPos zeroedPlayerPos = this.getZeroedPlayerPos(this.mc.player);
          BlockPos zeroedCenteredChunkPos = this.getZeroedCenteredChunkPos(immutablePos);
-         double distSq = zeroedPlayerPos.getSquaredDistance(zeroedCenteredChunkPos.getX(), zeroedCenteredChunkPos.getY(), zeroedCenteredChunkPos.getZ());
+         double distSq = zeroedPlayerPos.distToLowCornerSqr(zeroedCenteredChunkPos.getX(), zeroedCenteredChunkPos.getY(), zeroedCenteredChunkPos.getZ());
          long key = immutablePos.asLong();
          if (distSq > 1024.0) {
             this.timeStamps
@@ -115,13 +115,13 @@ public class ChunkAnimations {
       }
    }
 
-   private BlockPos getZeroedPlayerPos(ClientPlayerEntity player) {
-      BlockPos playerPos = player.getBlockPos();
-      return playerPos.add(0, -playerPos.getY(), 0);
+   private BlockPos getZeroedPlayerPos(LocalPlayer player) {
+      BlockPos playerPos = player.blockPosition();
+      return playerPos.offset(0, -playerPos.getY(), 0);
    }
 
    private BlockPos getZeroedCenteredChunkPos(BlockPos position) {
-      return position.add(8, -position.getY(), 8);
+      return position.offset(8, -position.getY(), 8);
    }
 
    private Direction getChunkFacing(Vec3i dif) {
@@ -148,7 +148,7 @@ public class ChunkAnimations {
    }
 
    private int getVoidFogHeight() {
-      return this.mc.world == null ? 0 : this.mc.world.getBottomY() + 64;
+      return this.mc.level == null ? 0 : this.mc.level.getMinBuildHeight() + 64;
    }
 
    public void clear() {

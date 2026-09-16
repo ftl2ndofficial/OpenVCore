@@ -6,11 +6,11 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import vcore.Vcore;
@@ -29,9 +29,9 @@ public class CombatManager implements IManager {
    @EventHandler
    public void onPacketReceive(PacketEvent.Receive event) {
       if (!Module.fullNullCheck()) {
-         if (event.getPacket() instanceof EntityStatusS2CPacket pac && pac.getStatus() == 35) {
-            Entity ent = pac.getEntity(mc.world);
-            if (!(ent instanceof PlayerEntity)) {
+         if (event.getPacket() instanceof ClientboundEntityEventPacket pac && pac.getEventId() == 35) {
+            Entity ent = pac.getEntity(mc.level);
+            if (!(ent instanceof Player)) {
                return;
             }
 
@@ -45,7 +45,7 @@ public class CombatManager implements IManager {
                this.popList.put(ent.getName().getString(), this.popList.get(ent.getName().getString()) + 1);
             }
 
-            Vcore.EVENT_BUS.post(new TotemPopEvent((PlayerEntity)ent, this.popList.get(ent.getName().getString())));
+            Vcore.EVENT_BUS.post(new TotemPopEvent((Player)ent, this.popList.get(ent.getName().getString())));
          }
       }
    }
@@ -53,7 +53,7 @@ public class CombatManager implements IManager {
    @EventHandler
    public void onPostTick(EventPostTick event) {
       if (!Module.fullNullCheck()) {
-         for (PlayerEntity player : mc.world.getPlayers()) {
+         for (Player player : mc.level.players()) {
             if ((!ModuleManager.antiBot.isEnabled() || ModuleManager.antiBot.mode.getValue() != AntiBot.Mode.Matrix || !AntiBot.isBot(player))
                && player.getHealth() <= 0.0F
                && this.popList.containsKey(player.getName().getString())) {
@@ -63,25 +63,25 @@ public class CombatManager implements IManager {
       }
    }
 
-   public int getPops(@NotNull PlayerEntity entity) {
+   public int getPops(@NotNull Player entity) {
       return this.popList.get(entity.getName().getString()) == null ? 0 : this.popList.get(entity.getName().getString());
    }
 
-   public List<PlayerEntity> getTargets(float range) {
-      return mc.world
-         .getPlayers()
+   public List<Player> getTargets(float range) {
+      return mc.level
+         .players()
          .stream()
-         .filter(e -> !e.isDead())
+         .filter(e -> !e.isDeadOrDying())
          .filter(entityPlayer -> !Managers.FRIEND.isFriend(entityPlayer.getName().getString()))
          .filter(entityPlayer -> entityPlayer != mc.player)
-         .filter(entityPlayer -> mc.player.squaredDistanceTo(entityPlayer) < range * range)
-         .sorted(Comparator.comparing(e -> mc.player.squaredDistanceTo(e)))
+         .filter(entityPlayer -> mc.player.distanceToSqr(entityPlayer) < range * range)
+         .sorted(Comparator.comparing(e -> mc.player.distanceToSqr(e)))
          .collect(Collectors.toList());
    }
 
    @Nullable
-   public PlayerEntity getTarget(float range, @NotNull CombatManager.TargetBy targetBy) {
-      PlayerEntity target = null;
+   public Player getTarget(float range, @NotNull CombatManager.TargetBy targetBy) {
+      Player target = null;
       switch (targetBy) {
          case Distance:
             target = this.getNearestTarget(range);
@@ -97,19 +97,19 @@ public class CombatManager implements IManager {
    }
 
    @Nullable
-   public PlayerEntity getNearestTarget(float range) {
+   public Player getNearestTarget(float range) {
       return this.getTargets(range).stream().min(Comparator.comparing(t -> mc.player.distanceTo(t))).orElse(null);
    }
 
-   public PlayerEntity getTargetByHealth(float range) {
+   public Player getTargetByHealth(float range) {
       return this.getTargets(range).stream().min(Comparator.comparing(t -> t.getHealth() + t.getAbsorptionAmount())).orElse(null);
    }
 
-   public PlayerEntity getTargetByFOV(float range) {
+   public Player getTargetByFOV(float range) {
       return this.getTargets(range).stream().min(Comparator.comparing(this::getFOVAngle)).orElse(null);
    }
 
-   public PlayerEntity getTargetByFOV(float range, float fov) {
+   public Player getTargetByFOV(float range, float fov) {
       return this.getTargets(range)
          .stream()
          .filter(entityPlayer -> this.getFOVAngle(entityPlayer) < fov)
@@ -118,8 +118,8 @@ public class CombatManager implements IManager {
    }
 
    @Nullable
-   public PlayerEntity getTarget(float range, @NotNull CombatManager.TargetBy targetBy, @NotNull Predicate<PlayerEntity> predicate) {
-      PlayerEntity target = null;
+   public Player getTarget(float range, @NotNull CombatManager.TargetBy targetBy, @NotNull Predicate<Player> predicate) {
+      Player target = null;
       switch (targetBy) {
          case Distance:
             target = this.getNearestTarget(range, predicate);
@@ -135,21 +135,21 @@ public class CombatManager implements IManager {
    }
 
    @Nullable
-   public PlayerEntity getNearestTarget(float range, Predicate<PlayerEntity> predicate) {
+   public Player getNearestTarget(float range, Predicate<Player> predicate) {
       return this.getTargets(range).stream().filter(predicate).min(Comparator.comparing(t -> mc.player.distanceTo(t))).orElse(null);
    }
 
-   public PlayerEntity getTargetByHealth(float range, Predicate<PlayerEntity> predicate) {
+   public Player getTargetByHealth(float range, Predicate<Player> predicate) {
       return this.getTargets(range).stream().filter(predicate).min(Comparator.comparing(t -> t.getHealth() + t.getAbsorptionAmount())).orElse(null);
    }
 
-   public PlayerEntity getTargetByFOV(float range, Predicate<PlayerEntity> predicate) {
+   public Player getTargetByFOV(float range, Predicate<Player> predicate) {
       return this.getTargets(range).stream().filter(predicate).min(Comparator.comparing(this::getFOVAngle)).orElse(null);
    }
 
    private float getFOVAngle(@NotNull LivingEntity e) {
-      float yaw = (float)MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(e.getZ() - mc.player.getZ(), e.getX() - mc.player.getX())) - 90.0);
-      return Math.abs(yaw - MathHelper.wrapDegrees(mc.player.getYaw()));
+      float yaw = (float)Mth.wrapDegrees(Math.toDegrees(Math.atan2(e.getZ() - mc.player.getZ(), e.getX() - mc.player.getX())) - 90.0);
+      return Math.abs(yaw - Mth.wrapDegrees(mc.player.getYRot()));
    }
 
    public enum TargetBy {

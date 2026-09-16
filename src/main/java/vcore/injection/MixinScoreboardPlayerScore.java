@@ -1,8 +1,8 @@
 package vcore.injection;
 
-import net.minecraft.scoreboard.ScoreboardEntry;
+import net.minecraft.world.scores.PlayerScoreEntry;
 import org.spongepowered.asm.mixin.Mixin;
 
-@Mixin(ScoreboardEntry.class)
+@Mixin(PlayerScoreEntry.class)
 public class MixinScoreboardPlayerScore {
 }

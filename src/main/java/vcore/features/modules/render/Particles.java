@@ -1,30 +1,30 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DstFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SrcFactor;
+import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
+import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.math.Axis;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.AirBlock;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.VertexFormat.DrawMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.projectile.thrown.EnderPearlEntity;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.Heightmap.Type;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.ThrownEnderpearl;
+import net.minecraft.world.level.block.AirBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap.Types;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import vcore.events.impl.EventAttack;
 import vcore.features.modules.Module;
@@ -104,7 +104,7 @@ public class Particles extends Module {
 
    @Override
    public void onUpdate() {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          this.removeExpiredParticles(this.hitParticles, 2000L);
          this.removeExpiredParticles(this.pearlParticles, 2000L);
          this.removeExpiredParticles(this.worldParticles, 4000L);
@@ -131,14 +131,14 @@ public class Particles extends Module {
             }
 
             for (int i = 0; i < 35; i++) {
-               Vec3d position = new Vec3d(target.getX(), target.getY() + MathUtility.random(0.0, target.getHeight()), target.getZ())
+               Vec3 position = new Vec3(target.getX(), target.getY() + MathUtility.random(0.0, target.getBbHeight()), target.getZ())
                   .add(0.0, getParticleRadius(this.hitScale.getValue()), 0.0);
                this.hitParticles
                   .add(
                      new Particles.Particle(
                         this.hitMode.getValue().texture,
                         position,
-                        new Vec3d(MathUtility.random(-6.0, 6.0), MathUtility.random(-6.0, 6.0), MathUtility.random(-6.0, 6.0)),
+                        new Vec3(MathUtility.random(-6.0, 6.0), MathUtility.random(-6.0, 6.0), MathUtility.random(-6.0, 6.0)),
                         true,
                         this.hitParticles.size(),
                         getParticleRadius(this.hitScale.getValue())
@@ -150,8 +150,8 @@ public class Particles extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
-      if (mc.player != null && mc.world != null) {
+   public void onRender3D(PoseStack stack) {
+      if (mc.player != null && mc.level != null) {
          double deltaTime = this.getRenderDeltaTime();
          if (this.hit.getValue() && !this.hitParticles.isEmpty()) {
             this.renderParticles(stack, this.hitParticles, deltaTime, this.hitSyncColor.getValue(), this.hitColor.getValue().getColorObject(), 400L, 600L);
@@ -180,9 +180,9 @@ public class Particles extends Module {
       if (!this.pearl.getValue()) {
          this.pearlParticles.clear();
       } else if (this.pearlParticles.size() < 650) {
-         for (Entity entity : mc.world.getEntities()) {
-            if (entity instanceof EnderPearlEntity && !entity.isOnGround() && !(entity.getVelocity().lengthSquared() <= 1.0E-4)) {
-               Vec3d position = entity.getPos();
+         for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity instanceof ThrownEnderpearl && !entity.onGround() && !(entity.getDeltaMovement().lengthSqr() <= 1.0E-4)) {
+               Vec3 position = entity.position();
                float particleSize = getParticleRadius(this.pearlScale.getValue());
 
                for (int i = 0; i < 4 && this.pearlParticles.size() < 650; i++) {
@@ -192,7 +192,7 @@ public class Particles extends Module {
                            this.pearlMode.getValue().texture,
                            position.add(MathUtility.random(-0.2, 0.2), MathUtility.random(-0.2, 0.2), MathUtility.random(-0.2, 0.2))
                               .add(0.0, particleSize, 0.0),
-                           new Vec3d(MathUtility.random(-1.0, 1.0), MathUtility.random(-0.3, 0.3), MathUtility.random(-1.0, 1.0)),
+                           new Vec3(MathUtility.random(-1.0, 1.0), MathUtility.random(-0.3, 0.3), MathUtility.random(-1.0, 1.0)),
                            true,
                            this.pearlParticles.size(),
                            particleSize
@@ -212,15 +212,15 @@ public class Particles extends Module {
          float particleSize = getParticleRadius(this.worldScale.getValue());
 
          for (int i = 0; i < 7 && this.worldParticles.size() < 450; i++) {
-            Vec3d base = mc.player.getPos().add(MathUtility.random(-radius, radius), 0.0, MathUtility.random(-radius, radius));
-            BlockPos topPos = mc.world.getTopPosition(Type.MOTION_BLOCKING, BlockPos.ofFloored(base));
-            Vec3d spawnPos = new Vec3d(
+            Vec3 base = mc.player.position().add(MathUtility.random(-radius, radius), 0.0, MathUtility.random(-radius, radius));
+            BlockPos topPos = mc.level.getHeightmapPos(Types.MOTION_BLOCKING, BlockPos.containing(base));
+            Vec3 spawnPos = new Vec3(
                topPos.getX() + MathUtility.random(0.0, 1.0),
-               mc.player.getY() + MathUtility.random(mc.player.getHeight(), radius),
+               mc.player.getY() + MathUtility.random(mc.player.getBbHeight(), radius),
                topPos.getZ() + MathUtility.random(0.0, 1.0)
             );
 
-            while (!mc.world.isAir(BlockPos.ofFloored(spawnPos)) && spawnPos.y < mc.world.getTopY()) {
+            while (!mc.level.isEmptyBlock(BlockPos.containing(spawnPos)) && spawnPos.y < mc.level.getMaxBuildHeight()) {
                spawnPos = spawnPos.add(0.0, 1.0, 0.0);
             }
 
@@ -229,10 +229,10 @@ public class Particles extends Module {
                   new Particles.Particle(
                      this.worldMode.getValue().texture,
                      spawnPos.add(0.0, particleSize, 0.0),
-                     new Vec3d(
-                        mc.player.getVelocity().x + MathUtility.random(-2.0, 2.0),
+                     new Vec3(
+                        mc.player.getDeltaMovement().x + MathUtility.random(-2.0, 2.0),
                         MathUtility.random(-0.2, 0.2),
-                        mc.player.getVelocity().z + MathUtility.random(-2.0, 2.0)
+                        mc.player.getDeltaMovement().z + MathUtility.random(-2.0, 2.0)
                      ),
                      true,
                      this.worldParticles.size(),
@@ -244,11 +244,11 @@ public class Particles extends Module {
    }
 
    private void renderParticles(
-      MatrixStack stack, List<Particles.Particle> particles, double deltaTime, boolean syncColor, Color fixedColor, long fadeInMs, long fadeOutStartMs
+      PoseStack stack, List<Particles.Particle> particles, double deltaTime, boolean syncColor, Color fixedColor, long fadeInMs, long fadeOutStartMs
    ) {
       if (mc.gameRenderer != null) {
-         Camera camera = mc.gameRenderer.getCamera();
-         stack.push();
+         Camera camera = mc.gameRenderer.getMainCamera();
+         stack.pushPose();
 
          for (Particles.ParticleTexture texture : Particles.ParticleTexture.values()) {
             if (this.hasTexture(particles, texture)) {
@@ -265,7 +265,7 @@ public class Particles extends Module {
             }
          }
 
-         stack.pop();
+         stack.popPose();
       }
    }
 
@@ -285,27 +285,27 @@ public class Particles extends Module {
       return false;
    }
 
-   private static BufferBuilder startQuads(Identifier texture) {
+   private static BufferBuilder startQuads(ResourceLocation texture) {
       RenderSystem.enableBlend();
       applyLightningBlend();
       RenderSystem.enableDepthTest();
       RenderSystem.depthMask(false);
       RenderSystem.disableCull();
-      RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
       RenderSystem.setShaderTexture(0, texture);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      return Tessellator.getInstance().begin(DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+      return Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
    }
 
    private static void applyLightningBlend() {
-      RenderSystem.blendFunc(SrcFactor.SRC_ALPHA, DstFactor.ONE);
+      RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
    }
 
    private static void endQuads(BufferBuilder bufferBuilder) {
       Render2DEngine.endBuilding(bufferBuilder);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       RenderSystem.depthMask(true);
-      RenderSystem.blendFunc(SrcFactor.SRC_ALPHA, DstFactor.ONE_MINUS_SRC_ALPHA);
+      RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
       RenderSystem.enableCull();
       RenderSystem.enableDepthTest();
       RenderSystem.disableBlend();
@@ -319,10 +319,10 @@ public class Particles extends Module {
    }
 
    private static void putCenteredTexturedQuad(BufferBuilder bufferBuilder, Matrix4f matrix, float radius, int color) {
-      bufferBuilder.vertex(matrix, -radius, radius, 0.0F).texture(0.0F, 1.0F).color(color);
-      bufferBuilder.vertex(matrix, radius, radius, 0.0F).texture(1.0F, 1.0F).color(color);
-      bufferBuilder.vertex(matrix, radius, -radius, 0.0F).texture(1.0F, 0.0F).color(color);
-      bufferBuilder.vertex(matrix, -radius, -radius, 0.0F).texture(0.0F, 0.0F).color(color);
+      bufferBuilder.addVertex(matrix, -radius, radius, 0.0F).setUv(0.0F, 1.0F).setColor(color);
+      bufferBuilder.addVertex(matrix, radius, radius, 0.0F).setUv(1.0F, 1.0F).setColor(color);
+      bufferBuilder.addVertex(matrix, radius, -radius, 0.0F).setUv(1.0F, 0.0F).setColor(color);
+      bufferBuilder.addVertex(matrix, -radius, -radius, 0.0F).setUv(0.0F, 0.0F).setColor(color);
    }
 
    private static float getParticleRadius(float scale) {
@@ -379,18 +379,18 @@ public class Particles extends Module {
 
    private class Particle {
       private final Particles.ParticleTexture texture;
-      private Vec3d position;
-      private Vec3d velocity;
+      private Vec3 position;
+      private Vec3 velocity;
       private final boolean physics;
       private final int colorOffset;
       private final float rotationAngle;
       private final float size;
       private final long spawnTime;
 
-      private Particle(Particles.ParticleTexture texture, Vec3d position, Vec3d velocity, boolean physics, int colorOffset, float size) {
+      private Particle(Particles.ParticleTexture texture, Vec3 position, Vec3 velocity, boolean physics, int colorOffset, float size) {
          this.texture = texture;
          this.position = position;
-         this.velocity = velocity.multiply(0.05);
+         this.velocity = velocity.scale(0.05);
          this.physics = physics;
          this.colorOffset = colorOffset;
          this.rotationAngle = Particles.randomSteppedAngle();
@@ -405,29 +405,29 @@ public class Particles extends Module {
       }
 
       private void updatePhysics(double deltaTime) {
-         if (this.physics && Module.mc.world != null) {
-            double velocitySq = this.velocity.lengthSquared();
+         if (this.physics && Module.mc.level != null) {
+            double velocitySq = this.velocity.lengthSqr();
             if (velocitySq > 1.0E-4) {
                if (this.posBlock(this.position.x, this.position.y, this.position.z + this.velocity.z)) {
-                  this.velocity = new Vec3d(this.velocity.x * 1.35, this.velocity.y * 1.35, this.velocity.z * -1.1);
+                  this.velocity = new Vec3(this.velocity.x * 1.35, this.velocity.y * 1.35, this.velocity.z * -1.1);
                }
 
                if (this.posBlock(this.position.x, this.position.y + this.velocity.y, this.position.z)) {
-                  this.velocity = new Vec3d(this.velocity.x * 1.35, this.velocity.y * -1.1, this.velocity.z * 1.35);
+                  this.velocity = new Vec3(this.velocity.x * 1.35, this.velocity.y * -1.1, this.velocity.z * 1.35);
                }
 
                if (this.posBlock(this.position.x + this.velocity.x, this.position.y, this.position.z)) {
-                  this.velocity = new Vec3d(this.velocity.x * -1.1, this.velocity.y * 1.35, this.velocity.z * 1.35);
+                  this.velocity = new Vec3(this.velocity.x * -1.1, this.velocity.y * 1.35, this.velocity.z * 1.35);
                }
             }
 
             double friction = Math.pow(0.999, deltaTime * 60.0);
-            this.velocity = this.velocity.multiply(friction).subtract(0.0, 2.0E-5, 0.0);
+            this.velocity = this.velocity.scale(friction).subtract(0.0, 2.0E-5, 0.0);
          }
       }
 
       private void render(
-         MatrixStack stack,
+         PoseStack stack,
          BufferBuilder buffer,
          Camera camera,
          Particles.ParticleTexture texture,
@@ -446,14 +446,14 @@ public class Particles extends Module {
             }
 
             Color renderColor = Particles.applyAlpha(baseColor, alphaProgress);
-            Vec3d cameraPos = camera.getPos();
+            Vec3 cameraPos = camera.getPosition();
             float rotation = texture == Particles.ParticleTexture.Heart ? this.rotationAngle + 180.0F : this.rotationAngle;
-            stack.push();
+            stack.pushPose();
             stack.translate(this.position.x - cameraPos.x, this.position.y - cameraPos.y, this.position.z - cameraPos.z);
-            stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-camera.getYaw()));
-            stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(camera.getPitch()));
-            stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rotation));
-            Matrix4f matrix = stack.peek().getPositionMatrix();
+            stack.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
+            stack.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+            stack.mulPose(Axis.ZP.rotationDegrees(rotation));
+            Matrix4f matrix = stack.last().pose();
             float revealScale = 0.55F + 0.45F * Particles.smoothStep(spawnProgress);
             float renderSize = this.size * revealScale;
             Particles.putCenteredTexturedQuad(buffer, matrix, renderSize, renderColor.getRGB());
@@ -463,7 +463,7 @@ public class Particles extends Module {
                Particles.putCenteredTexturedQuad(buffer, matrix, renderSize * 0.5F, innerColor.getRGB());
             }
 
-            stack.pop();
+            stack.popPose();
          }
       }
 
@@ -490,11 +490,11 @@ public class Particles extends Module {
       }
 
       private boolean posBlock(double x, double y, double z) {
-         if (Module.mc.world == null) {
+         if (Module.mc.level == null) {
             return false;
          }
 
-         Block block = Module.mc.world.getBlockState(BlockPos.ofFloored(x, y, z)).getBlock();
+         Block block = Module.mc.level.getBlockState(BlockPos.containing(x, y, z)).getBlock();
          return !(block instanceof AirBlock) && block != Blocks.WATER && block != Blocks.LAVA;
       }
    }
@@ -522,9 +522,9 @@ public class Particles extends Module {
       Genshin(TextureStorage.particleGenshin),
       Rhombus(TextureStorage.particleRhombus);
 
-      private final Identifier identifier;
+      private final ResourceLocation identifier;
 
-      ParticleTexture(Identifier identifier) {
+      ParticleTexture(ResourceLocation identifier) {
          this.identifier = identifier;
       }
    }

@@ -1,8 +1,8 @@
 package vcore.features.modules.movement;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventFixVelocity;
@@ -24,19 +24,19 @@ public class MoveFix extends Module {
    }
 
    public void onJump(EventPlayerJump e) {
-      if (!this.isAutoCartMoveFixActive() && !this.shouldSkipAuraMoveFix() && !this.isDisabled() && !Float.isNaN(this.fixRotation) && !mc.player.isRiding()) {
+      if (!this.isAutoCartMoveFixActive() && !this.shouldSkipAuraMoveFix() && !this.isDisabled() && !Float.isNaN(this.fixRotation) && !mc.player.isHandsBusy()) {
          if (e.isPre()) {
-            this.prevYaw = mc.player.getYaw();
-            mc.player.setYaw(this.fixRotation);
+            this.prevYaw = mc.player.getYRot();
+            mc.player.setYRot(this.fixRotation);
          } else {
-            mc.player.setYaw(this.prevYaw);
+            mc.player.setYRot(this.prevYaw);
          }
       }
    }
 
    public void onPlayerMove(EventFixVelocity event) {
       if (!this.isAutoCartMoveFixActive() && !this.shouldSkipAuraMoveFix() && !this.isDisabled() && this.mode.getValue() == MoveFix.Mode.Free) {
-         if (!Float.isNaN(this.fixRotation) && !mc.player.isRiding()) {
+         if (!Float.isNaN(this.fixRotation) && !mc.player.isHandsBusy()) {
             event.setVelocity(this.fix(this.fixRotation, event.getMovementInput(), event.getSpeed()));
          }
       }
@@ -51,18 +51,18 @@ public class MoveFix extends Module {
             && mc.player.isFallFlying()
             && Managers.PLAYER.ticksElytraFlying > 5) {
             if (e.isPre()) {
-               this.prevYaw = mc.player.getYaw();
-               this.prevPitch = mc.player.getPitch();
-               mc.player.setYaw(this.fixRotation);
-               mc.player.setPitch(ModuleManager.aura.rotationPitch);
+               this.prevYaw = mc.player.getYRot();
+               this.prevPitch = mc.player.getXRot();
+               mc.player.setYRot(this.fixRotation);
+               mc.player.setXRot(ModuleManager.aura.rotationPitch);
             } else {
-               mc.player.setYaw(this.prevYaw);
-               mc.player.setPitch(this.prevPitch);
+               mc.player.setYRot(this.prevYaw);
+               mc.player.setXRot(this.prevPitch);
             }
          } else {
-            if (this.mode.getValue() == MoveFix.Mode.Focused && !Float.isNaN(this.fixRotation) && !mc.player.isRiding()) {
+            if (this.mode.getValue() == MoveFix.Mode.Focused && !Float.isNaN(this.fixRotation) && !mc.player.isHandsBusy()) {
                this.applyFocusedRotation(e);
-            } else if (this.mode.getValue() == MoveFix.Mode.Full && !Float.isNaN(this.fixRotation) && !mc.player.isRiding()) {
+            } else if (this.mode.getValue() == MoveFix.Mode.Full && !Float.isNaN(this.fixRotation) && !mc.player.isHandsBusy()) {
                this.applyFocusedRotation(e);
             }
          }
@@ -71,15 +71,15 @@ public class MoveFix extends Module {
 
    public void onKeyInput(EventKeyboardInput e) {
       if (!this.isAutoCartMoveFixActive() && !this.shouldSkipAuraMoveFix() && !this.isDisabled()) {
-         if (!Float.isNaN(this.fixRotation) && !mc.player.isRiding()) {
+         if (!Float.isNaN(this.fixRotation) && !mc.player.isHandsBusy()) {
             if (this.mode.getValue() == MoveFix.Mode.Free) {
-               float mF = mc.player.input.movementForward;
-               float mS = mc.player.input.movementSideways;
-               float delta = (mc.player.getYaw() - this.fixRotation) * (float) (Math.PI / 180.0);
-               float cos = MathHelper.cos(delta);
-               float sin = MathHelper.sin(delta);
-               mc.player.input.movementSideways = Math.round(mS * cos - mF * sin);
-               mc.player.input.movementForward = Math.round(mF * cos + mS * sin);
+               float mF = mc.player.input.forwardImpulse;
+               float mS = mc.player.input.leftImpulse;
+               float delta = (mc.player.getYRot() - this.fixRotation) * (float) (Math.PI / 180.0);
+               float cos = Mth.cos(delta);
+               float sin = Mth.sin(delta);
+               mc.player.input.leftImpulse = Math.round(mS * cos - mF * sin);
+               mc.player.input.forwardImpulse = Math.round(mF * cos + mS * sin);
             } else if (this.mode.getValue() != MoveFix.Mode.Focused) {
                if (this.mode.getValue() == MoveFix.Mode.Full) {
                   this.applyFullFocusedInput();
@@ -91,25 +91,25 @@ public class MoveFix extends Module {
 
    private void applyFocusedRotation(EventPlayerTravel e) {
       if (e.isPre()) {
-         this.prevYaw = mc.player.getYaw();
-         this.prevPitch = mc.player.getPitch();
-         mc.player.setYaw(this.fixRotation);
+         this.prevYaw = mc.player.getYRot();
+         this.prevPitch = mc.player.getXRot();
+         mc.player.setYRot(this.fixRotation);
          if (ModuleManager.aura != null && Aura.target != null) {
-            mc.player.setPitch(ModuleManager.aura.rotationPitch);
+            mc.player.setXRot(ModuleManager.aura.rotationPitch);
          }
       } else {
-         mc.player.setYaw(this.prevYaw);
-         mc.player.setPitch(this.prevPitch);
+         mc.player.setYRot(this.prevYaw);
+         mc.player.setXRot(this.prevPitch);
       }
    }
 
    private void applyFullFocusedInput() {
       if (ModuleManager.aura != null && Aura.target != null) {
          Entity target = Aura.target;
-         float forward = mc.player.input.movementForward;
-         float strafe = mc.player.input.movementSideways;
-         float directionYaw = this.getQuantizedYawTo(target.getPos());
-         float angle = MathHelper.wrapDegrees((float)Math.toDegrees(direction(directionYaw, forward, strafe)));
+         float forward = mc.player.input.forwardImpulse;
+         float strafe = mc.player.input.leftImpulse;
+         float directionYaw = this.getQuantizedYawTo(target.position());
+         float angle = Mth.wrapDegrees((float)Math.toDegrees(direction(directionYaw, forward, strafe)));
          if (forward != 0.0F || strafe != 0.0F) {
             float closestForward = 0.0F;
             float closestStrafe = 0.0F;
@@ -118,7 +118,7 @@ public class MoveFix extends Module {
             for (float predictedForward = -1.0F; predictedForward <= 1.0F; predictedForward++) {
                for (float predictedStrafe = -1.0F; predictedStrafe <= 1.0F; predictedStrafe++) {
                   if (predictedStrafe != 0.0F || predictedForward != 0.0F) {
-                     float predictedAngle = MathHelper.wrapDegrees((float)Math.toDegrees(direction(this.fixRotation, predictedForward, predictedStrafe)));
+                     float predictedAngle = Mth.wrapDegrees((float)Math.toDegrees(direction(this.fixRotation, predictedForward, predictedStrafe)));
                      float difference = Math.abs(angle - predictedAngle);
                      if (difference < closestDifference) {
                         closestDifference = difference;
@@ -129,20 +129,20 @@ public class MoveFix extends Module {
                }
             }
 
-            mc.player.input.movementForward = closestForward;
-            mc.player.input.movementSideways = closestStrafe;
+            mc.player.input.forwardImpulse = closestForward;
+            mc.player.input.leftImpulse = closestStrafe;
          }
       }
    }
 
-   private float getQuantizedYawTo(Vec3d targetPos) {
+   private float getQuantizedYawTo(Vec3 targetPos) {
       double posX = targetPos.x - mc.player.getX();
       double posY = targetPos.y - (mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()));
       double posZ = targetPos.z - mc.player.getZ();
-      double sqrt = MathHelper.sqrt((float)(posX * posX + posZ * posZ));
+      double sqrt = Mth.sqrt((float)(posX * posX + posZ * posZ));
       float yaw = (float)(Math.atan2(posZ, posX) * 180.0 / Math.PI) - 90.0F;
       float pitch = (float)(-(Math.atan2(posY, sqrt) * 180.0 / Math.PI));
-      float sens = (float)(Math.pow((Double)mc.options.getMouseSensitivity().getValue(), 1.5) * 0.05 + 0.1);
+      float sens = (float)(Math.pow((Double)mc.options.sensitivity().get(), 1.5) * 0.05 + 0.1);
       float pow = sens * sens * sens * 1.2F;
       yaw -= yaw % pow;
       pitch -= pitch % (pow * sens);
@@ -184,16 +184,16 @@ public class MoveFix extends Module {
       return Math.toRadians(rotationYaw);
    }
 
-   private Vec3d fix(float yaw, Vec3d movementInput, float speed) {
-      double d = movementInput.lengthSquared();
+   private Vec3 fix(float yaw, Vec3 movementInput, float speed) {
+      double d = movementInput.lengthSqr();
       if (d < 1.0E-7) {
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       }
 
-      Vec3d vec3d = (d > 1.0 ? movementInput.normalize() : movementInput).multiply(speed);
-      float f = MathHelper.sin(yaw * (float) (Math.PI / 180.0));
-      float g = MathHelper.cos(yaw * (float) (Math.PI / 180.0));
-      return new Vec3d(vec3d.x * g - vec3d.z * f, vec3d.y, vec3d.z * g + vec3d.x * f);
+      Vec3 vec3d = (d > 1.0 ? movementInput.normalize() : movementInput).scale(speed);
+      float f = Mth.sin(yaw * (float) (Math.PI / 180.0));
+      float g = Mth.cos(yaw * (float) (Math.PI / 180.0));
+      return new Vec3(vec3d.x * g - vec3d.z * f, vec3d.y, vec3d.z * g + vec3d.x * f);
    }
 
    public enum Mode {

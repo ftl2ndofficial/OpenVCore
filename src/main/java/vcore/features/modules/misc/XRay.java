@@ -1,5 +1,6 @@
 package vcore.features.modules.misc;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -8,15 +9,14 @@ import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import vcore.core.manager.client.ModuleManager;
@@ -81,13 +81,13 @@ public class XRay extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       if (!fullNullCheck() && !this.shouldUseWallHack() && !this.normalChunks.isEmpty()) {
-         ChunkPos center = mc.player.getChunkPos();
+         ChunkPos center = mc.player.chunkPosition();
 
          for (int chunkX = center.x - 4; chunkX <= center.x + 4; chunkX++) {
             for (int chunkZ = center.z - 4; chunkZ <= center.z + 4; chunkZ++) {
-               this.renderNormalChunk(this.normalChunks.get(ChunkPos.toLong(chunkX, chunkZ)));
+               this.renderNormalChunk(this.normalChunks.get(ChunkPos.asLong(chunkX, chunkZ)));
             }
          }
       }
@@ -127,13 +127,13 @@ public class XRay extends Module {
    }
 
    private void scanNormalChunks() {
-      ChunkPos center = mc.player.getChunkPos();
+      ChunkPos center = mc.player.chunkPosition();
 
       for (int chunkX = center.x - 4; chunkX <= center.x + 4; chunkX++) {
          for (int chunkZ = center.z - 4; chunkZ <= center.z + 4; chunkZ++) {
-            long key = ChunkPos.toLong(chunkX, chunkZ);
+            long key = ChunkPos.asLong(chunkX, chunkZ);
             if (!this.normalChunks.containsKey(key)) {
-               WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(chunkX, chunkZ, false);
+               LevelChunk chunk = mc.level.getChunkSource().getChunk(chunkX, chunkZ, false);
                if (chunk != null) {
                   this.normalChunks.put(key, this.scanNormalChunk(chunk));
                }
@@ -142,15 +142,15 @@ public class XRay extends Module {
       }
    }
 
-   private EnumMap<XRay.OreType, Set<BlockPos>> scanNormalChunk(Chunk chunk) {
+   private EnumMap<XRay.OreType, Set<BlockPos>> scanNormalChunk(ChunkAccess chunk) {
       EnumMap<XRay.OreType, Set<BlockPos>> result = new EnumMap<>(XRay.OreType.class);
       ChunkPos chunkPos = chunk.getPos();
-      int startX = chunkPos.getStartX();
-      int startZ = chunkPos.getStartZ();
+      int startX = chunkPos.getMinBlockX();
+      int startZ = chunkPos.getMinBlockZ();
 
-      for (int y = mc.world.getBottomY(); y < mc.world.getTopY(); y++) {
-         for (int x = startX; x <= chunkPos.getEndX(); x++) {
-            for (int z = startZ; z <= chunkPos.getEndZ(); z++) {
+      for (int y = mc.level.getMinBuildHeight(); y < mc.level.getMaxBuildHeight(); y++) {
+         for (int x = startX; x <= chunkPos.getMaxBlockX(); x++) {
+            for (int z = startZ; z <= chunkPos.getMaxBlockZ(); z++) {
                BlockPos pos = new BlockPos(x, y, z);
                XRay.OreType type = XRay.OreType.fromBlock(chunk.getBlockState(pos).getBlock());
                if (type != null && this.isOreEnabled(type)) {
@@ -164,12 +164,12 @@ public class XRay extends Module {
    }
 
    private void updateNormalCache(BlockPos pos, Block block) {
-      long chunkKey = ChunkPos.toLong(pos);
+      long chunkKey = ChunkPos.asLong(pos);
       EnumMap<XRay.OreType, Set<BlockPos>> chunk = this.normalChunks.computeIfAbsent(chunkKey, ignored -> new EnumMap<>(XRay.OreType.class));
       chunk.values().forEach(positions -> positions.remove(pos));
       XRay.OreType type = XRay.OreType.fromBlock(block);
       if (type != null && this.isOreEnabled(type)) {
-         chunk.computeIfAbsent(type, ignored -> new HashSet<>()).add(pos.toImmutable());
+         chunk.computeIfAbsent(type, ignored -> new HashSet<>()).add(pos.immutable());
       }
    }
 
@@ -186,12 +186,12 @@ public class XRay extends Module {
    }
 
    private void drawEsp(BlockPos pos, Color color) {
-      Render3DEngine.OUTLINE_QUEUE.add(new Render3DEngine.OutlineAction(new Box(pos), color, 2.0F));
+      Render3DEngine.OUTLINE_QUEUE.add(new Render3DEngine.OutlineAction(new AABB(pos), color, 2.0F));
    }
 
    private void reloadWorldRenderer() {
-      if (mc.worldRenderer != null) {
-         mc.worldRenderer.reload();
+      if (mc.levelRenderer != null) {
+         mc.levelRenderer.allChanged();
       }
    }
 

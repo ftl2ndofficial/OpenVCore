@@ -1,30 +1,30 @@
 package vcore.injection.accesors;
 
-import net.minecraft.network.packet.s2c.play.ExplosionS2CPacket;
+import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(ExplosionS2CPacket.class)
+@Mixin(ClientboundExplodePacket.class)
 public interface IExplosionS2CPacket {
    @Mutable
-   @Accessor("playerVelocityX")
+   @Accessor("knockbackX")
    void setMotionX(float var1);
 
    @Mutable
-   @Accessor("playerVelocityY")
+   @Accessor("knockbackY")
    void setMotionY(float var1);
 
    @Mutable
-   @Accessor("playerVelocityZ")
+   @Accessor("knockbackZ")
    void setMotionZ(float var1);
 
-   @Accessor("playerVelocityX")
+   @Accessor("knockbackX")
    float getMotionX();
 
-   @Accessor("playerVelocityY")
+   @Accessor("knockbackY")
    float getMotionY();
 
-   @Accessor("playerVelocityZ")
+   @Accessor("knockbackZ")
    float getMotionZ();
 }

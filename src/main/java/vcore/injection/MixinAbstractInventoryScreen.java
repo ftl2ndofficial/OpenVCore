@@ -1,9 +1,9 @@
 package vcore.injection;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.AbstractInventoryScreen;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.world.GameMode;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.GameType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,8 +11,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.features.modules.Module;
 
-@Mixin(AbstractInventoryScreen.class)
-public abstract class MixinAbstractInventoryScreen<T extends ScreenHandler> {
+@Mixin(EffectRenderingInventoryScreen.class)
+public abstract class MixinAbstractInventoryScreen<T extends AbstractContainerMenu> {
    @Unique
    private static final float EFFECTS_ANIM_DURATION = 250.0F;
    @Unique
@@ -20,8 +20,8 @@ public abstract class MixinAbstractInventoryScreen<T extends ScreenHandler> {
    @Unique
    private boolean statusEffectsAnimPushed;
 
-   @Inject(method = "drawStatusEffects", at = @At("HEAD"))
-   private void onDrawStatusEffectsHead(DrawContext context, int mouseX, int mouseY, CallbackInfo ci) {
+   @Inject(method = "renderEffects", at = @At("HEAD"))
+   private void onDrawStatusEffectsHead(GuiGraphics context, int mouseX, int mouseY, CallbackInfo ci) {
       if (!this.isSurvivalMode()) {
          this.statusEffectsAnimPushed = false;
       } else {
@@ -32,12 +32,12 @@ public abstract class MixinAbstractInventoryScreen<T extends ScreenHandler> {
          float progress = this.getProgress();
          if (progress < 1.0F) {
             float anim = this.getAnim(progress);
-            int centerX = context.getScaledWindowWidth() / 2;
-            int centerY = context.getScaledWindowHeight() / 2;
-            context.getMatrices().push();
-            context.getMatrices().translate(centerX, centerY, 0.0F);
-            context.getMatrices().scale(anim, anim, 1.0F);
-            context.getMatrices().translate(-centerX, -centerY, 0.0F);
+            int centerX = context.guiWidth() / 2;
+            int centerY = context.guiHeight() / 2;
+            context.pose().pushPose();
+            context.pose().translate(centerX, centerY, 0.0F);
+            context.pose().scale(anim, anim, 1.0F);
+            context.pose().translate(-centerX, -centerY, 0.0F);
             this.statusEffectsAnimPushed = true;
          } else {
             this.statusEffectsAnimPushed = false;
@@ -45,10 +45,10 @@ public abstract class MixinAbstractInventoryScreen<T extends ScreenHandler> {
       }
    }
 
-   @Inject(method = "drawStatusEffects", at = @At("TAIL"))
-   private void onDrawStatusEffectsTail(DrawContext context, int mouseX, int mouseY, CallbackInfo ci) {
+   @Inject(method = "renderEffects", at = @At("TAIL"))
+   private void onDrawStatusEffectsTail(GuiGraphics context, int mouseX, int mouseY, CallbackInfo ci) {
       if (this.statusEffectsAnimPushed) {
-         context.getMatrices().pop();
+         context.pose().popPose();
          this.statusEffectsAnimPushed = false;
       }
    }
@@ -68,6 +68,6 @@ public abstract class MixinAbstractInventoryScreen<T extends ScreenHandler> {
 
    @Unique
    private boolean isSurvivalMode() {
-      return Module.mc.interactionManager != null && Module.mc.interactionManager.getCurrentGameMode() == GameMode.SURVIVAL;
+      return Module.mc.gameMode != null && Module.mc.gameMode.getPlayerMode() == GameType.SURVIVAL;
    }
 }

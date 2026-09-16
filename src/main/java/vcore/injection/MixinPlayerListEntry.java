@@ -1,10 +1,10 @@
 package vcore.injection;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.util.SkinTextures;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,12 +16,12 @@ import vcore.core.Managers;
 import vcore.features.modules.misc.UnHook;
 import vcore.utility.render.TextureStorage;
 
-@Mixin(PlayerListEntry.class)
+@Mixin(PlayerInfo.class)
 public class MixinPlayerListEntry {
    @Unique
    private boolean loadedCapeTexture;
    @Unique
-   private Identifier customCapeTexture;
+   private ResourceLocation customCapeTexture;
    @Unique
    private String playerName;
 
@@ -31,15 +31,15 @@ public class MixinPlayerListEntry {
       this.getTexture(profile);
    }
 
-   @Inject(method = "getSkinTextures", at = @At("TAIL"), cancellable = true)
-   private void getCapeTexture(CallbackInfoReturnable<SkinTextures> cir) {
+   @Inject(method = "getSkin", at = @At("TAIL"), cancellable = true)
+   private void getCapeTexture(CallbackInfoReturnable<PlayerSkin> cir) {
       if (UnHook.isActive()) {
          this.customCapeTexture = null;
       } else {
          this.ensureFriendCape();
          if (this.customCapeTexture != null) {
-            SkinTextures prev = (SkinTextures)cir.getReturnValue();
-            SkinTextures newTextures = new SkinTextures(
+            PlayerSkin prev = (PlayerSkin)cir.getReturnValue();
+            PlayerSkin newTextures = new PlayerSkin(
                prev.texture(), prev.textureUrl(), this.customCapeTexture, this.customCapeTexture, prev.model(), prev.secure()
             );
             cir.setReturnValue(newTextures);
@@ -51,7 +51,7 @@ public class MixinPlayerListEntry {
    private void getTexture(GameProfile profile) {
       if (!this.loadedCapeTexture) {
          this.loadedCapeTexture = true;
-         Util.getMainWorkerExecutor().execute(() -> {
+         Util.backgroundExecutor().execute(() -> {
             String name = profile.getName();
             if (this.isStarcapeTarget(name)) {
                this.customCapeTexture = TextureStorage.starCape;

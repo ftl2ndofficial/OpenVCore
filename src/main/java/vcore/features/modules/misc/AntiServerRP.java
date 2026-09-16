@@ -1,9 +1,9 @@
 package vcore.features.modules.misc;
 
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.network.packet.c2s.common.ResourcePackStatusC2SPacket;
-import net.minecraft.network.packet.c2s.common.ResourcePackStatusC2SPacket.Status;
-import net.minecraft.network.packet.s2c.common.ResourcePackSendS2CPacket;
+import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
+import net.minecraft.network.protocol.common.ServerboundResourcePackPacket;
+import net.minecraft.network.protocol.common.ServerboundResourcePackPacket.Action;
 import org.jetbrains.annotations.NotNull;
 import vcore.events.impl.PacketEvent;
 import vcore.features.modules.Module;
@@ -20,7 +20,7 @@ public final class AntiServerRP extends Module {
 
    @EventHandler
    public void onPacketReceive(PacketEvent.@NotNull Receive e) {
-      if (e.getPacket() instanceof ResourcePackSendS2CPacket) {
+      if (e.getPacket() instanceof ClientboundResourcePackPushPacket) {
          this.confirm = true;
          this.accepted = false;
          this.delay = 0;
@@ -33,12 +33,12 @@ public final class AntiServerRP extends Module {
       if (this.confirm) {
          this.delay++;
          if (this.delay > MathUtility.random(15.0F, 30.0F) && !this.accepted) {
-            this.sendPacket(new ResourcePackStatusC2SPacket(mc.player.getUuid(), Status.ACCEPTED));
+            this.sendPacket(new ServerboundResourcePackPacket(mc.player.getUUID(), Action.ACCEPTED));
             this.accepted = true;
          }
 
          if (this.delay > MathUtility.random(40.0F, 60.0F) && this.accepted) {
-            this.sendPacket(new ResourcePackStatusC2SPacket(mc.player.getUuid(), Status.SUCCESSFULLY_LOADED));
+            this.sendPacket(new ServerboundResourcePackPacket(mc.player.getUUID(), Action.SUCCESSFULLY_LOADED));
             this.confirm = false;
          }
       }

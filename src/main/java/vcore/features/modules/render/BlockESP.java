@@ -1,21 +1,21 @@
 package vcore.features.modules.render;
 
 import com.google.common.collect.Lists;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import net.minecraft.block.AirBlock;
-import net.minecraft.block.BarrierBlock;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.CommandBlock;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.AirBlock;
+import net.minecraft.world.level.block.BarrierBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CommandBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -56,7 +56,7 @@ public class BlockESP extends Module {
    @Override
    public void onUpdate() {
       if (this.searchTimer.every(1000L) && this.canContinue) {
-         CompletableFuture.supplyAsync(this::scan, this.searchThread).thenAcceptAsync(this::sync, Util.getMainWorkerExecutor());
+         CompletableFuture.supplyAsync(this::scan, this.searchThread).thenAcceptAsync(this::sync, Util.backgroundExecutor());
          this.canContinue = false;
       }
    }
@@ -65,8 +65,8 @@ public class BlockESP extends Module {
       ArrayList<BlockESP.BlockVec> blocks = new ArrayList<>();
       int startX = (int)Math.floor(mc.player.getX() - this.range.getValue().intValue());
       int endX = (int)Math.ceil(mc.player.getX() + this.range.getValue().intValue());
-      int startY = mc.world.getBottomY() + 1;
-      int endY = mc.world.getTopY();
+      int startY = mc.level.getMinBuildHeight() + 1;
+      int endY = mc.level.getMaxBuildHeight();
       int startZ = (int)Math.floor(mc.player.getZ() - this.range.getValue().intValue());
       int endZ = (int)Math.ceil(mc.player.getZ() + this.range.getValue().intValue());
 
@@ -74,7 +74,7 @@ public class BlockESP extends Module {
          for (int y = startY; y <= endY; y++) {
             for (int z = startZ; z <= endZ; z++) {
                BlockPos pos = new BlockPos(x, y, z);
-               BlockState bs = mc.world.getBlockState(pos);
+               BlockState bs = mc.level.getBlockState(pos);
                if (this.shouldAdd(bs.getBlock(), pos)) {
                   blocks.add(new BlockESP.BlockVec(pos.getX(), pos.getY(), pos.getZ()));
                }
@@ -91,19 +91,19 @@ public class BlockESP extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       if (!fullNullCheck() && !blocks.isEmpty()) {
          int count = 0;
-         if (mc.getCurrentFps() < 8 && mc.player.age > 100) {
+         if (mc.getFps() < 8 && mc.player.tickCount > 100) {
             this.disable("Saving ur pc :)");
          } else {
             if (this.fill.getValue() || this.outline.getValue()) {
                for (BlockESP.BlockVec vec : Lists.newArrayList(blocks)) {
                   if (count <= this.limitCount.getValue() || !this.limit.getValue().isEnabled()) {
-                     if (vec.getDistance(mc.player.getPos()) > this.range.getPow2Value()) {
+                     if (vec.getDistance(mc.player.position()) > this.range.getPow2Value()) {
                         blocks.remove(vec);
                      } else {
-                        Box b = new Box(vec.x, vec.y, vec.z, vec.x + 1.0, vec.y + 1.0, vec.z + 1.0);
+                        AABB b = new AABB(vec.x, vec.y, vec.z, vec.x + 1.0, vec.y + 1.0, vec.z + 1.0);
                         if (this.fill.getValue()) {
                            Render3DEngine.FILLED_QUEUE.add(new Render3DEngine.FillAction(b, this.color.getValue().getColorObject()));
                         }
@@ -113,10 +113,10 @@ public class BlockESP extends Module {
                         }
 
                         if (this.tracers.getValue()) {
-                           Vec3d vec2 = new Vec3d(0.0, 0.0, 75.0)
-                              .rotateX(-((float)Math.toRadians(mc.gameRenderer.getCamera().getPitch())))
-                              .rotateY(-((float)Math.toRadians(mc.gameRenderer.getCamera().getYaw())))
-                              .add(mc.cameraEntity.getEyePos());
+                           Vec3 vec2 = new Vec3(0.0, 0.0, 75.0)
+                              .xRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().getXRot())))
+                              .yRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().getYRot())))
+                              .add(mc.cameraEntity.getEyePosition());
                            Render3DEngine.drawLineDebug(vec2, vec.getVector(), this.color.getValue().getColorObject());
                         }
 
@@ -152,15 +152,15 @@ public class BlockESP extends Module {
    }
 
    public record BlockVec(double x, double y, double z) {
-      public double getDistance(@NotNull Vec3d v) {
+      public double getDistance(@NotNull Vec3 v) {
          double dx = this.x - v.x;
          double dy = this.y - v.y;
          double dz = this.z - v.z;
          return dx * dx + dy * dy + dz * dz;
       }
 
-      public Vec3d getVector() {
-         return new Vec3d(this.x + 0.5, this.y + 0.5, this.z + 0.5);
+      public Vec3 getVector() {
+         return new Vec3(this.x + 0.5, this.y + 0.5, this.z + 0.5);
       }
    }
 }

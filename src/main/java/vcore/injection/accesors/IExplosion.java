@@ -1,9 +1,9 @@
 package vcore.injection.accesors;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.world.World;
-import net.minecraft.world.explosion.Explosion;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -23,16 +23,16 @@ public interface IExplosion {
    void setZ(double var1);
 
    @Mutable
-   @Accessor("entity")
+   @Accessor("source")
    void setEntity(Entity var1);
 
    @Mutable
-   @Accessor("world")
-   void setWorld(World var1);
+   @Accessor("level")
+   void setWorld(Level var1);
 
    @Mutable
-   @Accessor("world")
-   World getWorld();
+   @Accessor("level")
+   Level getWorld();
 
    @Mutable
    @Accessor("damageSource")

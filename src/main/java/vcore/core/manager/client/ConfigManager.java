@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Scanner;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.jetbrains.annotations.NotNull;
 import vcore.Vcore;
 import vcore.core.Managers;
@@ -43,7 +43,7 @@ import vcore.setting.impl.SettingGroup;
 
 public class ConfigManager implements IManager {
    public static final String CONFIG_FOLDER_NAME = "Vcore";
-   public static final File MAIN_FOLDER = new File(mc.runDirectory, "Vcore");
+   public static final File MAIN_FOLDER = new File(mc.gameDirectory, "Vcore");
    public static final File CONFIGS_FOLDER = new File(MAIN_FOLDER, "configs");
    public static final File MISC_FOLDER = new File(MAIN_FOLDER, "misc");
    public static final File IMAGES_FOLDER = new File(MISC_FOLDER, "images");
@@ -343,7 +343,7 @@ public class ConfigManager implements IManager {
 
             if (module instanceof ClickGui clickGui) {
                try {
-                  if (MinecraftClient.getInstance().getWindow() != null) {
+                  if (Minecraft.getInstance().getWindow() != null) {
                      clickGui.applyFontSettings();
                   }
                } catch (Exception var19) {

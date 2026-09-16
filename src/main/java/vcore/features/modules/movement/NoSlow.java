@@ -2,11 +2,11 @@ package vcore.features.modules.movement;
 
 import java.util.List;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.Hand;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Items;
 import vcore.events.impl.EventKeyboardInput;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
@@ -47,12 +47,12 @@ public class NoSlow extends Module {
          if (this.isUsingSlowItem()) {
             switch ((NoSlow.Mode)this.mode.getValue()) {
                case Grim:
-                  if (mc.player.getActiveHand() == Hand.OFF_HAND) {
-                     this.sendPacket(new UpdateSelectedSlotC2SPacket(mc.player.getInventory().selectedSlot % 8 + 1));
-                     this.sendPacket(new UpdateSelectedSlotC2SPacket(mc.player.getInventory().selectedSlot % 7 + 2));
-                     this.sendPacket(new UpdateSelectedSlotC2SPacket(mc.player.getInventory().selectedSlot));
-                  } else if (this.mainHand.getValue() && (mc.player.getItemUseTime() <= 3 || mc.player.age % 2 == 0)) {
-                     this.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.OFF_HAND, id, mc.player.getYaw(), mc.player.getPitch()));
+                  if (mc.player.getUsedItemHand() == InteractionHand.OFF_HAND) {
+                     this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected % 8 + 1));
+                     this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected % 7 + 2));
+                     this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected));
+                  } else if (this.mainHand.getValue() && (mc.player.getTicksUsingItem() <= 3 || mc.player.tickCount % 2 == 0)) {
+                     this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.OFF_HAND, id, mc.player.getYRot(), mc.player.getXRot()));
                   }
                case GrimTick:
             }
@@ -64,25 +64,25 @@ public class NoSlow extends Module {
    public void onKeyboardInput(EventKeyboardInput e) {
       if (e != null && mc.player != null) {
          if (this.mode.getValue() == NoSlow.Mode.Matrix && mc.player.isUsingItem() && !mc.player.isFallFlying()) {
-            mc.player.input.movementForward *= 5.0F;
-            mc.player.input.movementSideways *= 5.0F;
+            mc.player.input.forwardImpulse *= 5.0F;
+            mc.player.input.leftImpulse *= 5.0F;
             float multiplier = 1.0F;
-            if (mc.player.isOnGround()) {
-               if (mc.player.input.movementForward != 0.0F && mc.player.input.movementSideways != 0.0F) {
-                  mc.player.input.movementForward *= 0.35F;
-                  mc.player.input.movementSideways *= 0.35F;
+            if (mc.player.onGround()) {
+               if (mc.player.input.forwardImpulse != 0.0F && mc.player.input.leftImpulse != 0.0F) {
+                  mc.player.input.forwardImpulse *= 0.35F;
+                  mc.player.input.leftImpulse *= 0.35F;
                } else {
-                  mc.player.input.movementForward *= 0.5F;
-                  mc.player.input.movementSideways *= 0.5F;
+                  mc.player.input.forwardImpulse *= 0.5F;
+                  mc.player.input.leftImpulse *= 0.5F;
                }
-            } else if (mc.player.input.movementForward != 0.0F && mc.player.input.movementSideways != 0.0F) {
+            } else if (mc.player.input.forwardImpulse != 0.0F && mc.player.input.leftImpulse != 0.0F) {
                multiplier = 0.47F;
             } else {
                multiplier = 0.67F;
             }
 
-            mc.player.input.movementForward *= multiplier;
-            mc.player.input.movementSideways *= multiplier;
+            mc.player.input.forwardImpulse *= multiplier;
+            mc.player.input.leftImpulse *= multiplier;
          }
       }
    }
@@ -100,8 +100,8 @@ public class NoSlow extends Module {
    private boolean isGrimNewBlocked() {
       return mc.player != null
          && this.mode.getValue() == NoSlow.Mode.Grim
-         && mc.player.getActiveHand() == Hand.MAIN_HAND
-         && (mc.player.getOffHandStack().getComponents().contains(DataComponentTypes.FOOD) || mc.player.getOffHandStack().getItem() == Items.SHIELD);
+         && mc.player.getUsedItemHand() == InteractionHand.MAIN_HAND
+         && (mc.player.getOffhandItem().getComponents().has(DataComponents.FOOD) || mc.player.getOffhandItem().getItem() == Items.SHIELD);
    }
 
    private void updateGrimTickState() {
@@ -132,24 +132,24 @@ public class NoSlow extends Module {
    }
 
    private boolean allowsActiveItem() {
-      if (!this.food.getValue() && mc.player.getActiveItem().getComponents().contains(DataComponentTypes.FOOD)) {
+      if (!this.food.getValue() && mc.player.getUseItem().getComponents().has(DataComponents.FOOD)) {
          return false;
       } else {
-         return !this.shield.getValue() && mc.player.getActiveItem().getItem() == Items.SHIELD
+         return !this.shield.getValue() && mc.player.getUseItem().getItem() == Items.SHIELD
             ? false
             : this.projectiles.getValue()
-               || mc.player.getActiveItem().getItem() != Items.CROSSBOW
-                  && mc.player.getActiveItem().getItem() != Items.BOW
-                  && mc.player.getActiveItem().getItem() != Items.TRIDENT;
+               || mc.player.getUseItem().getItem() != Items.CROSSBOW
+                  && mc.player.getUseItem().getItem() != Items.BOW
+                  && mc.player.getUseItem().getItem() != Items.TRIDENT;
       }
    }
 
    private boolean allowsActiveHand() {
-      return this.mainHand.getValue() || mc.player.getActiveHand() != Hand.MAIN_HAND;
+      return this.mainHand.getValue() || mc.player.getUsedItemHand() != InteractionHand.MAIN_HAND;
    }
 
    private boolean isUsingSlowItem() {
-      return mc.player != null && mc.player.isUsingItem() && !mc.player.isRiding() && !mc.player.isFallFlying();
+      return mc.player != null && mc.player.isUsingItem() && !mc.player.isHandsBusy() && !mc.player.isFallFlying();
    }
 
    public enum Mode {

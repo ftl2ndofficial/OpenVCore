@@ -1,18 +1,18 @@
 package vcore.features.modules.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.VertexFormat.DrawMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Matrix4f;
 import org.joml.Vector4d;
@@ -47,7 +47,7 @@ public class ItemESP extends Module {
    }
 
    private ItemESP.ItemGroup getItemGroup(ItemEntity itemEntity) {
-      String name = itemEntity.getStack().getItem().getTranslationKey().toLowerCase();
+      String name = itemEntity.getItem().getItem().getDescriptionId().toLowerCase();
       if (name.contains("netherite_helmet")
          || name.contains("netherite_chestplate")
          || name.contains("netherite_leggings")
@@ -141,7 +141,7 @@ public class ItemESP extends Module {
    }
 
    @Override
-   public void onRender2D(DrawContext context) {
+   public void onRender2D(GuiGraphics context) {
       if (this.hasAnyGroupEnabled()) {
          boolean onlyOtherItem = !this.showNetherite.getValue()
             && !this.showDiamond.getValue()
@@ -151,7 +151,7 @@ public class ItemESP extends Module {
             && !this.showOtherGear.getValue()
             && this.showOtherItem.getValue();
 
-         for (Entity ent : mc.world.getEntities()) {
+         for (Entity ent : mc.level.entitiesForRendering()) {
             if (ent instanceof ItemEntity itemEntity) {
                ItemESP.ItemGroup group = this.getItemGroup(itemEntity);
                if (this.shouldRender(group)) {
@@ -160,11 +160,11 @@ public class ItemESP extends Module {
                      groupColor = this.otherItemColor.getValue().getColor();
                   }
 
-                  Vec3d[] vectors = getPoints(itemEntity);
+                  Vec3[] vectors = getPoints(itemEntity);
                   Vector4d position = null;
 
-                  for (Vec3d vector : vectors) {
-                     vector = Render3DEngine.worldSpaceToScreenSpace(new Vec3d(vector.x, vector.y, vector.z));
+                  for (Vec3 vector : vectors) {
+                     vector = Render3DEngine.worldSpaceToScreenSpace(new Vec3(vector.x, vector.y, vector.z));
                      if (vector.z > 0.0 && vector.z < 1.0) {
                         if (position == null) {
                            position = new Vector4d(vector.x, vector.y, vector.z, 0.0);
@@ -197,25 +197,25 @@ public class ItemESP extends Module {
                      float iconBgX = centerX - iconBgSize / 2.0F;
                      float iconBgY = textBgY - gap - iconBgSize;
                      Render2DEngine.drawBlurredShadow(
-                        context.getMatrices(), iconBgX - 2.0F, iconBgY - 2.0F, iconBgSize + 4.0F, iconBgSize + 4.0F, 8, new Color(0, 0, 0, 120)
+                        context.pose(), iconBgX - 2.0F, iconBgY - 2.0F, iconBgSize + 4.0F, iconBgSize + 4.0F, 8, new Color(0, 0, 0, 120)
                      );
-                     Render2DEngine.drawRect(context.getMatrices(), iconBgX, iconBgY, iconBgSize, iconBgSize, new Color(0, 0, 0, 150));
+                     Render2DEngine.drawRect(context.pose(), iconBgX, iconBgY, iconBgSize, iconBgSize, new Color(0, 0, 0, 150));
                      Render2DEngine.drawBlurredShadow(
-                        context.getMatrices(), textBgX - 2.0F, textBgY - 2.0F, textBgWidth + 4.0F, textBgHeight + 4.0F, 10, new Color(0, 0, 0, 120)
+                        context.pose(), textBgX - 2.0F, textBgY - 2.0F, textBgWidth + 4.0F, textBgHeight + 4.0F, 10, new Color(0, 0, 0, 120)
                      );
-                     Render2DEngine.drawRect(context.getMatrices(), textBgX, textBgY, textBgWidth, textBgHeight, new Color(0, 0, 0, 150));
+                     Render2DEngine.drawRect(context.pose(), textBgX, textBgY, textBgWidth, textBgHeight, new Color(0, 0, 0, 150));
                      float iconDrawX = iconBgX + iconBgPadding;
                      float iconDrawY = iconBgY + iconBgPadding;
-                     context.getMatrices().push();
-                     context.getMatrices().translate(iconDrawX, iconDrawY, 0.0F);
+                     context.pose().pushPose();
+                     context.pose().translate(iconDrawX, iconDrawY, 0.0F);
                      float iconScale = iconSize / 16.0F;
-                     context.getMatrices().scale(iconScale, iconScale, 1.0F);
-                     context.drawItem(itemEntity.getStack(), 0, 0);
-                     context.drawItemInSlot(mc.textRenderer, itemEntity.getStack(), 0, 0);
-                     context.getMatrices().pop();
+                     context.pose().scale(iconScale, iconScale, 1.0F);
+                     context.renderItem(itemEntity.getItem(), 0, 0);
+                     context.renderItemDecorations(mc.font, itemEntity.getItem(), 0, 0);
+                     context.pose().popPose();
                      float tagXNew = centerX - textWidthVal / 2.0F;
                      float tagYNew = textBgY + (textBgHeight - textHeight) / 2.0F + 2.5F;
-                     FontRenderers.sf_bold_micro.drawString(context.getMatrices(), name, tagXNew, tagYNew, groupColor);
+                     FontRenderers.sf_bold_micro.drawString(context.pose(), name, tagXNew, tagYNew, groupColor);
                   }
                }
             }
@@ -223,15 +223,15 @@ public class ItemESP extends Module {
 
          boolean any = false;
 
-         for (Entity ent : mc.world.getEntities()) {
+         for (Entity ent : mc.level.entitiesForRendering()) {
             if (ent instanceof ItemEntity itemEntity) {
                ItemESP.ItemGroup group = this.getItemGroup(itemEntity);
                if (this.shouldRender(group)) {
-                  Vec3d[] vectors = getPoints(itemEntity);
+                  Vec3[] vectors = getPoints(itemEntity);
                   Vector4d position = null;
 
-                  for (Vec3d vector : vectors) {
-                     vector = Render3DEngine.worldSpaceToScreenSpace(new Vec3d(vector.x, vector.y, vector.z));
+                  for (Vec3 vector : vectors) {
+                     vector = Render3DEngine.worldSpaceToScreenSpace(new Vec3(vector.x, vector.y, vector.z));
                      if (vector.z > 0.0 && vector.z < 1.0) {
                         if (position == null) {
                            position = new Vector4d(vector.x, vector.y, vector.z, 0.0);
@@ -252,20 +252,20 @@ public class ItemESP extends Module {
          }
 
          if (any) {
-            Matrix4f matrix = context.getMatrices().peek().getPositionMatrix();
+            Matrix4f matrix = context.pose().last().pose();
             Render2DEngine.setupRender();
-            RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-            BufferBuilder bufferBuilder = Tessellator.getInstance().begin(DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+            RenderSystem.setShader(GameRenderer::getPositionColorShader);
+            BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
 
-            for (Entity ent : mc.world.getEntities()) {
+            for (Entity ent : mc.level.entitiesForRendering()) {
                if (ent instanceof ItemEntity itemEntity) {
                   ItemESP.ItemGroup group = this.getItemGroup(itemEntity);
                   if (this.shouldRender(group)) {
-                     Vec3d[] vectors = getPoints(itemEntity);
+                     Vec3[] vectors = getPoints(itemEntity);
                      Vector4d position = null;
 
-                     for (Vec3d vector : vectors) {
-                        vector = Render3DEngine.worldSpaceToScreenSpace(new Vec3d(vector.x, vector.y, vector.z));
+                     for (Vec3 vector : vectors) {
+                        vector = Render3DEngine.worldSpaceToScreenSpace(new Vec3(vector.x, vector.y, vector.z));
                         if (vector.z > 0.0 && vector.z < 1.0) {
                            if (position == null) {
                               position = new Vector4d(vector.x, vector.y, vector.z, 0.0);
@@ -296,7 +296,7 @@ public class ItemESP extends Module {
    }
 
    @Override
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       if (this.hasAnyGroupEnabled()) {
          ;
       }
@@ -338,27 +338,27 @@ public class ItemESP extends Module {
    }
 
    @NotNull
-   private static Vec3d[] getPoints(Entity ent) {
-      Box axisAlignedBB = getBox(ent);
-      return new Vec3d[]{
-         new Vec3d(axisAlignedBB.minX, axisAlignedBB.minY, axisAlignedBB.minZ),
-         new Vec3d(axisAlignedBB.minX, axisAlignedBB.maxY, axisAlignedBB.minZ),
-         new Vec3d(axisAlignedBB.maxX, axisAlignedBB.minY, axisAlignedBB.minZ),
-         new Vec3d(axisAlignedBB.maxX, axisAlignedBB.maxY, axisAlignedBB.minZ),
-         new Vec3d(axisAlignedBB.minX, axisAlignedBB.minY, axisAlignedBB.maxZ),
-         new Vec3d(axisAlignedBB.minX, axisAlignedBB.maxY, axisAlignedBB.maxZ),
-         new Vec3d(axisAlignedBB.maxX, axisAlignedBB.minY, axisAlignedBB.maxZ),
-         new Vec3d(axisAlignedBB.maxX, axisAlignedBB.maxY, axisAlignedBB.maxZ)
+   private static Vec3[] getPoints(Entity ent) {
+      AABB axisAlignedBB = getBox(ent);
+      return new Vec3[]{
+         new Vec3(axisAlignedBB.minX, axisAlignedBB.minY, axisAlignedBB.minZ),
+         new Vec3(axisAlignedBB.minX, axisAlignedBB.maxY, axisAlignedBB.minZ),
+         new Vec3(axisAlignedBB.maxX, axisAlignedBB.minY, axisAlignedBB.minZ),
+         new Vec3(axisAlignedBB.maxX, axisAlignedBB.maxY, axisAlignedBB.minZ),
+         new Vec3(axisAlignedBB.minX, axisAlignedBB.minY, axisAlignedBB.maxZ),
+         new Vec3(axisAlignedBB.minX, axisAlignedBB.maxY, axisAlignedBB.maxZ),
+         new Vec3(axisAlignedBB.maxX, axisAlignedBB.minY, axisAlignedBB.maxZ),
+         new Vec3(axisAlignedBB.maxX, axisAlignedBB.maxY, axisAlignedBB.maxZ)
       };
    }
 
    @NotNull
-   private static Box getBox(Entity ent) {
-      double x = ent.prevX + (ent.getX() - ent.prevX) * Render3DEngine.getTickDelta();
-      double y = ent.prevY + (ent.getY() - ent.prevY) * Render3DEngine.getTickDelta();
-      double z = ent.prevZ + (ent.getZ() - ent.prevZ) * Render3DEngine.getTickDelta();
-      Box axisAlignedBB2 = ent.getBoundingBox();
-      return new Box(
+   private static AABB getBox(Entity ent) {
+      double x = ent.xo + (ent.getX() - ent.xo) * Render3DEngine.getTickDelta();
+      double y = ent.yo + (ent.getY() - ent.yo) * Render3DEngine.getTickDelta();
+      double z = ent.zo + (ent.getZ() - ent.zo) * Render3DEngine.getTickDelta();
+      AABB axisAlignedBB2 = ent.getBoundingBox();
+      return new AABB(
          axisAlignedBB2.minX - ent.getX() + x - 0.05,
          axisAlignedBB2.minY - ent.getY() + y,
          axisAlignedBB2.minZ - ent.getZ() + z - 0.05,

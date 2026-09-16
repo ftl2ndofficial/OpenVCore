@@ -10,8 +10,8 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.command.CommandSource;
-import net.minecraft.text.Text;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 import vcore.core.Managers;
 
 public class CfgModeType implements ArgumentType<String> {
@@ -24,14 +24,14 @@ public class CfgModeType implements ArgumentType<String> {
    public String parse(StringReader reader) throws CommandSyntaxException {
       String cat = reader.readString();
       if (!this.getExamples().contains(cat)) {
-         throw new DynamicCommandExceptionType(name -> Text.literal("Category " + name + " does not exist :(")).create(cat);
+         throw new DynamicCommandExceptionType(name -> Component.literal("Category " + name + " does not exist :(")).create(cat);
       } else {
          return cat;
       }
    }
 
    public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-      return CommandSource.suggestMatching(Managers.CONFIG.getConfigList(), builder);
+      return SharedSuggestionProvider.suggest(Managers.CONFIG.getConfigList(), builder);
    }
 
    public Collection<String> getExamples() {

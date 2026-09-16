@@ -1,12 +1,12 @@
 package vcore.core.manager.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 import vcore.Vcore;
 import vcore.core.manager.IManager;
@@ -316,19 +316,19 @@ public class ModuleManager implements IManager {
       }
    }
 
-   public void onRender2D(DrawContext context) {
-      if (!mc.getDebugHud().shouldShowDebugHud() && !mc.options.hudHidden) {
+   public void onRender2D(GuiGraphics context) {
+      if (!mc.getDebugOverlay().showDebugScreen() && !mc.options.hideGui) {
          HudElement.anyHovered = false;
          this.modules.stream().filter(Module::isEnabled).forEach(module -> module.onRender2D(context));
          if (!HudElement.anyHovered && !ClickGUI.anyHovered && GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(mc.getWindow().getHandle(), GLFW.glfwCreateStandardCursor(221185));
+            GLFW.glfwSetCursor(mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221185));
          }
 
          Vcore.core.onRender2D(context);
       }
    }
 
-   public void onRender3D(MatrixStack stack) {
+   public void onRender3D(PoseStack stack) {
       this.modules.stream().filter(Module::isEnabled).forEach(module -> module.onRender3D(stack));
    }
 
@@ -351,7 +351,7 @@ public class ModuleManager implements IManager {
    }
 
    public void onKeyPressed(int eventKey) {
-      if (eventKey != -1 && eventKey != 0 && !(mc.currentScreen instanceof ClickGUI)) {
+      if (eventKey != -1 && eventKey != 0 && !(mc.screen instanceof ClickGUI)) {
          this.modules.forEach(module -> {
             if (module.getBind().getKey() == eventKey) {
                module.toggle();
@@ -361,7 +361,7 @@ public class ModuleManager implements IManager {
    }
 
    public void onKeyReleased(int eventKey) {
-      if (eventKey != -1 && eventKey != 0 && !(mc.currentScreen instanceof ClickGUI)) {
+      if (eventKey != -1 && eventKey != 0 && !(mc.screen instanceof ClickGUI)) {
          this.modules.forEach(module -> {
             if (module.getBind().getKey() == eventKey && module.getBind().isHold()) {
                module.disable();
@@ -371,7 +371,7 @@ public class ModuleManager implements IManager {
    }
 
    public void onMoseKeyPressed(int eventKey) {
-      if (eventKey != -1 && !(mc.currentScreen instanceof ClickGUI)) {
+      if (eventKey != -1 && !(mc.screen instanceof ClickGUI)) {
          this.modules.forEach(module -> {
             if (Objects.equals(module.getBind().getBind(), "M" + eventKey)) {
                module.toggle();
@@ -381,7 +381,7 @@ public class ModuleManager implements IManager {
    }
 
    public void onMoseKeyReleased(int eventKey) {
-      if (eventKey != -1 && !(mc.currentScreen instanceof ClickGUI)) {
+      if (eventKey != -1 && !(mc.screen instanceof ClickGUI)) {
          this.activeMouseKeys.add(eventKey);
          this.modules.forEach(module -> {
             if (Objects.equals(module.getBind().getBind(), "M" + eventKey) && module.getBind().isHold()) {
