@@ -32,10 +32,12 @@ public class WaterMark extends HudElement {
 
    @Override
    public void render(GuiGraphics context) {
+      this.setPositionPixels(5.0F, 5.0F);
       super.render(context);
-      String username = ModuleManager.nameProtect.isEnabled() ? NameProtect.getCustomName() : (mc.player != null ? mc.player.getScoreboardName() : "");
+      String username = ModuleManager.nameProtect.isEnabled() ? NameProtect.getCustomName() : mc.getUser().getName();
+      int fps = FrameRateCounter.INSTANCE.getFps();
+      String fpsText = fps + " FPS";
       float usernameWidth = FontRenderers.sf_bold.getStringWidth(username);
-      String fpsText = "FPS " + FrameRateCounter.INSTANCE.getFps();
       float fpsTextWidth = FontRenderers.sf_bold.getStringWidth(fpsText);
       float titleWidth = FontRenderers.sf_bold.getStringWidth("Release");
       float leftWidth = 15.0F + titleWidth + 3.0F;

@@ -21,6 +21,10 @@ public class ManagerScreen extends Screen {
       this.panel.setOpen(true);
    }
 
+   public ManagerPanel getPanel() {
+      return this.panel;
+   }
+
    @Override
    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
       if (Module.fullNullCheck()) {

@@ -61,6 +61,7 @@ loom {
         clientGameTest {
             property 'fabric.client.gametest.modid', 'vcore_client_test'
             property 'fabric.client.gametest.testModResourcesPath', file("src/clientTest/resources").absolutePath
+            vmArg "-XX:TieredStopAtLevel=1"
         }
     }
 }

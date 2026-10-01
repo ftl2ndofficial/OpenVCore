@@ -32,6 +32,10 @@ public class ThemeSelector extends AbstractButton {
       return this.paletteOpen;
    }
 
+   public void setPaletteOpen(boolean open) {
+      this.paletteOpen = open;
+   }
+
    public void setLayout(float buttonX, float buttonY, float size, float barX, float barWidth, float paletteY, float paletteHeight) {
       this.setX(buttonX);
       this.setY(buttonY);

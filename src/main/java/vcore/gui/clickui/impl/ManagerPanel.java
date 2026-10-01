@@ -70,6 +70,18 @@ public class ManagerPanel {
       return this.open || this.alphaAnim > 0.01F;
    }
 
+   public ManagerPanel.Tab getCurrentTab() {
+      return this.currentTab;
+   }
+
+   public void setCurrentTab(ManagerPanel.Tab tab) {
+      if (this.currentTab == ManagerPanel.Tab.MACRO && tab != ManagerPanel.Tab.MACRO) {
+         this.clearMacroInteraction();
+      }
+      this.currentTab = tab;
+      this.scrollAmount = 0.0F;
+   }
+
    private float lerp(float current, float target, float delta) {
       return current + (target - current) * delta;
    }

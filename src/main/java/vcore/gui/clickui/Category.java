@@ -197,4 +197,8 @@ public class Category extends AbstractCategory {
 
       return height;
    }
+
+   public List<AbstractButton> getButtons() {
+      return this.buttons;
+   }
 }

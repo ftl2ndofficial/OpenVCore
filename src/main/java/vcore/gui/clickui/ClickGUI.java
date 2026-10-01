@@ -73,6 +73,14 @@ public class ClickGUI extends Screen {
       return getInstance();
    }
 
+   public SearchBar getSearchBar() {
+      return this.searchBar;
+   }
+
+   public ThemeSelector getThemeSelector() {
+      return this.themeSelector;
+   }
+
    public static void closeModuleSettingsExcept(ModuleButton openButton) {
       if (windows != null) {
          for (AbstractCategory window : windows) {

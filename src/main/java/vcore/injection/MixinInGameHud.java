@@ -15,7 +15,7 @@ import vcore.features.modules.Module;
 
 @Mixin(Gui.class)
 public abstract class MixinInGameHud {
-   @Inject(at = @At("TAIL"), method = "render")
+   @Inject(at = @At("HEAD"), method = "render")
    public void renderHook(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          Managers.MODULE.onRender2D(context);

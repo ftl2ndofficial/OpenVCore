@@ -480,7 +480,7 @@ public class ESP extends Module {
       return ModuleManager.freeCam != null && ModuleManager.freeCam.isEnabled();
    }
 
-   private enum Mode {
+   public enum Mode {
       TwoD,
       Box,
       Off;
