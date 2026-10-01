@@ -2,7 +2,6 @@ package vcore.gui.font;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.platform.NativeImage.Format;
-import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.chars.Char2ObjectArrayMap;
 import java.awt.Color;
 import java.awt.Font;
@@ -20,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryUtil;
 import vcore.injection.accesors.INativeImage;
 
@@ -28,14 +27,14 @@ class GlyphMap {
    final char fromIncl;
    final char toExcl;
    final Font font;
-   final ResourceLocation bindToTexture;
+   final Identifier bindToTexture;
    final int pixelPadding;
    private final Char2ObjectArrayMap<Glyph> glyphs = new Char2ObjectArrayMap();
    int width;
    int height;
    boolean generated = false;
 
-   public GlyphMap(char from, char to, Font font, ResourceLocation identifier, int padding) {
+   public GlyphMap(char from, char to, Font font, Identifier identifier, int padding) {
       this.fromIncl = from;
       this.toExcl = to;
       this.font = font;
@@ -128,7 +127,7 @@ class GlyphMap {
       }
    }
 
-   public static void registerBufferedImageTexture(ResourceLocation i, BufferedImage bi) {
+   public static void registerBufferedImageTexture(Identifier i, BufferedImage bi) {
       try {
          int ow = bi.getWidth();
          int oh = bi.getHeight();
@@ -162,13 +161,10 @@ class GlyphMap {
             }
          }
 
-         DynamicTexture tex = new DynamicTexture(image);
+         DynamicTexture tex = new DynamicTexture(() -> "glyph_" + i.getPath(), image);
          tex.upload();
-         if (RenderSystem.isOnRenderThread()) {
-            Minecraft.getInstance().getTextureManager().register(i, tex);
-         } else {
-            RenderSystem.recordRenderCall(() -> Minecraft.getInstance().getTextureManager().register(i, tex));
-         }
+         Minecraft mc = Minecraft.getInstance();
+         mc.execute(() -> mc.getTextureManager().register(i, tex));
       } catch (Throwable e) {
          e.printStackTrace();
       }

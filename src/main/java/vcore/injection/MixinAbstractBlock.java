@@ -34,9 +34,13 @@ public abstract class MixinAbstractBlock {
 
    public float getDigSpeed(BlockState state, ItemStack stack) {
       double str = stack.getDestroySpeed(state);
-      int effect = EnchantmentHelper.getItemEnchantmentLevel(
-         (Holder)IManager.mc.level.registryAccess().registryOrThrow(Enchantments.EFFICIENCY.registryKey()).getHolder(Enchantments.EFFICIENCY).get(), stack
-      );
+      int effect = 0;
+      if (IManager.mc.level != null) {
+         effect = IManager.mc.level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
+            .get(Enchantments.EFFICIENCY)
+            .map(holder -> EnchantmentHelper.getItemEnchantmentLevel(holder, stack))
+            .orElse(0);
+      }
       return (float)Math.max(str + (str > 1.0 ? effect * effect + 1.0 : 0.0), 0.0);
    }
 }

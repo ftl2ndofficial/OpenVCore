@@ -9,10 +9,12 @@ import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.monster.Monster;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
@@ -141,8 +143,8 @@ public class ESP extends Module {
    }
 
    private boolean isNaked(Player player) {
-      for (ItemStack stack : player.getInventory().armor) {
-         if (!stack.isEmpty()) {
+      for (EquipmentSlot slot : EquipmentSlotGroup.ARMOR) {
+         if (!player.getItemBySlot(slot).isEmpty()) {
             return false;
          }
       }
@@ -151,7 +153,7 @@ public class ESP extends Module {
    }
 
    private void renderEntity(GuiGraphics context, LivingEntity entity, Vector4f rect) {
-      PoseStack matrices = context.pose();
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
       if (this.mode.getValue() == ESP.Mode.TwoD) {
          this.draw2DBox(matrices, rect, entity);
       }
@@ -287,7 +289,7 @@ public class ESP extends Module {
    private float getFadeAlpha(LivingEntity entity) {
       float distance = this.fadeDistance.getValue();
       if (!(distance <= 0.0F) && mc.gameRenderer != null) {
-         double cameraDistance = mc.gameRenderer.getMainCamera().getPosition().distanceTo(entity.getEyePosition());
+         double cameraDistance = mc.gameRenderer.getMainCamera().position().distanceTo(entity.getEyePosition());
          return Mth.clamp((float)(cameraDistance / distance), 0.0F, 1.0F);
       } else {
          return 1.0F;
@@ -344,7 +346,7 @@ public class ESP extends Module {
          float bgY = rect.y - bgHeight - 2.0F;
          float bgCenterY = bgY + bgHeight / 2.0F;
          float scale = 0.75F;
-         PoseStack matrices = context.pose();
+         PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
          matrices.pushPose();
          matrices.translate(centerX, bgCenterY, 0.0F);
          matrices.scale(scale, scale, 1.0F);
@@ -398,7 +400,9 @@ public class ESP extends Module {
    private void drawArmorStrip(GuiGraphics context, Vector4f rect, Player player) {
       List<ItemStack> stacks = new ArrayList<>();
       stacks.add(player.getOffhandItem());
-      stacks.addAll(player.getInventory().armor);
+      for (EquipmentSlot slot : EquipmentSlotGroup.ARMOR) {
+         stacks.add(player.getItemBySlot(slot));
+      }
       stacks.add(player.getMainHandItem());
       stacks.removeIf(ItemStack::isEmpty);
       if (!stacks.isEmpty()) {
@@ -408,11 +412,10 @@ public class ESP extends Module {
          float scale = 0.55F;
          float centerX = rect.x + (rect.z - rect.x) / 2.0F;
          float centerY = y + 7.0F;
-         PoseStack matrices = context.pose();
-         matrices.pushPose();
-         matrices.translate(centerX, centerY, 0.0F);
-         matrices.scale(scale, scale, 1.0F);
-         matrices.translate(-centerX, -centerY, 0.0F);
+         context.pose().pushMatrix();
+         context.pose().translate(centerX, centerY);
+         context.pose().scale(scale, scale);
+         context.pose().translate(-centerX, -centerY);
 
          for (int i = 0; i < stacks.size(); i++) {
             ItemStack stack = stacks.get(i);
@@ -421,7 +424,7 @@ public class ESP extends Module {
             context.renderItemDecorations(mc.font, stack, (int)x, (int)y);
          }
 
-         matrices.popPose();
+         context.pose().popMatrix();
       }
    }
 

@@ -9,10 +9,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
-import net.minecraft.client.User.Type;
 import net.minecraft.client.gui.screens.social.PlayerSocialManager;
 import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 import net.minecraft.client.multiplayer.chat.report.ReportEnvironment;
@@ -34,9 +34,10 @@ public final class AccountUtility {
 
    public static String login(String name) {
       String username = normalizeMinecraftName(name);
-      User session = new User(username, UUIDUtil.createOfflinePlayerUUID(username), "", Optional.empty(), Optional.empty(), Type.MOJANG);
+      UUID uuid = UUIDUtil.createOfflinePlayerUUID(username);
+      User session = new User(username, uuid, "", Optional.empty(), Optional.empty());
       setSession(session);
-      return username;
+      return session.getName();
    }
 
    public static String loginRandomAlt() {
@@ -95,7 +96,7 @@ public final class AccountUtility {
    private static void setSession(User session) {
       IMinecraftClient accessor = (IMinecraftClient)mc;
       accessor.setSessionT(session);
-      mc.getGameProfile().getProperties().clear();
+      mc.getGameProfile().properties().clear();
       UserApiService apiService = UserApiService.OFFLINE;
       accessor.setUserApiService(apiService);
       accessor.setSocialInteractionsManagerT(new PlayerSocialManager(mc, apiService));

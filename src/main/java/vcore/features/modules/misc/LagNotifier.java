@@ -1,10 +1,11 @@
 package vcore.features.modules.misc;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import vcore.utility.render.RenderSystem;
 import java.awt.Color;
 import java.text.DecimalFormat;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import vcore.core.Managers;
@@ -81,6 +82,7 @@ public class LagNotifier extends Module {
             );
          RenderSystem.setShaderColor(1.0F, 0.87F, 0.0F, 1.0F);
          context.blit(
+            RenderPipelines.GUI_TEXTURED,
             TextureStorage.lagIcon,
             (int)(mc.getWindow().getGuiScaledWidth() / 2.0F - 40.0F),
             (int)(mc.getWindow().getGuiScaledHeight() / 3.0F - 120.0F),

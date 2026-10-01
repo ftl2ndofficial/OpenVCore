@@ -1,17 +1,18 @@
 package vcore.events.impl;
 
-import net.minecraft.client.player.Input;
+import net.minecraft.client.player.ClientInput;
 import vcore.events.Event;
+import vcore.utility.player.InputUtility;
 
 public class EventKeyboardInput extends Event {
-   private final Input input;
+   private final ClientInput input;
    private boolean clearMovementInput;
 
-   public EventKeyboardInput(Input input) {
+   public EventKeyboardInput(ClientInput input) {
       this.input = input;
    }
 
-   public Input getInput() {
+   public ClientInput getInput() {
       return this.input;
    }
 
@@ -23,14 +24,7 @@ public class EventKeyboardInput extends Event {
       return this.clearMovementInput;
    }
 
-   public static void clearMovementInput(Input input) {
-      input.up = false;
-      input.down = false;
-      input.left = false;
-      input.right = false;
-      input.forwardImpulse = 0.0F;
-      input.leftImpulse = 0.0F;
-      input.jumping = false;
-      input.shiftKeyDown = false;
+   public static void clearMovementInput(ClientInput input) {
+      InputUtility.clearMovement(input);
    }
 }

@@ -111,7 +111,7 @@ public class HudElement {
          Render2DEngine.drawLine(0.0F, screenHeight / 2.0F, screenWidth, screenHeight / 2.0F, Color.WHITE.getRGB());
          if (finalX != 0.0F || finalY != 0.0F) {
             Render2DEngine.drawRound(
-               context.pose(),
+               Render2DEngine.toPoseStack(context.pose()),
                finalX == 0.0F ? this.getHitX() : finalX,
                finalY == 0.0F ? this.getHitY() : finalY,
                this.width,
@@ -140,7 +140,7 @@ public class HudElement {
 
       if (this.isDraggable() && this.isHovering() && mc.screen instanceof ChatScreen) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(mc.getWindow().getWindow(), this.mouseState ? GLFW.glfwCreateStandardCursor(221187) : GLFW.glfwCreateStandardCursor(221188));
+            GLFW.glfwSetCursor(mc.getWindow().handle(), this.mouseState ? GLFW.glfwCreateStandardCursor(221187) : GLFW.glfwCreateStandardCursor(221188));
          }
 
          anyHovered = true;

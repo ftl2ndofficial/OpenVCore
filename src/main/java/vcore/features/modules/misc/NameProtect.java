@@ -20,7 +20,7 @@ public class NameProtect extends Module {
    }
 
    public static String getCustomName() {
-      return ModuleManager.nameProtect.isEnabled() ? newName.getValue().replaceAll("&", "§") : mc.getGameProfile().getName();
+      return ModuleManager.nameProtect.isEnabled() ? newName.getValue().replaceAll("&", "§") : mc.getGameProfile().name();
    }
 
    public static String protectText(String text) {
@@ -32,7 +32,7 @@ public class NameProtect extends Module {
          Map<String, String> replacements = new LinkedHashMap<>();
          String customName = getCustomName();
          addReplacement(replacements, mc.getUser().getName(), customName);
-         addReplacement(replacements, mc.getGameProfile().getName(), customName);
+         addReplacement(replacements, mc.getGameProfile().name(), customName);
          addReplacement(replacements, mc.player.getName().getString(), customName);
          if (hideFriends.getValue()) {
             for (String friend : FriendManager.friends) {

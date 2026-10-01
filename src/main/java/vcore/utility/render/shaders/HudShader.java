@@ -3,7 +3,7 @@ package vcore.utility.render.shaders;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
 import vcore.utility.render.shaders.satin.api.managed.ManagedCoreShader;
@@ -25,7 +25,7 @@ public class HudShader {
    private Uniform4f color3;
    private Uniform4f color4;
    public static final ManagedCoreShader HUD_SHADER = ShaderEffectManager.getInstance()
-      .manageCoreShader(ResourceLocation.fromNamespaceAndPath("vcore", "hudshader"), DefaultVertexFormat.POSITION);
+      .manageCoreShader(Identifier.fromNamespaceAndPath("vcore", "hudshader"), DefaultVertexFormat.POSITION);
 
    public HudShader() {
       this.setup();
@@ -51,7 +51,7 @@ public class HudShader {
    }
 
    public void use() {
-      RenderSystem.setShader(HUD_SHADER::getProgram);
+      HUD_SHADER.use();
    }
 
    public void setup() {

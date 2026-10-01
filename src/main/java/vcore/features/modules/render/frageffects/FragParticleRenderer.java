@@ -1,6 +1,5 @@
 package vcore.features.modules.render.frageffects;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -11,12 +10,12 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import vcore.features.modules.Module;
 import vcore.utility.Timer;
 import vcore.utility.render.Render3DEngine;
+import vcore.utility.render.RenderSystem;
 
 public final class FragParticleRenderer {
    private final List<FragParticleRenderer.FragParticle> particles = new ArrayList<>();
@@ -57,7 +56,7 @@ public final class FragParticleRenderer {
       if (!this.particles.isEmpty() && Module.mc.gameRenderer != null) {
          List<FragParticleRenderer.ColoredPoint>[] pointsBySize = this.createPointBuckets(160);
          float tickDelta = Render3DEngine.getTickDelta();
-         Vec3 cameraPos = Module.mc.gameRenderer.getMainCamera().getPosition();
+         Vec3 cameraPos = Module.mc.gameRenderer.getMainCamera().position();
 
          for (FragParticleRenderer.FragParticle particle : this.particles) {
             Vec3 renderPos = particle.getRenderPos(tickDelta).subtract(cameraPos);
@@ -69,7 +68,6 @@ public final class FragParticleRenderer {
          RenderSystem.defaultBlendFunc();
          RenderSystem.enableDepthTest();
          RenderSystem.depthMask(false);
-         RenderSystem.setShader(GameRenderer::getPositionColorShader);
          Matrix4f matrix = matrices.last().pose();
          float pointScale = 0.25F;
 

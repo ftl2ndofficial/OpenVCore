@@ -73,13 +73,13 @@ public class MoveFix extends Module {
       if (!this.isAutoCartMoveFixActive() && !this.shouldSkipAuraMoveFix() && !this.isDisabled()) {
          if (!Float.isNaN(this.fixRotation) && !mc.player.isHandsBusy()) {
             if (this.mode.getValue() == MoveFix.Mode.Free) {
-               float mF = mc.player.input.forwardImpulse;
-               float mS = mc.player.input.leftImpulse;
-               float delta = (mc.player.getYRot() - this.fixRotation) * (float) (Math.PI / 180.0);
-               float cos = Mth.cos(delta);
-               float sin = Mth.sin(delta);
-               mc.player.input.leftImpulse = Math.round(mS * cos - mF * sin);
-               mc.player.input.forwardImpulse = Math.round(mF * cos + mS * sin);
+                float mF = vcore.utility.player.InputUtility.getForward(mc.player.input);
+                float mS = vcore.utility.player.InputUtility.getLeft(mc.player.input);
+                float delta = (mc.player.getYRot() - this.fixRotation) * (float) (Math.PI / 180.0);
+                float cos = Mth.cos(delta);
+                float sin = Mth.sin(delta);
+                vcore.utility.player.InputUtility.setLeft(mc.player.input, Math.round(mS * cos - mF * sin));
+                vcore.utility.player.InputUtility.setForward(mc.player.input, Math.round(mF * cos + mS * sin));
             } else if (this.mode.getValue() != MoveFix.Mode.Focused) {
                if (this.mode.getValue() == MoveFix.Mode.Full) {
                   this.applyFullFocusedInput();
@@ -106,8 +106,8 @@ public class MoveFix extends Module {
    private void applyFullFocusedInput() {
       if (ModuleManager.aura != null && Aura.target != null) {
          Entity target = Aura.target;
-         float forward = mc.player.input.forwardImpulse;
-         float strafe = mc.player.input.leftImpulse;
+         float forward = vcore.utility.player.InputUtility.getForward(mc.player.input);
+         float strafe = vcore.utility.player.InputUtility.getLeft(mc.player.input);
          float directionYaw = this.getQuantizedYawTo(target.position());
          float angle = Mth.wrapDegrees((float)Math.toDegrees(direction(directionYaw, forward, strafe)));
          if (forward != 0.0F || strafe != 0.0F) {
@@ -129,8 +129,7 @@ public class MoveFix extends Module {
                }
             }
 
-            mc.player.input.forwardImpulse = closestForward;
-            mc.player.input.leftImpulse = closestStrafe;
+            vcore.utility.player.InputUtility.setMoveVector(mc.player.input, closestStrafe, closestForward);
          }
       }
    }

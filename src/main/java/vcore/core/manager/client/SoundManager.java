@@ -2,33 +2,33 @@ package vcore.core.manager.client;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import vcore.core.manager.IManager;
 
 public class SoundManager implements IManager {
-   public final ResourceLocation KEYRELEASE_SOUND = ResourceLocation.parse("vcore:keyrelease");
+   public final Identifier KEYRELEASE_SOUND = Identifier.parse("vcore:keyrelease");
    public SoundEvent KEYRELEASE_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.KEYRELEASE_SOUND);
-   public final ResourceLocation NURSULTAN_ON_SOUND = ResourceLocation.parse("vcore:nursultan_on");
+   public final Identifier NURSULTAN_ON_SOUND = Identifier.parse("vcore:nursultan_on");
    public SoundEvent NURSULTAN_ON_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.NURSULTAN_ON_SOUND);
-   public final ResourceLocation NURSULTAN_OFF_SOUND = ResourceLocation.parse("vcore:nursultan_off");
+   public final Identifier NURSULTAN_OFF_SOUND = Identifier.parse("vcore:nursultan_off");
    public SoundEvent NURSULTAN_OFF_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.NURSULTAN_OFF_SOUND);
-   public final ResourceLocation NEWCODE_ON_SOUND = ResourceLocation.parse("vcore:newcode_on");
+   public final Identifier NEWCODE_ON_SOUND = Identifier.parse("vcore:newcode_on");
    public SoundEvent NEWCODE_ON_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.NEWCODE_ON_SOUND);
-   public final ResourceLocation NEWCODE_OFF_SOUND = ResourceLocation.parse("vcore:newcode_off");
+   public final Identifier NEWCODE_OFF_SOUND = Identifier.parse("vcore:newcode_off");
    public SoundEvent NEWCODE_OFF_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.NEWCODE_OFF_SOUND);
-   public final ResourceLocation CATLAVAN_ON_SOUND = ResourceLocation.parse("vcore:catlavan_on");
+   public final Identifier CATLAVAN_ON_SOUND = Identifier.parse("vcore:catlavan_on");
    public SoundEvent CATLAVAN_ON_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.CATLAVAN_ON_SOUND);
-   public final ResourceLocation CATLAVAN_OFF_SOUND = ResourceLocation.parse("vcore:catlavan_off");
+   public final Identifier CATLAVAN_OFF_SOUND = Identifier.parse("vcore:catlavan_off");
    public SoundEvent CATLAVAN_OFF_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.CATLAVAN_OFF_SOUND);
-   public final ResourceLocation CELESTIAL_ON_SOUND = ResourceLocation.parse("vcore:celestial_on");
+   public final Identifier CELESTIAL_ON_SOUND = Identifier.parse("vcore:celestial_on");
    public SoundEvent CELESTIAL_ON_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.CELESTIAL_ON_SOUND);
-   public final ResourceLocation CELESTIAL_OFF_SOUND = ResourceLocation.parse("vcore:celestial_off");
+   public final Identifier CELESTIAL_OFF_SOUND = Identifier.parse("vcore:celestial_off");
    public SoundEvent CELESTIAL_OFF_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.CELESTIAL_OFF_SOUND);
-   public final ResourceLocation SWIPEIN_SOUND = ResourceLocation.parse("vcore:swipein");
+   public final Identifier SWIPEIN_SOUND = Identifier.parse("vcore:swipein");
    public SoundEvent SWIPEIN_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.SWIPEIN_SOUND);
-   public final ResourceLocation SWIPEOUT_SOUND = ResourceLocation.parse("vcore:swipeout");
+   public final Identifier SWIPEOUT_SOUND = Identifier.parse("vcore:swipeout");
    public SoundEvent SWIPEOUT_SOUNDEVENT = SoundEvent.createVariableRangeEvent(this.SWIPEOUT_SOUND);
 
    public void registerSounds() {

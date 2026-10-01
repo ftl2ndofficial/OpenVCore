@@ -1,8 +1,8 @@
 package vcore.injection;
 
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.scores.Objective;
 import org.spongepowered.asm.mixin.Mixin;
@@ -15,7 +15,7 @@ import vcore.features.modules.Module;
 
 @Mixin(Gui.class)
 public abstract class MixinInGameHud {
-   @Inject(at = @At("HEAD"), method = "render")
+   @Inject(at = @At("TAIL"), method = "render")
    public void renderHook(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          Managers.MODULE.onRender2D(context);
@@ -49,7 +49,7 @@ public abstract class MixinInGameHud {
    }
 
    @Inject(method = "renderVignette", at = @At("HEAD"), cancellable = true)
-   private void renderVignetteOverlayHook(GuiGraphics context, Entity entity, CallbackInfo ci) {
+   private void renderVignetteOverlayHook(GuiGraphics context, Entity camera, CallbackInfo ci) {
       if (ModuleManager.noRender.vignette.getValue()) {
          ci.cancel();
       }

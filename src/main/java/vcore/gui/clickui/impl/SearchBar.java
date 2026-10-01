@@ -49,7 +49,7 @@ public class SearchBar extends AbstractButton {
       boolean hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height);
       int hudAlpha = Math.round(255.0F * HudEditor.getAlpha());
       Color base = Render2DEngine.injectAlpha(new Color(25, 25, 28), hudAlpha);
-      Render2DEngine.drawClickGuiRound(context.pose(), this.x, this.y, this.width, this.height, this.height / 2.0F, base);
+      Render2DEngine.drawClickGuiRound(Render2DEngine.toPoseStack(context.pose()), this.x, this.y, this.width, this.height, this.height / 2.0F, base);
       FontRenderer font = FontRenderers.sf_bold;
       String displayText;
       int textColor;
@@ -66,7 +66,7 @@ public class SearchBar extends AbstractButton {
       font.drawString(context.pose(), displayText, this.x + 9.0F, textY, textColor);
       if (hovered) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(Module.mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221186));
+            GLFW.glfwSetCursor(Module.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221186));
          }
 
          ClickGUI.anyHovered = true;
@@ -95,7 +95,7 @@ public class SearchBar extends AbstractButton {
    @Override
    public void keyTyped(int keyCode) {
       super.keyTyped(keyCode);
-      if (keyCode != 70 || !InputConstants.isKeyDown(Module.mc.getWindow().getWindow(), 341) && !InputConstants.isKeyDown(Module.mc.getWindow().getWindow(), 345)) {
+      if (keyCode != 70 || !InputConstants.isKeyDown(Module.mc.getWindow(), 341) && !InputConstants.isKeyDown(Module.mc.getWindow(), 345)) {
          if (Vcore.currentKeyListener == Vcore.KeyListening.Search) {
             if (listening) {
                switch (keyCode) {

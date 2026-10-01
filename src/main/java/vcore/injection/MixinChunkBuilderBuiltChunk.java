@@ -2,6 +2,7 @@ package vcore.injection;
 
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -10,8 +11,11 @@ import vcore.utility.render.chunk.ChunkAnimations;
 
 @Mixin(RenderSection.class)
 public class MixinChunkBuilderBuiltChunk {
-   @Inject(method = "setOrigin", at = @At("TAIL"))
-   private void onSetOrigin(int x, int y, int z, CallbackInfo ci) {
+   @Inject(method = "setSectionNode", at = @At("TAIL"))
+   private void onSetSectionNode(long sectionNode, CallbackInfo ci) {
+      int x = SectionPos.sectionToBlockCoord(SectionPos.x(sectionNode));
+      int y = SectionPos.sectionToBlockCoord(SectionPos.y(sectionNode));
+      int z = SectionPos.sectionToBlockCoord(SectionPos.z(sectionNode));
       ChunkAnimations.INSTANCE.setPosition((RenderSection)(Object)this, new BlockPos(x, y, z));
    }
 }

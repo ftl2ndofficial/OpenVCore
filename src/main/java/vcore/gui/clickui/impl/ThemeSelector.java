@@ -1,6 +1,5 @@
 package vcore.gui.clickui.impl;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -10,8 +9,9 @@ import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.RenderPipelines;
 import org.joml.Matrix4f;
+import vcore.utility.render.RenderSystem;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.clickui.AbstractButton;
 import vcore.gui.clickui.ClickGUI;
@@ -48,9 +48,10 @@ public class ThemeSelector extends AbstractButton {
       boolean hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height);
       int hudAlpha = Math.round(255.0F * HudEditor.getAlpha());
       Color buttonBg = Render2DEngine.injectAlpha(new Color(25, 25, 28), hudAlpha);
-      Render2DEngine.drawClickGuiRound(context.pose(), this.x, this.y, this.width, this.height, this.width / 4.0F, buttonBg);
+      Render2DEngine.drawClickGuiRound(Render2DEngine.toPoseStack(context.pose()), this.x, this.y, this.width, this.height, this.width / 4.0F, buttonBg);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, HudEditor.getAlpha());
       context.blit(
+         RenderPipelines.GUI_TEXTURED,
          TextureStorage.themeHudIcon, (int)(this.x + this.width / 2.0F - 6.0F), (int)(this.y + this.height / 2.0F - 6.0F), 0.0F, 0.0F, 12, 12, 12, 12
       );
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
@@ -72,7 +73,7 @@ public class ThemeSelector extends AbstractButton {
          float actualY = py + offsetY;
          int paletteAlpha = Math.round(255.0F * HudEditor.getAlpha() * this.themeAlphaAnim);
          Color bg = Render2DEngine.injectAlpha(new Color(20, 20, 22), paletteAlpha);
-         Render2DEngine.drawClickGuiRound(context.pose(), px, actualY, width, height, height / 2.0F, bg);
+         Render2DEngine.drawClickGuiRound(Render2DEngine.toPoseStack(context.pose()), px, actualY, width, height, height / 2.0F, bg);
          List<HudEditor.Theme> palette = HudEditor.advancecolor;
          float swatchSize = Math.max(10.5F, height - 5.5F);
          float spacing = 5.0F;
@@ -87,7 +88,7 @@ public class ThemeSelector extends AbstractButton {
             boolean swatchHovered = Render2DEngine.isHovered(mouseX, mouseY, sx, swatchY, swatchSize, swatchSize);
             if (swatchHovered) {
                Render2DEngine.drawRound(
-                  context.pose(),
+                  Render2DEngine.toPoseStack(context.pose()),
                   sx - 1.0F,
                   swatchY - 1.0F,
                   swatchSize + 2.0F,
@@ -112,11 +113,10 @@ public class ThemeSelector extends AbstractButton {
    }
 
    public void drawGradientCircle(GuiGraphics context, float x, float y, float radius, Color tl, Color tr, Color bl, Color br) {
-      PoseStack matrices = context.pose();
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
       Matrix4f matrix = matrices.last().pose();
       RenderSystem.enableBlend();
       RenderSystem.defaultBlendFunc();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
       float cx = x + radius;
       float cy = y + radius;

@@ -3,7 +3,7 @@ package vcore.utility.render.shaders;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import vcore.features.modules.Module;
 import vcore.utility.render.shaders.satin.api.managed.ManagedCoreShader;
 import vcore.utility.render.shaders.satin.api.managed.ShaderEffectManager;
@@ -21,7 +21,7 @@ public class ArcShader {
    private Uniform4f color2;
    private Uniform1f start;
    private Uniform1f end;
-   public static final ManagedCoreShader ARC = ShaderEffectManager.getInstance().manageCoreShader(ResourceLocation.fromNamespaceAndPath("vcore", "arc"), DefaultVertexFormat.POSITION);
+   public static final ManagedCoreShader ARC = ShaderEffectManager.getInstance().manageCoreShader(Identifier.fromNamespaceAndPath("vcore", "arc"), DefaultVertexFormat.POSITION);
 
    public ArcShader() {
       this.setup();
@@ -43,7 +43,7 @@ public class ArcShader {
    }
 
    public void use() {
-      RenderSystem.setShader(ARC::getProgram);
+      ARC.use();
    }
 
    protected void setup() {

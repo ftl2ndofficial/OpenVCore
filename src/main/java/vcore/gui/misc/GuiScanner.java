@@ -2,8 +2,10 @@ package vcore.gui.misc;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import vcore.features.modules.Module;
 import vcore.gui.font.FontRenderers;
@@ -46,34 +48,35 @@ public class GuiScanner extends Screen {
          this.consolex1 = Module.mc.getWindow().getGuiScaledWidth() - 50;
          this.consoley = this.radary;
          this.consoley1 = this.radary1 - 50;
-         Render2DEngine.drawRectDumbWay(context.pose(), this.consolex, this.consoley, this.consolex1, this.consoley1, new Color(-150205428, true));
+         PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+         Render2DEngine.drawRectDumbWay(matrices, this.consolex, this.consoley, this.consolex1, this.consoley1, new Color(-150205428, true));
          Render2DEngine.drawRectDumbWay(
-            context.pose(), this.consolex, this.consoley1 + 3, this.consolex1, this.consoley1 + 17, new Color(-150205428, true)
+            matrices, this.consolex, this.consoley1 + 3, this.consolex1, this.consoley1 + 17, new Color(-150205428, true)
          );
          FontRenderers.monsterrat
-            .drawString(context.pose(), "cursor pos: " + this.hoverx * 64 + "x  " + this.hovery * 64 + "z", this.consolex + 4, this.consoley1 + 6, -1);
+            .drawString(matrices, "cursor pos: " + this.hoverx * 64 + "x  " + this.hovery * 64 + "z", this.consolex + 4, this.consoley1 + 6, -1);
          if (!track) {
             Render2DEngine.drawRectDumbWay(
-               context.pose(), this.consolex, this.consoley1 + 20, this.consolex1, this.consoley1 + 35, new Color(-150205428, true)
+               matrices, this.consolex, this.consoley1 + 20, this.consolex1, this.consoley1 + 35, new Color(-150205428, true)
             );
-            FontRenderers.monsterrat.drawString(context.pose(), "tracker off", this.consolex + 4, this.consoley1 + 26, -1);
+            FontRenderers.monsterrat.drawString(matrices, "tracker off", this.consolex + 4, this.consoley1 + 26, -1);
          } else {
             Render2DEngine.drawRectDumbWay(
-               context.pose(), this.consolex, this.consoley1 + 20, this.consolex1, this.consoley1 + 35, new Color(-144810402, true)
+               matrices, this.consolex, this.consoley1 + 20, this.consolex1, this.consoley1 + 35, new Color(-144810402, true)
             );
-            FontRenderers.monsterrat.drawString(context.pose(), "tracker on", this.consolex + 4, this.consoley1 + 26, -1);
+            FontRenderers.monsterrat.drawString(matrices, "tracker on", this.consolex + 4, this.consoley1 + 26, -1);
          }
 
          Render2DEngine.drawRectDumbWay(
-            context.pose(), this.consolex, this.consoley1 + 38, this.consolex1, this.consoley1 + 53, new Color(-150205428, true)
+            matrices, this.consolex, this.consoley1 + 38, this.consolex1, this.consoley1 + 53, new Color(-150205428, true)
          );
-         FontRenderers.monsterrat.drawString(context.pose(), "clear console", this.consolex + 4, this.consoley1 + 42, -1);
-         Render2DEngine.drawRectDumbWay(context.pose(), this.radarx, this.radary, this.radarx1, this.radary1, new Color(-535489259, true));
+         FontRenderers.monsterrat.drawString(matrices, "clear console", this.consolex + 4, this.consoley1 + 42, -1);
+         Render2DEngine.drawRectDumbWay(matrices, this.radarx, this.radary, this.radarx1, this.radary1, new Color(-535489259, true));
          Render2DEngine.drawRectDumbWay(
-            context.pose(), this.centerx - 1.0F, this.centery - 1.0F, this.centerx + 1.0F, this.centery + 1.0F, new Color(16712451)
+            matrices, this.centerx - 1.0F, this.centery - 1.0F, this.centerx + 1.0F, this.centery + 1.0F, new Color(16712451)
          );
          Render2DEngine.drawRectDumbWay(
-            context.pose(),
+            matrices,
             (float)(Module.mc.player.getX() / 16.0 / 4.0 + this.centerx),
             (float)(Module.mc.player.getZ() / 16.0 / 4.0 + this.centery),
             (float)(Module.mc.player.getX() / 16.0 / 4.0 + (this.radarx1 - this.radarx) / 300.0F + this.centerx),
@@ -85,21 +88,24 @@ public class GuiScanner extends Screen {
             this.hovery = mouseY - this.centery;
          }
 
-         Render2DEngine.addWindow(context.pose(), this.consolex, this.consoley, this.consolex1, this.consoley1 - 10, 1.0);
+         Render2DEngine.addWindow(matrices, this.consolex, this.consoley, this.consolex1, this.consoley1 - 10, 1.0);
 
          for (int i = 0; i < this.consoleout.size(); i++) {
-            FontRenderers.monsterrat.drawString(context.pose(), this.consoleout.get(i), this.consolex + 4, this.consoley + 6 + i * 11 + this.wheely, -1);
+            FontRenderers.monsterrat.drawString(matrices, this.consoleout.get(i), this.consolex + 4, this.consoley + 6 + i * 11 + this.wheely, -1);
          }
 
          Render2DEngine.popWindow();
-         FontRenderers.monsterrat.drawString(context.pose(), "X+", this.radarx1 + 5, this.centery, -1);
-         FontRenderers.monsterrat.drawString(context.pose(), "X-", this.radarx - 15, this.centery, -1);
-         FontRenderers.monsterrat.drawString(context.pose(), "Y+", this.centerx, this.radary1 + 5, -1);
-         FontRenderers.monsterrat.drawString(context.pose(), "Y-", this.centerx, this.radary - 8, -1);
+         FontRenderers.monsterrat.drawString(matrices, "X+", this.radarx1 + 5, this.centery, -1);
+         FontRenderers.monsterrat.drawString(matrices, "X-", this.radarx - 15, this.centery, -1);
+         FontRenderers.monsterrat.drawString(matrices, "Y+", this.centerx, this.radary1 + 5, -1);
+         FontRenderers.monsterrat.drawString(matrices, "Y-", this.centerx, this.radary - 8, -1);
       }
    }
 
-   public boolean mouseClicked(double mouseX, double mouseY, int button) {
+   @Override
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+      double mouseX = event.x();
+      double mouseY = event.y();
       if (mouseX > this.radarx && mouseX < this.radarx1 && mouseY > this.radary && mouseY < this.radary1) {
          busy = true;
          this.searchx = (int)(mouseX - this.centerx);
@@ -115,7 +121,7 @@ public class GuiScanner extends Screen {
          this.consoleout.clear();
       }
 
-      return super.mouseClicked(mouseX, mouseY, button);
+      return super.mouseClicked(event, doubleClick);
    }
 
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {

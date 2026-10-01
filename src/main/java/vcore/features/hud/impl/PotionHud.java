@@ -1,10 +1,13 @@
 package vcore.features.hud.impl;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.List;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import vcore.features.hud.HudElement;
@@ -81,7 +84,8 @@ public class PotionHud extends HudElement {
 
       this.vAnimation = AnimationUtility.fast(this.vAnimation, 14 + y_offset1, 15.0F);
       this.hAnimation = AnimationUtility.fast(this.hAnimation, max_width, 15.0F);
-      Render2DEngine.drawHudBase(context.pose(), this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation, 4.0F);
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawHudBase(matrices, this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation, 4.0F);
       if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
          FontRenderers.sf_bold
             .drawCenteredString(context.pose(), "Potions", this.getPosX() + this.hAnimation / 2.0F, this.getPosY() + 4.0F, HudEditor.getTextColor());
@@ -92,7 +96,7 @@ public class PotionHud extends HudElement {
       if (y_offset1 > 0) {
          if (HudEditor.hudStyle.is(HudEditor.HudStyle.Blurry)) {
             Render2DEngine.drawRectDumbWay(
-               context.pose(),
+               matrices,
                this.getPosX() + 4.0F,
                this.getPosY() + 13.0F,
                this.getPosX() + this.getWidth() - 4.0F,
@@ -101,7 +105,7 @@ public class PotionHud extends HudElement {
             );
          } else {
             Render2DEngine.horizontalGradient(
-               context.pose(),
+               matrices,
                this.getPosX() + 2.0F,
                this.getPosY() + 13.7F,
                this.getPosX() + 2.0F + this.hAnimation / 2.0F - 2.0F,
@@ -110,7 +114,7 @@ public class PotionHud extends HudElement {
                HudEditor.getTextColor()
             );
             Render2DEngine.horizontalGradient(
-               context.pose(),
+               matrices,
                this.getPosX() + 2.0F + this.hAnimation / 2.0F - 2.0F,
                this.getPosY() + 13.7F,
                this.getPosX() + 2.0F + this.hAnimation - 4.0F,
@@ -121,7 +125,7 @@ public class PotionHud extends HudElement {
          }
       }
 
-      Render2DEngine.addWindow(context.pose(), this.getPosX(), this.getPosY(), this.getPosX() + this.hAnimation, this.getPosY() + this.vAnimation, 1.0);
+      Render2DEngine.addWindow(matrices, this.getPosX(), this.getPosY(), this.getPosX() + this.hAnimation, this.getPosY() + this.vAnimation, 1.0);
       int y_offset = 0;
 
       for (MobEffectInstance potionEffect : mc.player.getActiveEffects()) {
@@ -130,10 +134,14 @@ public class PotionHud extends HudElement {
          float durationRightX = this.getPosX() + this.hAnimation - 3.0F;
          float durationX = durationRightX - FontRenderers.sf_bold_mini.getStringWidth(duration);
          float separatorX = durationRightX - maxDurationWidth - 4.0F;
-         context.pose().pushPose();
-         context.pose().translate(this.getPosX() + 2.0F, this.getPosY() + 16.0F + y_offset, 0.0F);
-         context.blit(0, 0, 0, 8, 8, mc.getMobEffectTextures().get(potionEffect.getEffect()));
-         context.pose().popPose();
+         context.blitSprite(
+            RenderPipelines.GUI_TEXTURED,
+            net.minecraft.client.gui.Gui.getMobEffectSprite(potionEffect.getEffect()),
+            (int)(this.getPosX() + 2.0F),
+            (int)(this.getPosY() + 16.0F + y_offset),
+            8,
+            8
+         );
          FontRenderers.sf_bold_mini
             .drawString(
                context.pose(),
@@ -144,7 +152,7 @@ public class PotionHud extends HudElement {
             );
          FontRenderers.sf_bold_mini
             .drawString(context.pose(), duration, durationX, this.getPosY() + 19.0F + y_offset, this.getDurationColor(potionEffect));
-         Render2DEngine.drawRect(context.pose(), separatorX, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
+         Render2DEngine.drawRect(matrices, separatorX, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
          y_offset += 9;
       }
 

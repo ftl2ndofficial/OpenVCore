@@ -32,14 +32,14 @@ public class WorldTweaks extends Module {
    @Override
    public void onDisable() {
       if (mc.level != null) {
-         mc.level.setDayTime(this.oldTime);
+         mc.level.setTimeFromServer(mc.level.getLevelData().getGameTime(), this.oldTime, true);
       }
    }
 
    @EventHandler
    private void onPacketReceive(PacketEvent.Receive event) {
-      if (event.getPacket() instanceof ClientboundSetTimePacket && this.ctime.getValue()) {
-         this.oldTime = ((ClientboundSetTimePacket)event.getPacket()).getGameTime();
+      if (event.getPacket() instanceof ClientboundSetTimePacket packet && this.ctime.getValue()) {
+         this.oldTime = packet.dayTime();
          event.cancel();
       }
    }
@@ -47,7 +47,7 @@ public class WorldTweaks extends Module {
    @Override
    public void onUpdate() {
       if (this.ctime.getValue() && mc.level != null) {
-         mc.level.setDayTime(this.ctimeVal.getValue().intValue() * 1000L);
+         mc.level.setTimeFromServer(mc.level.getLevelData().getGameTime(), this.ctimeVal.getValue().intValue() * 1000L, false);
       }
    }
 }

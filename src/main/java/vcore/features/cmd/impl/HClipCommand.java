@@ -21,7 +21,7 @@ public class HClipCommand extends Command {
          double z = Mth.cos(mc.player.getYRot() * (float) (Math.PI / 180.0)) * 0.8;
 
          for (int i = 0; i < 10; i++) {
-            mc.player.connection.send(new Pos(mc.player.getX() + x, mc.player.getY(), mc.player.getZ() + z, false));
+            mc.player.connection.send(new Pos(mc.player.getX() + x, mc.player.getY(), mc.player.getZ() + z, false, mc.player.horizontalCollision));
          }
 
          mc.player.setPos(mc.player.getX() + x, mc.player.getY(), mc.player.getZ() + z);

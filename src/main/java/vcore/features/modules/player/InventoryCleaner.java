@@ -33,6 +33,7 @@ public class InventoryCleaner extends Module {
             Slot slot = chest.getSlot(i);
             if (slot.hasItem()
                && this.dropThisShit(slot.getItem())
+               && mc.screen != null
                && !mc.screen.getTitle().getString().contains("Ð\u0090ÑƒÐºÑ†Ð¸Ð¾Ð½")
                && !mc.screen.getTitle().getString().contains("Ð¿Ð¾ÐºÑƒÐ¿ÐºÐ¸")
                && this.delayTimer.every(this.delay.getValue().intValue())) {

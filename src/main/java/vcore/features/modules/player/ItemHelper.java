@@ -134,7 +134,7 @@ public class ItemHelper extends Module {
          this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, rotation[0], rotation[1]));
          InventoryUtility.returnSlot();
       } else if (invResult.found()) {
-         int targetHotbarSlot = mc.player.getInventory().selected;
+         int targetHotbarSlot = mc.player.getInventory().getSelectedSlot();
          if (this.grimStop.getValue() && MovementUtility.isMoving()) {
             this.scheduleInventoryUse(invResult.slot(), targetHotbarSlot, 5L);
             return;

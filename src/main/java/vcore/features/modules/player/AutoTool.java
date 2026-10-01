@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -34,11 +35,11 @@ public class AutoTool extends Module {
          BlockPos pos = result.getBlockPos();
          if (!mc.level.getBlockState(pos).isAir()) {
             if (getTool(pos) != -1 && mc.options.keyAttack.isDown()) {
-               this.lastItem.add(mc.player.getInventory().selected);
+               this.lastItem.add(mc.player.getInventory().getSelectedSlot());
                if (silent.getValue()) {
                   mc.player.connection.send(new ServerboundSetCarriedItemPacket(getTool(pos)));
                } else {
-                  mc.player.getInventory().selected = getTool(pos);
+                  mc.player.getInventory().setSelectedSlot(getTool(pos));
                }
 
                itemIndex = getTool(pos);
@@ -48,7 +49,7 @@ public class AutoTool extends Module {
                if (silent.getValue()) {
                   mc.player.connection.send(new ServerboundSetCarriedItemPacket(this.lastItem.get(0)));
                } else {
-                  mc.player.getInventory().selected = this.lastItem.get(0);
+                  mc.player.getInventory().setSelectedSlot(this.lastItem.get(0));
                }
 
                itemIndex = this.lastItem.get(0);
@@ -68,7 +69,7 @@ public class AutoTool extends Module {
          if (stack != ItemStack.EMPTY
             && (mc.player.getInventory().getItem(i).getMaxDamage() - mc.player.getInventory().getItem(i).getDamageValue() > 10 || !saveItem.getValue())) {
             float digSpeed = EnchantmentHelper.getItemEnchantmentLevel(
-               (Holder)mc.level.registryAccess().registryOrThrow(Enchantments.EFFICIENCY.registryKey()).getHolder(Enchantments.EFFICIENCY).get(), stack
+               mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.EFFICIENCY), stack
             );
             float destroySpeed = stack.getDestroySpeed(mc.level.getBlockState(pos));
             if (mc.level.getBlockState(pos).getBlock() instanceof AirBlock) {
@@ -77,7 +78,7 @@ public class AutoTool extends Module {
 
             if (mc.level.getBlockState(pos).getBlock() instanceof EnderChestBlock && echestSilk.getValue()) {
                if (EnchantmentHelper.getItemEnchantmentLevel(
-                        (Holder)mc.level.registryAccess().registryOrThrow(Enchantments.SILK_TOUCH.registryKey()).getHolder(Enchantments.SILK_TOUCH).get(),
+                        mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SILK_TOUCH),
                         stack
                      )
                      > 0

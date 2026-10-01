@@ -9,7 +9,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Entity.RemovalReason;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ArmorItem;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventEntityRemoved;
@@ -90,12 +90,6 @@ public final class AntiBot extends Module {
    }
 
    private static boolean hasRenderedArmorItem(Player player) {
-      for (ItemStack stack : player.getInventory().armor) {
-         if (isArmorItem(stack)) {
-            return true;
-         }
-      }
-
       return isArmorItem(player.getItemBySlot(EquipmentSlot.HEAD))
          || isArmorItem(player.getItemBySlot(EquipmentSlot.CHEST))
          || isArmorItem(player.getItemBySlot(EquipmentSlot.LEGS))
@@ -103,7 +97,7 @@ public final class AntiBot extends Module {
    }
 
    private static boolean isArmorItem(ItemStack stack) {
-      return stack != null && !stack.isEmpty() && stack.getItem() instanceof ArmorItem;
+      return stack != null && !stack.isEmpty() && stack.has(DataComponents.EQUIPPABLE);
    }
 
    private void removeDetectedBots() {

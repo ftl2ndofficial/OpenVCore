@@ -3,7 +3,7 @@ package vcore.features.modules.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
@@ -12,11 +12,17 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.state.ArmedEntityRenderState;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.resources.PlayerSkin;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.PlayerSkin;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -36,8 +42,8 @@ public class CustomModel extends Module {
    private static final float VANILLA_MODEL_HEIGHT = 16.0F;
    private static final float RABBIT_MODEL_HEIGHT = 12.666667F;
    private static final float RABBIT_VERTICAL_OFFSET = 0.7F;
-   private static final ResourceLocation RABBIT_TEXTURE = ResourceLocation.fromNamespaceAndPath("vcore", "textures/custommodel/rabbit.png");
-   private static final ResourceLocation FREDDY_TEXTURE = ResourceLocation.fromNamespaceAndPath("vcore", "textures/custommodel/freddy.png");
+   private static final Identifier RABBIT_TEXTURE = Identifier.fromNamespaceAndPath("vcore", "textures/custommodel/rabbit.png");
+   private static final Identifier FREDDY_TEXTURE = Identifier.fromNamespaceAndPath("vcore", "textures/custommodel/freddy.png");
    private final CustomModel.RabbitModel rabbitModel = new CustomModel.RabbitModel();
    private final CustomModel.FreddyModel freddyModel = new CustomModel.FreddyModel();
    private final ModelPart rabbitCape = this.createCapePart(12.666667F);
@@ -47,7 +53,18 @@ public class CustomModel extends Module {
       super("CustomModel", "Renders selected custom model variants.", Module.Category.RENDER);
    }
 
-   public ResourceLocation getTexture(AbstractClientPlayer player, ResourceLocation fallback) {
+   public Identifier getTexture(AvatarRenderState state, Identifier fallback) {
+      if (!this.shouldApply(state)) {
+         return fallback;
+      }
+
+      return switch ((CustomModel.Mode)this.mode.getValue()) {
+         case Rabbit -> RABBIT_TEXTURE;
+         case FreddyBear -> FREDDY_TEXTURE;
+      };
+   }
+
+   public Identifier getTexture(AbstractClientPlayer player, Identifier fallback) {
       if (!this.shouldApply(player)) {
          return fallback;
       }
@@ -56,6 +73,21 @@ public class CustomModel extends Module {
          case Rabbit -> RABBIT_TEXTURE;
          case FreddyBear -> FREDDY_TEXTURE;
       };
+   }
+
+   public void beginPlayerRender(AvatarRenderState state) {
+      if (mc.level != null) {
+         Entity entity = mc.level.getEntity(state.id);
+         if (entity instanceof AbstractClientPlayer player) {
+            this.renderingPlayer = player;
+            return;
+         }
+      }
+      this.renderingPlayer = null;
+   }
+
+   public void endPlayerRender(AvatarRenderState state) {
+      this.renderingPlayer = null;
    }
 
    public void beginPlayerRender(AbstractClientPlayer player) {
@@ -74,7 +106,7 @@ public class CustomModel extends Module {
 
    public boolean renderCustomPlayerModel(
       AbstractClientPlayer player,
-      PlayerModel<?> vanillaModel,
+      PlayerModel vanillaModel,
       PoseStack matrices,
       VertexConsumer vertexConsumer,
       int light,
@@ -96,23 +128,24 @@ public class CustomModel extends Module {
       return true;
    }
 
-   public boolean renderCape(PoseStack matrices, MultiBufferSource vertexConsumers, int light, AbstractClientPlayer player, float tickDelta) {
-      if (!this.shouldRenderRabbitCape(player)) {
+   public boolean renderCape(PoseStack matrices, SubmitNodeCollector submitNodeCollector, int light, AvatarRenderState state) {
+      if (!this.shouldRenderRabbitCape(state)) {
          return false;
       }
 
-      PlayerSkin skinTextures = player.getSkin();
-      ResourceLocation capeTexture = skinTextures.capeTexture();
-      if (capeTexture == null) {
+      PlayerSkin skinTextures = state.skin;
+      if (skinTextures == null || skinTextures.cape() == null) {
          return false;
       }
+      Identifier capeTexture = skinTextures.cape().texturePath();
 
       matrices.pushPose();
       matrices.translate(0.0F, 0.0F, 0.125F);
       matrices.translate(0.0F, 0.7F, 0.0F);
-      this.applyVanillaCapeRotation(matrices, player, tickDelta);
-      VertexConsumer vertexConsumer = vertexConsumers.getBuffer(RenderType.entityCutout(capeTexture));
-      this.rabbitCape.render(matrices, vertexConsumer, light, OverlayTexture.NO_OVERLAY);
+      matrices.mulPose(Axis.XP.rotationDegrees(6.0F + state.capeLean / 2.0F + state.capeFlap));
+      matrices.mulPose(Axis.ZP.rotationDegrees(state.capeLean2 / 2.0F));
+      matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.capeLean2 / 2.0F));
+      submitNodeCollector.submitModelPart(this.rabbitCape, matrices, RenderTypes.entityCutout(capeTexture), light, OverlayTexture.NO_OVERLAY, null);
       matrices.popPose();
       return true;
    }
@@ -121,8 +154,16 @@ public class CustomModel extends Module {
       return entity instanceof AbstractClientPlayer player && this.shouldApply(player);
    }
 
+   public boolean shouldHideArmorSlotRender(LivingEntityRenderState state) {
+      return state instanceof AvatarRenderState avatarState && this.shouldApply(avatarState);
+   }
+
    public boolean shouldTransformHeldItem(LivingEntity entity) {
       return entity instanceof AbstractClientPlayer player && this.shouldApply(player);
+   }
+
+   public boolean shouldTransformHeldItem(ArmedEntityRenderState state) {
+      return state instanceof AvatarRenderState avatarState && this.shouldApply(avatarState);
    }
 
    public void applyHeldItemRootTransform(PoseStack matrices, LivingEntity entity) {
@@ -139,7 +180,21 @@ public class CustomModel extends Module {
       }
    }
 
-   private void renderRabbit(PlayerModel<?> vanillaModel, PoseStack matrices, VertexConsumer vertexConsumer, int light, int overlay, int color) {
+   public void applyHeldItemRootTransform(PoseStack matrices, ArmedEntityRenderState state) {
+      if (this.shouldTransformHeldItem(state)) {
+         switch ((CustomModel.Mode)this.mode.getValue()) {
+            case Rabbit:
+               matrices.translate(0.0, 0.3, 0.0);
+               matrices.scale(0.8F, 0.8F, 0.8F);
+               break;
+            case FreddyBear:
+               matrices.translate(0.07, -0.3, 0.06);
+               matrices.scale(0.79F, 0.9F, 1.15F);
+         }
+      }
+   }
+
+   private void renderRabbit(PlayerModel vanillaModel, PoseStack matrices, VertexConsumer vertexConsumer, int light, int overlay, int color) {
       this.copyRotation(this.rabbitModel.head, vanillaModel.head);
       this.copyRotation(this.rabbitModel.leftArm, vanillaModel.leftArm);
       this.copyRotation(this.rabbitModel.rightArm, vanillaModel.rightArm);
@@ -150,7 +205,7 @@ public class CustomModel extends Module {
       matrices.popPose();
    }
 
-   private void renderFreddy(PlayerModel<?> vanillaModel, PoseStack matrices, VertexConsumer vertexConsumer, int light, int overlay, int color) {
+   private void renderFreddy(PlayerModel vanillaModel, PoseStack matrices, VertexConsumer vertexConsumer, int light, int overlay, int color) {
       this.copyRotation(this.freddyModel.head, vanillaModel.head);
       this.copyRotation(this.freddyModel.leftArm, vanillaModel.leftArm);
       this.copyRotation(this.freddyModel.rightArm, vanillaModel.rightArm);
@@ -169,12 +224,33 @@ public class CustomModel extends Module {
       target.zRot = source.zRot;
    }
 
+   private boolean shouldRenderRabbitCape(AvatarRenderState state) {
+      if (this.mode.getValue() != CustomModel.Mode.Rabbit || !this.shouldApply(state)) {
+         return false;
+      }
+      return !state.isInvisible && state.showCape;
+   }
+
    private boolean shouldRenderRabbitCape(AbstractClientPlayer player) {
       if (this.mode.getValue() != CustomModel.Mode.Rabbit || !this.shouldApply(player)) {
          return false;
       } else {
          return !player.isInvisible() && player.isModelPartShown(PlayerModelPart.CAPE) ? !player.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA) : false;
       }
+   }
+
+   public boolean shouldApply(AvatarRenderState state) {
+      if (fullNullCheck() || state == null || !this.isEnabled()) {
+         return false;
+      } else if (mc.player != null && state.id == mc.player.getId()) {
+         return this.self.getValue();
+      } else if (mc.level != null) {
+         Entity entity = mc.level.getEntity(state.id);
+         if (entity instanceof AbstractClientPlayer player) {
+            return Managers.FRIEND.isFriend(player) ? this.friends.getValue() : this.others.getValue();
+         }
+      }
+      return this.others.getValue();
    }
 
    private boolean shouldApply(AbstractClientPlayer player) {
@@ -188,9 +264,10 @@ public class CustomModel extends Module {
    }
 
    private void applyVanillaCapeRotation(PoseStack matrices, AbstractClientPlayer player, float tickDelta) {
-      double capeX = Mth.lerp(tickDelta, player.xCloakO, player.xCloak) - Mth.lerp(tickDelta, player.xo, player.getX());
-      double capeY = Mth.lerp(tickDelta, player.yCloakO, player.yCloak) - Mth.lerp(tickDelta, player.yo, player.getY());
-      double capeZ = Mth.lerp(tickDelta, player.zCloakO, player.zCloak) - Mth.lerp(tickDelta, player.zo, player.getZ());
+      net.minecraft.client.entity.ClientAvatarState avatarState = player.avatarState();
+      double capeX = avatarState.getInterpolatedCloakX(tickDelta) - Mth.lerp(tickDelta, player.xo, player.getX());
+      double capeY = avatarState.getInterpolatedCloakY(tickDelta) - Mth.lerp(tickDelta, player.yo, player.getY());
+      double capeZ = avatarState.getInterpolatedCloakZ(tickDelta) - Mth.lerp(tickDelta, player.zo, player.getZ());
       float bodyYaw = Mth.rotLerp(tickDelta, player.yBodyRotO, player.yBodyRot);
       double sinYaw = Mth.sin(bodyYaw * (float) (Math.PI / 180.0));
       double negCosYaw = -Mth.cos(bodyYaw * (float) (Math.PI / 180.0));
@@ -204,8 +281,8 @@ public class CustomModel extends Module {
          backwardSwing = 0.0F;
       }
 
-      float stride = Mth.lerp(tickDelta, player.oBob, player.bob);
-      verticalSwing += Mth.sin(Mth.lerp(tickDelta, player.walkDistO, player.walkDist) * 6.0F) * 32.0F * stride;
+      float stride = avatarState.getInterpolatedBob(tickDelta);
+      verticalSwing += Mth.sin(avatarState.getInterpolatedWalkDistance(tickDelta) * 6.0F) * 32.0F * stride;
       matrices.mulPose(Axis.XP.rotationDegrees(6.0F + backwardSwing / 2.0F + verticalSwing));
       matrices.mulPose(Axis.ZP.rotationDegrees(sideSwing / 2.0F));
       matrices.mulPose(Axis.YP.rotationDegrees(180.0F - sideSwing / 2.0F));

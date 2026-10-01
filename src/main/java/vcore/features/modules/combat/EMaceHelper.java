@@ -249,7 +249,7 @@ public class EMaceHelper extends Module {
 
    private void triggerPeakAssistFirework() {
       if (this.hasFirework()) {
-         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
+         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET.getDefaultInstance())) {
             this.useFireWorkByMode();
          }
       }
@@ -429,7 +429,7 @@ public class EMaceHelper extends Module {
 
          swappedFromInventory = true;
          mc.gameMode
-            .handleInventoryMouseClick(mc.player.containerMenu.containerId, fireWorkResult.slot(), mc.player.getInventory().selected, ClickType.SWAP, mc.player);
+            .handleInventoryMouseClick(mc.player.containerMenu.containerId, fireWorkResult.slot(), mc.player.getInventory().getSelectedSlot(), ClickType.SWAP, mc.player);
          this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       }
 
@@ -438,7 +438,7 @@ public class EMaceHelper extends Module {
       InventoryUtility.returnSlot();
       if (swappedFromInventory) {
          mc.gameMode
-            .handleInventoryMouseClick(mc.player.containerMenu.containerId, fireWorkResult.slot(), mc.player.getInventory().selected, ClickType.SWAP, mc.player);
+            .handleInventoryMouseClick(mc.player.containerMenu.containerId, fireWorkResult.slot(), mc.player.getInventory().getSelectedSlot(), ClickType.SWAP, mc.player);
          this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       }
 

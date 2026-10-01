@@ -15,3 +15,6 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Minecraft run directory
+run/

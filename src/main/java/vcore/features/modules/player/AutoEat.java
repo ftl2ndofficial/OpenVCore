@@ -69,7 +69,7 @@ public class AutoEat extends Module {
       this.eating = false;
       mc.options.keyUse.setDown(false);
       if (this.swapBack.getValue()) {
-         mc.player.getInventory().selected = this.prevSlot;
+         mc.player.getInventory().setSelectedSlot(this.prevSlot);
       }
 
       if (this.pauseBaritone.getValue() && Vcore.baritone) {
@@ -86,8 +86,8 @@ public class AutoEat extends Module {
             && (this.rottenFlesh.getValue() || stack.getItem() != Items.ROTTEN_FLESH)
             && (this.spiderEye.getValue() || stack.getItem() != Items.SPIDER_EYE)
             && (this.pufferfish.getValue() || stack.getItem() != Items.PUFFERFISH)) {
-            this.prevSlot = mc.player.getInventory().selected;
-            mc.player.getInventory().selected = i;
+            this.prevSlot = mc.player.getInventory().getSelectedSlot();
+            mc.player.getInventory().setSelectedSlot(i);
             this.sendPacket(new ServerboundSetCarriedItemPacket(i));
             return true;
          }

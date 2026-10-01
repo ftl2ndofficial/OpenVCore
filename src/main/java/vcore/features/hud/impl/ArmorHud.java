@@ -23,7 +23,8 @@ public class ArmorHud extends HudElement {
          int y = mc.getWindow().getGuiScaledHeight() - 55 - (!mc.player.isUnderWater() && v >= u ? 0 : 10);
          int i = 0;
 
-         for (ItemStack is : mc.player.getInventory().armor) {
+         for (net.minecraft.world.entity.EquipmentSlot slot : net.minecraft.world.entity.EquipmentSlotGroup.ARMOR) {
+            ItemStack is = mc.player.getItemBySlot(slot);
             i++;
             if (!is.isEmpty()) {
                int x = mc.getWindow().getGuiScaledWidth() / 2 - 90 + (9 - i) * 20 + 2;

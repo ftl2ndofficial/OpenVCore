@@ -1,8 +1,10 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import vcore.utility.render.RenderSystem;
+import vcore.utility.render.RenderSystem.SourceFactor;
+import vcore.utility.render.RenderSystem.DestFactor;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -13,9 +15,8 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Camera;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import vcore.features.modules.Module;
@@ -64,7 +65,7 @@ public class Svetych extends Module {
       if (mc.player != null && mc.level != null && !this.particles.isEmpty()) {
          long now = System.currentTimeMillis();
          Camera camera = mc.gameRenderer.getMainCamera();
-         Vec3 cameraPos = camera.getPosition();
+         Vec3 cameraPos = camera.position();
          float rotation = (float)(now % 9000L) / 9000.0F * 360.0F;
          Color baseColor = HudEditor.getColor((int)(now / 12L));
          this.particles.removeIf(particlex -> particlex.shouldRemove(now));
@@ -91,7 +92,6 @@ public class Svetych extends Module {
    }
 
    private void renderCubes(PoseStack stack, Vec3 cameraPos, float rotation, Color baseColor, long now, float alphaLimit) {
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
 
       for (Svetych.Particle particle : this.particles) {
@@ -102,7 +102,6 @@ public class Svetych extends Module {
    }
 
    private void renderCubeLines(PoseStack stack, Vec3 cameraPos, float rotation, Color baseColor, long now, float alphaLimit) {
-      RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
       RenderSystem.lineWidth(1.0F);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
 
@@ -118,8 +117,7 @@ public class Svetych extends Module {
       this.renderGlowLayer(camera, baseColor, now, TextureStorage.dashBloomSample, 0.52F, 140, alphaLimit);
    }
 
-   private void renderGlowLayer(Camera camera, Color baseColor, long now, ResourceLocation texture, float size, int glowAlpha, float alphaLimit) {
-      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+   private void renderGlowLayer(Camera camera, Color baseColor, long now, Identifier texture, float size, int glowAlpha, float alphaLimit) {
       RenderSystem.setShaderTexture(0, texture);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
@@ -270,11 +268,11 @@ public class Svetych extends Module {
          float alpha = this.getAlpha(now);
          if (!(alpha <= 0.0F)) {
             PoseStack matrices = new PoseStack();
-            matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-            matrices.mulPose(Axis.YP.rotationDegrees(camera.getYRot() + 180.0F));
-            matrices.translate(this.x - camera.getPosition().x, this.y - camera.getPosition().y, this.z - camera.getPosition().z);
-            matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-            matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+            matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
+            matrices.mulPose(Axis.YP.rotationDegrees(camera.yRot() + 180.0F));
+            matrices.translate(this.x - camera.position().x, this.y - camera.position().y, this.z - camera.position().z);
+            matrices.mulPose(Axis.YP.rotationDegrees(-camera.yRot()));
+            matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
             Svetych.drawTexturedQuad(
                buffer, matrices.last().pose(), size, Svetych.withAlpha(baseColor, Math.round(glowAlpha * alpha * alphaLimit))
             );

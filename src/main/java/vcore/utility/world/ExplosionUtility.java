@@ -1,17 +1,24 @@
 package vcore.utility.world;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.util.Mth;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.damagesource.CombatRules;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.BlockGetter;
@@ -29,15 +36,69 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.jspecify.annotations.Nullable;
 import vcore.features.modules.Module;
-import vcore.injection.accesors.IExplosion;
 import vcore.utility.math.PredictUtility;
 
 public final class ExplosionUtility {
    public static boolean terrainIgnore = false;
-   public static Explosion explosion;
+   public static DummyExplosion explosion = new DummyExplosion();
    private static final boolean IGNORE_TERRAIN = false;
    private static final boolean ASSUME_BEST_ARMOR = false;
+
+   public static class DummyExplosion implements Explosion {
+      public Vec3 center = Vec3.ZERO;
+
+      @Override
+      public net.minecraft.server.level.ServerLevel level() {
+         return null;
+      }
+
+      @Override
+      public Explosion.BlockInteraction getBlockInteraction() {
+         return Explosion.BlockInteraction.DESTROY;
+      }
+
+      @Override
+      public @Nullable LivingEntity getIndirectSourceEntity() {
+         return Module.mc.player;
+      }
+
+      @Override
+      public @Nullable Entity getDirectSourceEntity() {
+         return Module.mc.player;
+      }
+
+      @Override
+      public float radius() {
+         return 6.0F;
+      }
+
+      @Override
+      public Vec3 center() {
+         return center;
+      }
+
+      @Override
+      public boolean canTriggerBlocks() {
+         return false;
+      }
+
+      @Override
+      public boolean shouldAffectBlocklikeEntities() {
+         return true;
+      }
+   }
+
+   public static List<ItemStack> getArmorItems(LivingEntity entity) {
+      List<ItemStack> list = new ArrayList<>();
+      if (entity != null) {
+         for (EquipmentSlot slot : EquipmentSlotGroup.ARMOR) {
+            list.add(entity.getItemBySlot(slot));
+         }
+      }
+      return list;
+   }
 
    public static float getAutoCrystalDamage(Vec3 crystalPos, Player target, int predictTicks, boolean optimized) {
       return predictTicks == 0
@@ -51,16 +112,7 @@ public final class ExplosionUtility {
 
    public static float getExplosionDamage(Vec3 explosionPos, Player target, boolean optimized) {
       if (Module.mc.level.getDifficulty() != Difficulty.PEACEFUL && target != null) {
-         if (explosion == null) {
-            explosion = new Explosion(Module.mc.level, Module.mc.player, 1.0, 33.0, 7.0, 6.0F, false, BlockInteraction.DESTROY);
-         }
-
-         ((IExplosion)explosion).setX(explosionPos.x);
-         ((IExplosion)explosion).setY(explosionPos.y);
-         ((IExplosion)explosion).setZ(explosionPos.z);
-         if (((IExplosion)explosion).getWorld() != Module.mc.level) {
-            ((IExplosion)explosion).setWorld(Module.mc.level);
-         }
+         explosion.center = explosionPos;
 
          if (!new AABB(
                Mth.floor(explosionPos.x - 11.0),
@@ -91,12 +143,12 @@ public final class ExplosionUtility {
                toDamage = CombatRules.getDamageAfterAbsorb(
                   target,
                   toDamage,
-                  ((IExplosion)explosion).getDamageSource(),
+                  Module.mc.level.damageSources().explosion(Module.mc.player, Module.mc.player),
                   target.getArmorValue(),
                   (float)target.getAttribute(Attributes.ARMOR_TOUGHNESS).getValue()
                );
-               if (target.hasEffect(MobEffects.DAMAGE_RESISTANCE)) {
-                  int resistance = 25 - (target.getEffect(MobEffects.DAMAGE_RESISTANCE).getAmplifier() + 1) * 5;
+               if (target.hasEffect(MobEffects.RESISTANCE)) {
+                  int resistance = 25 - (target.getEffect(MobEffects.RESISTANCE).getAmplifier() + 1) * 5;
                   float resistance_1 = toDamage * resistance;
                   toDamage = Math.max(resistance_1 / 25.0F, 0.0F);
                }
@@ -104,7 +156,7 @@ public final class ExplosionUtility {
                if (toDamage <= 0.0F) {
                   toDamage = 0.0F;
                } else {
-                  float protAmount = getProtectionAmount(target.getArmorSlots());
+                  float protAmount = getProtectionAmount(getArmorItems(target));
                   if (protAmount > 0.0F) {
                      toDamage = CombatRules.getDamageAfterMagicAbsorb(toDamage, protAmount);
                   }
@@ -126,16 +178,7 @@ public final class ExplosionUtility {
       }
 
       if (target != null && predict != null) {
-         if (explosion == null) {
-            explosion = new Explosion(Module.mc.level, Module.mc.player, 1.0, 33.0, 7.0, 6.0F, false, BlockInteraction.DESTROY);
-         }
-
-         ((IExplosion)explosion).setX(explosionPos.x);
-         ((IExplosion)explosion).setY(explosionPos.y);
-         ((IExplosion)explosion).setZ(explosionPos.z);
-         if (((IExplosion)explosion).getWorld() != Module.mc.level) {
-            ((IExplosion)explosion).setWorld(Module.mc.level);
-         }
+         explosion.center = explosionPos;
 
          if (!new AABB(
                Mth.floor(explosionPos.x - 11.0),
@@ -166,12 +209,12 @@ public final class ExplosionUtility {
                toDamage = CombatRules.getDamageAfterAbsorb(
                   target,
                   toDamage,
-                  ((IExplosion)explosion).getDamageSource(),
+                  Module.mc.level.damageSources().explosion(Module.mc.player, Module.mc.player),
                   target.getArmorValue(),
                   (float)Objects.requireNonNull(target.getAttribute(Attributes.ARMOR_TOUGHNESS)).getValue()
                );
-               if (target.hasEffect(MobEffects.DAMAGE_RESISTANCE)) {
-                  int resistance = 25 - (Objects.requireNonNull(target.getEffect(MobEffects.DAMAGE_RESISTANCE)).getAmplifier() + 1) * 5;
+               if (target.hasEffect(MobEffects.RESISTANCE)) {
+                  int resistance = 25 - (Objects.requireNonNull(target.getEffect(MobEffects.RESISTANCE)).getAmplifier() + 1) * 5;
                   float resistance_1 = toDamage * resistance;
                   toDamage = Math.max(resistance_1 / 25.0F, 0.0F);
                }
@@ -179,7 +222,7 @@ public final class ExplosionUtility {
                if (toDamage <= 0.0F) {
                   toDamage = 0.0F;
                } else {
-                  float protAmount = getProtectionAmount(target.getArmorSlots());
+                  float protAmount = getProtectionAmount(getArmorItems(target));
                   if (protAmount > 0.0F) {
                      toDamage = CombatRules.getDamageAfterMagicAbsorb(toDamage, protAmount);
                   }
@@ -221,7 +264,7 @@ public final class ExplosionUtility {
          raycastContext -> {
             Vec3 vec3d = raycastContext.getFrom().subtract(raycastContext.getTo());
             return BlockHitResult.miss(
-               raycastContext.getTo(), Direction.getNearest(vec3d.x, vec3d.y, vec3d.z), BlockPos.containing(raycastContext.getTo())
+               raycastContext.getTo(), Direction.getApproximateNearest(vec3d.x, vec3d.y, vec3d.z), BlockPos.containing(raycastContext.getTo())
             );
          }
       );
@@ -232,16 +275,7 @@ public final class ExplosionUtility {
          return 0.0F;
       }
 
-      if (explosion == null) {
-         explosion = new Explosion(Module.mc.level, Module.mc.player, 1.0, 33.0, 7.0, 6.0F, false, BlockInteraction.DESTROY);
-      }
-
-      ((IExplosion)explosion).setX(explosionPos.x);
-      ((IExplosion)explosion).setY(explosionPos.y);
-      ((IExplosion)explosion).setZ(explosionPos.z);
-      if (((IExplosion)explosion).getWorld() != Module.mc.level) {
-         ((IExplosion)explosion).setWorld(Module.mc.level);
-      }
+      explosion.center = explosionPos;
 
       double maxDist = 12.0;
       if (!new AABB(
@@ -273,12 +307,12 @@ public final class ExplosionUtility {
             toDamage = CombatRules.getDamageAfterAbsorb(
                target,
                toDamage,
-               ((IExplosion)explosion).getDamageSource(),
+               Module.mc.level.damageSources().explosion(Module.mc.player, Module.mc.player),
                target.getArmorValue(),
                (float)target.getAttribute(Attributes.ARMOR_TOUGHNESS).getValue()
             );
-            if (target.hasEffect(MobEffects.DAMAGE_RESISTANCE)) {
-               int resistance = 25 - (target.getEffect(MobEffects.DAMAGE_RESISTANCE).getAmplifier() + 1) * 5;
+            if (target.hasEffect(MobEffects.RESISTANCE)) {
+               int resistance = 25 - (target.getEffect(MobEffects.RESISTANCE).getAmplifier() + 1) * 5;
                float resistance_1 = toDamage * resistance;
                toDamage = Math.max(resistance_1 / 25.0F, 0.0F);
             }
@@ -286,7 +320,7 @@ public final class ExplosionUtility {
             if (toDamage <= 0.0F) {
                toDamage = 0.0F;
             } else {
-               float protAmount = getProtectionAmount(target.getArmorSlots());
+               float protAmount = getProtectionAmount(getArmorItems(target));
                if (protAmount > 0.0F) {
                   toDamage = CombatRules.getDamageAfterMagicAbsorb(toDamage, protAmount);
                }
@@ -404,7 +438,7 @@ public final class ExplosionUtility {
          return d <= e ? blockHitResult : blockHitResult2;
       }, innerContext -> {
          Vec3 vec3d = innerContext.getFrom().subtract(innerContext.getTo());
-         return BlockHitResult.miss(innerContext.getTo(), Direction.getNearest(vec3d.x, vec3d.y, vec3d.z), BlockPos.containing(innerContext.getTo()));
+         return BlockHitResult.miss(innerContext.getTo(), Direction.getApproximateNearest(vec3d.x, vec3d.y, vec3d.z), BlockPos.containing(innerContext.getTo()));
       });
    }
 
@@ -427,13 +461,14 @@ public final class ExplosionUtility {
    }
 
    public static int getProtectionAmount(ItemStack stack) {
-      int modifierBlast = EnchantmentHelper.getItemEnchantmentLevel(
-         (Holder)Module.mc.level.registryAccess().registryOrThrow(Enchantments.BLAST_PROTECTION.registryKey()).getHolder(Enchantments.BLAST_PROTECTION).get(),
-         stack
-      );
-      int modifier = EnchantmentHelper.getItemEnchantmentLevel(
-         (Holder)Module.mc.level.registryAccess().registryOrThrow(Enchantments.PROTECTION.registryKey()).getHolder(Enchantments.PROTECTION).get(), stack
-      );
+      if (Module.mc.level == null || stack == null || stack.isEmpty()) {
+         return 0;
+      }
+      var enchantRegistry = Module.mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+      Holder<Enchantment> blastProt = enchantRegistry.get(Enchantments.BLAST_PROTECTION).orElse(null);
+      Holder<Enchantment> prot = enchantRegistry.get(Enchantments.PROTECTION).orElse(null);
+      int modifierBlast = blastProt != null ? EnchantmentHelper.getItemEnchantmentLevel(blastProt, stack) : 0;
+      int modifier = prot != null ? EnchantmentHelper.getItemEnchantmentLevel(prot, stack) : 0;
       return modifierBlast * 2 + modifier;
    }
 }

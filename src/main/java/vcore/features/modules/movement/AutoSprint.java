@@ -44,7 +44,7 @@ public class AutoSprint extends Module {
                   .setSprinting(
                      mc.player.getFoodData().getFoodLevel() > 6
                         && !mc.player.horizontalCollision
-                        && mc.player.input.forwardImpulse > 0.0F
+                        && vcore.utility.player.InputUtility.getForward(mc.player.input) > 0.0F
                         && (!mc.player.isShiftKeyDown() || ModuleManager.noSlow.isEnabled() && ModuleManager.noSlow.sneak.getValue())
                   );
             }

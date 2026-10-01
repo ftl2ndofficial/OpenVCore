@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.BarrierBlock;
@@ -65,8 +65,8 @@ public class BlockESP extends Module {
       ArrayList<BlockESP.BlockVec> blocks = new ArrayList<>();
       int startX = (int)Math.floor(mc.player.getX() - this.range.getValue().intValue());
       int endX = (int)Math.ceil(mc.player.getX() + this.range.getValue().intValue());
-      int startY = mc.level.getMinBuildHeight() + 1;
-      int endY = mc.level.getMaxBuildHeight();
+      int startY = mc.level.getMinY() + 1;
+      int endY = mc.level.getMaxY();
       int startZ = (int)Math.floor(mc.player.getZ() - this.range.getValue().intValue());
       int endZ = (int)Math.ceil(mc.player.getZ() + this.range.getValue().intValue());
 
@@ -112,11 +112,11 @@ public class BlockESP extends Module {
                            Render3DEngine.OUTLINE_QUEUE.add(new Render3DEngine.OutlineAction(b, this.color.getValue().getColorObject(), 2.0F));
                         }
 
-                        if (this.tracers.getValue()) {
+                        if (this.tracers.getValue() && mc.getCameraEntity() != null) {
                            Vec3 vec2 = new Vec3(0.0, 0.0, 75.0)
-                              .xRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().getXRot())))
-                              .yRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().getYRot())))
-                              .add(mc.cameraEntity.getEyePosition());
+                              .xRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().xRot())))
+                              .yRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().yRot())))
+                              .add(mc.getCameraEntity().getEyePosition());
                            Render3DEngine.drawLineDebug(vec2, vec.getVector(), this.color.getValue().getColorObject());
                         }
 

@@ -9,10 +9,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Overlay;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.main.GameConfig;
 import net.minecraft.server.packs.PackResources;
+import net.minecraft.world.phys.HitResult;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWImage;
@@ -52,9 +52,6 @@ public abstract class MixinMinecraftClient {
    private String[] shittyServers = new String[]{"mineblaze", "musteryworld", "dexland", "masedworld", "vimeworld", "hypemc", "vimemc"};
    @Unique
    private boolean wasInGame;
-
-   @Shadow
-   public abstract void setScreen(@Nullable Screen var1);
 
    @Inject(method = "<init>", at = @At("TAIL"))
    void postWindowInit(GameConfig args, CallbackInfo ci) {
@@ -115,12 +112,8 @@ public abstract class MixinMinecraftClient {
       }
    }
 
-   @Inject(method = "setOverlay", at = @At("HEAD"))
-   public void setOverlay(Overlay overlay, CallbackInfo ci) {
-   }
-
    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
-   public void setScreenHookPre(Screen screen, CallbackInfo ci) {
+   public void setScreenHookPre(@Nullable Screen screen, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          EventScreen event = new EventScreen(screen);
          Vcore.EVENT_BUS.post(event);
@@ -130,12 +123,7 @@ public abstract class MixinMinecraftClient {
       }
    }
 
-   @Inject(method = "setScreen", at = @At("RETURN"))
-   public void setScreenHookPost(Screen screen, CallbackInfo ci) {
-      if (!Module.fullNullCheck()) {
-         ;
-      }
-   }
+
 
    @Redirect(
       method = "<init>",
@@ -167,7 +155,7 @@ public abstract class MixinMinecraftClient {
             for (int i = 0; i < imgList.size(); i++) {
                NativeImage nativeImage = NativeImage.read(imgList.get(i));
                ByteBuffer bytebuffer = MemoryUtil.memAlloc(nativeImage.getWidth() * nativeImage.getHeight() * 4);
-               bytebuffer.asIntBuffer().put(nativeImage.getPixelsRGBA());
+               bytebuffer.asIntBuffer().put(nativeImage.getPixelsABGR());
                buffer.position(i);
                buffer.width(nativeImage.getWidth());
                buffer.height(nativeImage.getHeight());
@@ -177,7 +165,7 @@ public abstract class MixinMinecraftClient {
 
             try {
                if (GLFW.glfwGetPlatform() != 393219) {
-                  GLFW.glfwSetWindowIcon(Module.mc.getWindow().getWindow(), buffer);
+                  GLFW.glfwSetWindowIcon(this.window.handle(), buffer.position(0));
                }
             } catch (Exception var11) {
             }

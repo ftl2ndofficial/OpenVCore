@@ -4,7 +4,7 @@ import java.util.ArrayDeque;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ClientboundSetHeldSlotPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
@@ -143,9 +143,9 @@ public class PlayerManager implements IManager {
 
    @EventHandler
    public void onPacketReceive(PacketEvent.@NotNull Receive event) {
-      if (event.getPacket() instanceof ClientboundSetCarriedItemPacket slot) {
+      if (event.getPacket() instanceof ClientboundSetHeldSlotPacket slot) {
          this.switchTimer.reset();
-         this.serverSideSlot = slot.getSlot();
+         this.serverSideSlot = slot.slot();
       }
    }
 

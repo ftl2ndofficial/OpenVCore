@@ -69,8 +69,9 @@ public class NotificationManager implements IManager {
          }
 
          startY = (float)(startY - n.getHeight() - 3.0);
-         n.renderShaders(context.pose(), startY + (isDefault() ? 0 : this.notifications.size() * 16));
-         n.render(context.pose(), startY + (isDefault() ? 0 : this.notifications.size() * 16));
+         com.mojang.blaze3d.vertex.PoseStack matrices = vcore.utility.render.Render2DEngine.toPoseStack(context.pose());
+         n.renderShaders(matrices, startY + (isDefault() ? 0 : this.notifications.size() * 16));
+         n.render(matrices, startY + (isDefault() ? 0 : this.notifications.size() * 16));
       }
    }
 

@@ -1,7 +1,10 @@
 package vcore.gui.clickui;
 
 import com.google.common.collect.Lists;
-import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.List;
@@ -104,18 +107,23 @@ public class ClickGUI extends Screen {
       this.themeSelector.tick();
    }
 
+   @Override
+   public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
+      if (Module.fullNullCheck()) {
+         super.renderBackground(context, mouseX, mouseY, delta);
+      }
+   }
+
+   @Override
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       this.updateOpenAnimation();
-      if (ModuleManager.clickGui.blur.getValue()) {
-         this.renderBlurredBackground(delta);
+      if (!Module.fullNullCheck() && ModuleManager.clickGui.blur.getValue()) {
+         Module.mc.gameRenderer.processBlurEffect();
       }
 
       anyHovered = false;
       descriptionActive = false;
       currentDescription = "";
-      if (Module.fullNullCheck()) {
-         this.renderBackground(context, mouseX, mouseY, delta);
-      }
 
       List<Module.Category> visibleCategories = Lists.newArrayList(Managers.MODULE.getCategories());
       int totalWidth = visibleCategories.size() * 133 - 8;
@@ -161,7 +169,7 @@ public class ClickGUI extends Screen {
       this.renderBottomBar(context, mouseX, mouseY, delta, anim);
       Render2DEngine.setGlobalAlpha(1.0F);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      this.renderInteractionHints(context.pose());
+      this.renderInteractionHints(Render2DEngine.toPoseStack(context.pose()));
       boolean fullyOpen = anim >= 0.999F && imageDirection;
       if (fullyOpen && descriptionActive && !Objects.equals(currentDescription, "")) {
          float paddingX = 8.0F;
@@ -174,12 +182,12 @@ public class ClickGUI extends Screen {
          float descX = (Module.mc.getWindow().getGuiScaledWidth() - descWidth) / 2.0F;
          float textY = descY + (descHeight - textHeight) / 2.0F + 3.0F;
          Color bg = new Color(25, 25, 28, 200);
-         Render2DEngine.drawClickGuiRound(context.pose(), descX, descY, descWidth, descHeight, descHeight / 2.0F, bg);
+         Render2DEngine.drawClickGuiRound(Render2DEngine.toPoseStack(context.pose()), descX, descY, descWidth, descHeight, descHeight / 2.0F, bg);
          FontRenderers.sf_medium.drawCenteredString(context.pose(), currentDescription, descX + descWidth / 2.0F, textY, Color.WHITE.getRGB());
       }
 
       if (!HudElement.anyHovered && !anyHovered && GLFW.glfwGetPlatform() != 393219) {
-         GLFW.glfwSetCursor(Module.mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221185));
+         GLFW.glfwSetCursor(Module.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221185));
       }
    }
 
@@ -188,7 +196,11 @@ public class ClickGUI extends Screen {
       return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
    }
 
-   public boolean mouseClicked(double mouseX, double mouseY, int button) {
+   @Override
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+      double mouseX = event.x();
+      double mouseY = event.y();
+      int button = event.button();
       if (Render2DEngine.isHovered((float)mouseX, (float)mouseY, this.managerBtnX, this.managerBtnY, this.managerBtnSize, this.managerBtnSize) && button == 0) {
          Module.mc.setScreen(new ManagerScreen(this));
          return true;
@@ -203,15 +215,19 @@ public class ClickGUI extends Screen {
                }
             });
          });
-         return super.mouseClicked(mouseX, mouseY, button);
+         return super.mouseClicked(event, doubleClick);
       }
    }
 
-   public boolean mouseReleased(double mouseX, double mouseY, int button) {
+   @Override
+   public boolean mouseReleased(MouseButtonEvent event) {
+      double mouseX = event.x();
+      double mouseY = event.y();
+      int button = event.button();
       this.searchBar.mouseReleased((int)mouseX, (int)mouseY, button);
       this.themeSelector.mouseReleased((int)mouseX, (int)mouseY, button);
       windows.forEach(w -> w.mouseReleased((int)mouseX, (int)mouseY, button));
-      return super.mouseReleased(mouseX, mouseY, button);
+      return super.mouseReleased(event);
    }
 
    private void renderBottomBar(GuiGraphics context, int mouseX, int mouseY, float delta, float anim) {
@@ -247,7 +263,7 @@ public class ClickGUI extends Screen {
       int hudAlpha = Math.round(255.0F * HudEditor.getAlpha());
       Color btnBg = Render2DEngine.injectAlpha(new Color(25, 25, 28), hudAlpha);
       Render2DEngine.drawClickGuiRound(
-         context.pose(), this.managerBtnX, this.managerBtnY, this.managerBtnSize, this.managerBtnSize, this.managerBtnSize / 4.0F, btnBg
+         Render2DEngine.toPoseStack(context.pose()), this.managerBtnX, this.managerBtnY, this.managerBtnSize, this.managerBtnSize, this.managerBtnSize / 4.0F, btnBg
       );
       Color iconCol = Render2DEngine.injectAlpha(Color.WHITE, hudAlpha);
       FontRenderers.sf_bold_mini
@@ -304,13 +320,17 @@ public class ClickGUI extends Screen {
       font.drawString(matrices, text, x, y, fillColor);
    }
 
-   public boolean charTyped(char chr, int modifiers) {
-      this.searchBar.charTyped(chr, modifiers);
-      windows.forEach(w -> w.charTyped(chr, modifiers));
+   @Override
+   public boolean charTyped(CharacterEvent event) {
+      char chr = (char)event.codepoint();
+      this.searchBar.charTyped(chr, 0);
+      windows.forEach(w -> w.charTyped(chr, 0));
       return true;
    }
 
-   public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+   @Override
+   public boolean keyPressed(KeyEvent event) {
+      int keyCode = event.key();
       this.searchBar.keyTyped(keyCode);
       windows.forEach(w -> w.keyTyped(keyCode));
       if (keyCode == 256) {
@@ -318,7 +338,7 @@ public class ClickGUI extends Screen {
          Module.mc.setScreen(null);
          return true;
       } else {
-         return false;
+         return super.keyPressed(event);
       }
    }
 

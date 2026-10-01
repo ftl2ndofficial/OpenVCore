@@ -67,7 +67,7 @@ public class MaceSwap extends Module {
    private void swapToSlot(int slot) {
       if (mc.player != null && mc.player.getInventory() != null) {
          if (slot >= 0 && slot <= 8) {
-            mc.player.getInventory().selected = slot;
+            mc.player.getInventory().setSelectedSlot(slot);
          }
       }
    }
@@ -140,7 +140,7 @@ public class MaceSwap extends Module {
          return this.previousSlot;
       }
 
-      int currentSlot = mc.player.getInventory().selected;
+      int currentSlot = mc.player.getInventory().getSelectedSlot();
       int maceSlot = this.findMaceInHotbar();
       if (maceSlot == currentSlot) {
          return -1;

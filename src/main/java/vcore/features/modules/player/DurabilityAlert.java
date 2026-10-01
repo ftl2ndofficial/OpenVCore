@@ -1,10 +1,12 @@
 package vcore.features.modules.player;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import vcore.utility.render.RenderSystem;
 import java.awt.Color;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.opengl.GL11;
 import vcore.core.Managers;
@@ -20,6 +22,7 @@ public class DurabilityAlert extends Module {
    private static final Color WARNING_COLOR = new Color(255, 92, 92);
    private static final int ICON_RENDER_SIZE = 50;
    private static final int ICON_TEXTURE_SIZE = 200;
+   private static final EquipmentSlot[] ARMOR_SLOTS = {EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD};
    private boolean need_alert = false;
    private final Timer timer = new Timer();
 
@@ -32,10 +35,9 @@ public class DurabilityAlert extends Module {
       if (this.friends.getValue()) {
          for (Player player : mc.level.players()) {
             if (Managers.FRIEND.isFriend(player) && player != mc.player) {
-               for (ItemStack stack : player.getInventory().armor) {
-                  if (!stack.isEmpty() && stack.getItem() instanceof ArmorItem && getDurability(stack) < this.percent.getValue() && this.timer.passedMs(30000L)
-                     )
-                   {
+               for (EquipmentSlot slot : ARMOR_SLOTS) {
+                  ItemStack stack = player.getItemBySlot(slot);
+                  if (!stack.isEmpty() && stack.has(DataComponents.EQUIPPABLE) && getDurability(stack) < this.percent.getValue() && this.timer.passedMs(30000L)) {
                      mc.player.connection.sendCommand("msg " + player.getName().getString() + " Your armor is about to break!");
                      this.timer.reset();
                   }
@@ -46,8 +48,9 @@ public class DurabilityAlert extends Module {
 
       boolean flag = false;
 
-      for (ItemStack stack : mc.player.getInventory().armor) {
-         if (!stack.isEmpty() && stack.getItem() instanceof ArmorItem && getDurability(stack) < this.percent.getValue()) {
+      for (EquipmentSlot slot : ARMOR_SLOTS) {
+         ItemStack stack = mc.player.getItemBySlot(slot);
+         if (!stack.isEmpty() && stack.has(DataComponents.EQUIPPABLE) && getDurability(stack) < this.percent.getValue()) {
             this.need_alert = true;
             flag = true;
          }
@@ -74,15 +77,14 @@ public class DurabilityAlert extends Module {
          GL11.glTexParameteri(3553, 10241, 9729);
          GL11.glTexParameteri(3553, 10240, 9729);
          context.blit(
+            RenderPipelines.GUI_TEXTURED,
             TextureStorage.brokenShield,
             (int)(mc.getWindow().getGuiScaledWidth() / 2.0F - 25.0F),
             (int)(mc.getWindow().getGuiScaledHeight() / 3.0F - 120.0F),
-            50,
-            50,
             0.0F,
             0.0F,
-            200,
-            200,
+            50,
+            50,
             200,
             200
          );

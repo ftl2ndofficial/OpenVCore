@@ -36,7 +36,7 @@ public abstract class AbstractElement {
    }
 
    public void mouseClicked(int mouseX, int mouseY, int button) {
-      if (InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), 261) && button == 2 && this.hovered) {
+      if (InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 261) && button == 2 && this.hovered) {
          if (this.setting.getValue() instanceof ColorSetting cs) {
             cs.setDefault();
          } else {
@@ -139,7 +139,7 @@ public abstract class AbstractElement {
    protected void drawGuideAt(GuiGraphics context, float lineX, float requestedHeight) {
       float guideHeight = this.getClippedGuideHeight(lineX, lineX + 1.0F, requestedHeight);
       if (!(guideHeight <= 0.0F)) {
-         Render2DEngine.drawRect(context.pose(), lineX, this.y, 1.0F, guideHeight, Render2DEngine.applyOpacity(HudEditor.getColor(1), 0.55F));
+         Render2DEngine.drawRect(Render2DEngine.toPoseStack(context.pose()), lineX, this.y, 1.0F, guideHeight, Render2DEngine.applyOpacity(HudEditor.getColor(1), 0.55F));
       }
    }
 

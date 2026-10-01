@@ -1,6 +1,7 @@
 package vcore.injection.accesors;
 
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -8,14 +9,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(ClientboundSetEntityMotionPacket.class)
 public interface ISPacketEntityVelocity {
    @Mutable
-   @Accessor("xa")
-   void setMotionX(int var1);
-
-   @Mutable
-   @Accessor("ya")
-   void setMotionY(int var1);
-
-   @Mutable
-   @Accessor("za")
-   void setMotionZ(int var1);
+   @Accessor("movement")
+   void setMovement(Vec3 movement);
 }

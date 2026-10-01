@@ -1,7 +1,8 @@
 package vcore.features.modules.player;
 
 import net.minecraft.core.Holder;
-import net.minecraft.world.entity.animal.horse.Horse;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.entity.animal.equine.Horse;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
@@ -25,7 +26,7 @@ public class PerfectDelay extends Module {
 
    private float getEnchantLevel(ItemStack stack) {
       return EnchantmentHelper.getItemEnchantmentLevel(
-         (Holder)mc.level.registryAccess().registryOrThrow(Enchantments.PROTECTION.registryKey()).getHolder(Enchantments.QUICK_CHARGE).get(), stack
+         mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.QUICK_CHARGE), stack
       );
    }
 

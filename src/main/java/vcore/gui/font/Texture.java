@@ -1,27 +1,27 @@
 package vcore.gui.font;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class Texture {
-   final ResourceLocation id;
+   final Identifier id;
 
    public Texture(String path) {
-      this.id = ResourceLocation.fromNamespaceAndPath("vcore", this.validatePath(path));
+      this.id = Identifier.fromNamespaceAndPath("vcore", this.validatePath(path));
    }
 
-   public Texture(ResourceLocation i) {
-      this.id = ResourceLocation.fromNamespaceAndPath(i.getNamespace(), i.getPath());
+   public Texture(Identifier i) {
+      this.id = Identifier.fromNamespaceAndPath(i.getNamespace(), i.getPath());
    }
 
    String validatePath(String path) {
-      if (ResourceLocation.isValidPath(path)) {
+      if (Identifier.isValidPath(path)) {
          return path;
       }
 
       StringBuilder ret = new StringBuilder();
 
       for (char c : path.toLowerCase().toCharArray()) {
-         if (ResourceLocation.validPathChar(c)) {
+         if (Identifier.validPathChar(c)) {
             ret.append(c);
          }
       }
@@ -29,7 +29,7 @@ public class Texture {
       return ret.toString();
    }
 
-   public ResourceLocation getId() {
+   public Identifier getId() {
       return this.id;
    }
 }

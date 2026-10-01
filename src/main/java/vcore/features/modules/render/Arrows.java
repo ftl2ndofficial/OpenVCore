@@ -1,6 +1,7 @@
 package vcore.features.modules.render;
 
 import com.google.common.collect.Lists;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import java.awt.Color;
 import net.minecraft.client.gui.GuiGraphics;
@@ -36,35 +37,36 @@ public class Arrows extends Module {
          float middleW = ModuleManager.crosshair.getAnimatedPosX();
          float middleH = ModuleManager.crosshair.getAnimatedPosY();
          int color = 0;
-         context.pose().pushPose();
-         context.pose().translate(middleW, middleH, 0.0F);
-         context.pose()
+         PoseStack poseStack = Render2DEngine.toPoseStack(context.pose());
+         poseStack.pushPose();
+         poseStack.translate(middleW, middleH, 0.0F);
+         poseStack
             .mulPose(Axis.XP.rotationDegrees(90.0F / Math.abs(90.0F / MathUtility.clamp(mc.player.getXRot(), 42.0F, 90.0F)) - 102.0F));
-         context.pose().translate(-middleW, -middleH, 0.0F);
+         poseStack.translate(-middleW, -middleH, 0.0F);
          this.smoothYaw = AnimationUtility.fast(this.smoothYaw, mc.player.getYRot(), 13.0F);
 
          for (Player e : Lists.newArrayList(mc.level.players())) {
             if (e != mc.player && (!ModuleManager.antiBot.isEnabled() || ModuleManager.antiBot.mode.getValue() != AntiBot.Mode.Matrix || !AntiBot.isBot(e))) {
-               context.pose().pushPose();
+               poseStack.pushPose();
                float yaw = this.getRotations(e) - this.smoothYaw;
-               context.pose().translate(middleW, middleH, 0.0F);
-               context.pose().mulPose(Axis.ZP.rotationDegrees(yaw));
-               context.pose().translate(-middleW, -middleH, 0.0F);
+               poseStack.translate(middleW, middleH, 0.0F);
+               poseStack.mulPose(Axis.ZP.rotationDegrees(yaw));
+               poseStack.translate(-middleW, -middleH, 0.0F);
                if (Managers.FRIEND.isFriend(e)) {
                   color = FRIEND_COLOR.getRGB();
                } else {
                   color = TRACER_COLOR.getRGB();
                }
 
-               Render2DEngine.drawTracerPointer(context.pose(), middleW, middleH - 80.0F, 6.0F, 0.0F, 3.63F, true, false, color);
-               context.pose().translate(middleW, middleH, 0.0F);
-               context.pose().mulPose(Axis.ZP.rotationDegrees(-yaw));
-               context.pose().translate(-middleW, -middleH, 0.0F);
-               context.pose().popPose();
+               Render2DEngine.drawTracerPointer(poseStack, middleW, middleH - 80.0F, 6.0F, 0.0F, 3.63F, true, false, color);
+               poseStack.translate(middleW, middleH, 0.0F);
+               poseStack.mulPose(Axis.ZP.rotationDegrees(-yaw));
+               poseStack.translate(-middleW, -middleH, 0.0F);
+               poseStack.popPose();
             }
          }
 
-         context.pose().popPose();
+         poseStack.popPose();
       }
    }
 

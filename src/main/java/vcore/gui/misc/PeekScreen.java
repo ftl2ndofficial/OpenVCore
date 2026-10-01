@@ -21,19 +21,20 @@ public class PeekScreen extends ShulkerBoxScreen {
       super(handler, inventory, title);
    }
 
-   public boolean mouseClicked(double mouseX, double mouseY, int button) {
-      if (button == 2
+   @Override
+   public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+      if (event.button() == 2
          && this.hoveredSlot != null
          && !this.hoveredSlot.getItem().isEmpty()
          && this.minecraft.player.inventoryMenu.getCarried().isEmpty()) {
          ItemStack itemStack = this.hoveredSlot.getItem();
          if (Tooltips.hasItems(itemStack) && Tooltips.middleClickOpen.getValue()) {
             Arrays.fill(ITEMS, ItemStack.EMPTY);
-            ItemContainerContents nbt = (ItemContainerContents)itemStack.get(DataComponents.CONTAINER);
+            ItemContainerContents nbt = itemStack.get(DataComponents.CONTAINER);
             if (nbt != null) {
                List<ItemStack> list = nbt.stream().toList();
 
-               for (int i = 0; i < list.size(); i++) {
+               for (int i = 0; i < Math.min(ITEMS.length, list.size()); i++) {
                   ITEMS[i] = list.get(i);
                }
             }
@@ -54,7 +55,8 @@ public class PeekScreen extends ShulkerBoxScreen {
       return false;
    }
 
-   public boolean mouseReleased(double mouseX, double mouseY, int button) {
+   @Override
+   public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
       return false;
    }
 }

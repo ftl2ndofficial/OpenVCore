@@ -2,10 +2,11 @@ package vcore.features.modules.combat;
 
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.vehicle.MinecartTNT;
+import net.minecraft.world.entity.vehicle.minecart.MinecartTNT;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -234,7 +235,7 @@ public final class AutoTotem extends Module {
       if (mc.player == null) {
          return 0.0F;
       } else {
-         return mc.player.getInventory().getArmor(2).getItem() == Items.ELYTRA ? this.elytraHP.getValue() : this.healthF.getValue();
+         return mc.player.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA) ? this.elytraHP.getValue() : this.healthF.getValue();
       }
    }
 

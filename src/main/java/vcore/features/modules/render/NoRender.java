@@ -9,10 +9,10 @@ import net.minecraft.world.entity.Entity.RemovalReason;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.projectile.Arrow;
-import net.minecraft.world.entity.projectile.ThrownEgg;
-import net.minecraft.world.entity.projectile.ThrownExperienceBottle;
-import net.minecraft.world.entity.projectile.ThrownPotion;
+import net.minecraft.world.entity.projectile.arrow.Arrow;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEgg;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownExperienceBottle;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.AbstractThrownPotion;
 import vcore.core.Managers;
 import vcore.events.impl.EventSync;
 import vcore.events.impl.PacketEvent;
@@ -81,7 +81,7 @@ public class NoRender extends Module {
    @EventHandler
    public void onSync(EventSync e) {
       for (Entity ent : Managers.ASYNC.getAsyncEntities()) {
-         if (ent instanceof ThrownPotion) {
+         if (ent instanceof AbstractThrownPotion) {
             this.potionCouter++;
             if (this.potions.getValue()) {
                mc.level.removeEntity(ent.getId(), RemovalReason.KILLED);
@@ -154,7 +154,7 @@ public class NoRender extends Module {
                toRemove.add(ent.getId());
             }
 
-            if (ent instanceof ThrownPotion && this.potionCouter > 8) {
+            if (ent instanceof AbstractThrownPotion && this.potionCouter > 8) {
                toRemove.add(ent.getId());
             }
          }

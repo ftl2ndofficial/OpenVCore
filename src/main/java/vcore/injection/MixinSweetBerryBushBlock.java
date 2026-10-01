@@ -2,6 +2,7 @@ package vcore.injection;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.InsideBlockEffectApplier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SweetBerryBushBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -14,7 +15,7 @@ import vcore.core.manager.client.ModuleManager;
 @Mixin(SweetBerryBushBlock.class)
 public class MixinSweetBerryBushBlock {
    @Inject(method = "entityInside", at = @At("HEAD"), cancellable = true)
-   public void onEntityCollisionHook(BlockState state, Level world, BlockPos pos, Entity entity, CallbackInfo ci) {
+   public void onEntityCollisionHook(BlockState state, Level world, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise, CallbackInfo ci) {
       if (ModuleManager.noSlow.isEnabled() && ModuleManager.noSlow.sweetBerryBush.getValue()) {
          ci.cancel();
       }

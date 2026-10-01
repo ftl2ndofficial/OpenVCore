@@ -24,18 +24,45 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     // Fabric API
-    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     // MixinExtras
-    implementation 'io.github.llamalad7:mixinextras-fabric:0.5.5'
+    modImplementation 'io.github.llamalad7:mixinextras-fabric:0.5.5'
     annotationProcessor 'io.github.llamalad7:mixinextras-fabric:0.5.5'
 }
 
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'vcore_client_test'
+        enableGameTests = false
+        enableClientGameTests = true
+        clearRunDirectory = false
+    }
+}
+
+sourceSets.named('gametest') {
+    java.setSrcDirs(["src/clientTest/java"])
+    resources.setSrcDirs(["src/clientTest/resources"])
+}
+
 loom {
+    mods {
+        vcore {
+            sourceSet sourceSets.main
+        }
+    }
     accessWidenerPath = file('src/main/resources/Vcore.accesswidener')
+    runs {
+        clientGameTest {
+            property 'fabric.client.gametest.modid', 'vcore_client_test'
+            property 'fabric.client.gametest.testModResourcesPath', file("src/clientTest/resources").absolutePath
+        }
+    }
 }
 
 processResources {
@@ -46,14 +73,14 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 25
+    it.options.release = 21
     it.options.encoding = 'UTF-8'
 }
 
 java {
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 jar {

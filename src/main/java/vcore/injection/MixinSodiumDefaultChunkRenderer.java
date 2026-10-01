@@ -22,7 +22,7 @@ public class MixinSodiumDefaultChunkRenderer {
    private static void modifyRegionOffset(Args args) {
       Minecraft mc = Minecraft.getInstance();
       if (mc != null && mc.gameRenderer != null) {
-         Vec3 cameraPos = mc.gameRenderer.getMainCamera().getPosition();
+         Vec3 cameraPos = mc.gameRenderer.getMainCamera().position();
          if (cameraPos != null) {
             float regionOffsetX = (Float)args.get(0);
             float regionOffsetY = (Float)args.get(1);

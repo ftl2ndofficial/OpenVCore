@@ -25,7 +25,7 @@ public class HelpCommand extends Command {
                .forEach(
                   command -> {
                      mc.player
-                        .sendSystemMessage(
+                        .displayClientMessage(
                            Component.nullToEmpty(
                               (flip.get() ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.DARK_PURPLE)
                                  + Managers.COMMAND.getPrefix()
@@ -36,7 +36,8 @@ public class HelpCommand extends Command {
                                  + " -> "
                                  + (flip.get() ? ChatFormatting.WHITE : ChatFormatting.GRAY)
                                  + command.getDescription()
-                           )
+                           ),
+                           false
                         );
                      flip.set(!flip.get());
                   }

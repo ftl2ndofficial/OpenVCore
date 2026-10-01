@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import vcore.features.modules.Module;
@@ -52,18 +53,14 @@ public class PredictUtility {
    public static Player equipAndReturn(Player original, Vec3 posVec) {
       Player copyEntity = new Player(
          Module.mc.level,
-         original.blockPosition(),
-         original.getYRot(),
          new GameProfile(UUID.fromString("66123666-1234-5432-6666-667563866600"), "PredictEntity339")
       ) {
-         public boolean isSpectator() {
-            return false;
-         }
-
-         public boolean isCreative() {
-            return false;
+         @Override
+         public GameType gameMode() {
+            return GameType.SURVIVAL;
          }
       };
+      copyEntity.setYRot(original.getYRot());
       copyEntity.setPos(posVec);
       copyEntity.setHealth(original.getHealth());
       copyEntity.xo = original.xo;

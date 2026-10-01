@@ -1,9 +1,11 @@
 package vcore.features.hud.impl;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,8 +14,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.multiplayer.PlayerInfo;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.scores.PlayerTeam;
 import vcore.features.cmd.impl.StaffCommand;
@@ -28,7 +31,7 @@ public class StaffBoard extends HudElement {
    private static final Pattern validUserPattern = Pattern.compile("^\\w{3,16}$");
    private List<String> players = new ArrayList<>();
    private List<String> notSpec = new ArrayList<>();
-   private Map<String, ResourceLocation> skinMap = new HashMap<>();
+   private Map<String, Identifier> skinMap = new HashMap<>();
    private float vAnimation;
    private float hAnimation;
 
@@ -37,18 +40,24 @@ public class StaffBoard extends HudElement {
    }
 
    public static List<String> getOnlinePlayer() {
+      if (mc.player == null || mc.player.connection == null) {
+         return Collections.emptyList();
+      }
       return mc.player
          .connection
          .getOnlinePlayers()
          .stream()
          .map(PlayerInfo::getProfile)
-         .<String>map(GameProfile::getName)
+         .<String>map(GameProfile::name)
          .filter(profileName -> validUserPattern.matcher(profileName).matches())
          .collect(Collectors.toList());
    }
 
    public static List<String> getOnlinePlayerD() {
       List<String> S = new ArrayList<>();
+      if (mc.player == null || mc.player.connection == null) {
+         return S;
+      }
 
       for (PlayerInfo player : mc.player.connection.getOnlinePlayers()) {
          if (mc.isLocalServer() || player.getTeam() == null) {
@@ -56,13 +65,14 @@ public class StaffBoard extends HudElement {
          }
 
          String prefix = player.getTeam().getPlayerPrefix().getString();
+         String playerName = player.getProfile().name();
          if (check(ChatFormatting.stripFormatting(prefix).toLowerCase())
-            || StaffCommand.staffNames.toString().toLowerCase().contains(player.getProfile().getName().toLowerCase())
-            || player.getProfile().getName().toLowerCase().contains("1danil_mansoru1")
-            || player.getProfile().getName().toLowerCase().contains("barslan_")
-            || player.getProfile().getName().toLowerCase().contains("timmings")
-            || player.getProfile().getName().toLowerCase().contains("timings")
-            || player.getProfile().getName().toLowerCase().contains("ruthless")
+            || StaffCommand.staffNames.toString().toLowerCase().contains(playerName.toLowerCase())
+            || playerName.toLowerCase().contains("1danil_mansoru1")
+            || playerName.toLowerCase().contains("barslan_")
+            || playerName.toLowerCase().contains("timmings")
+            || playerName.toLowerCase().contains("timings")
+            || playerName.toLowerCase().contains("ruthless")
             || player.getTeam().getPlayerPrefix().getString().contains("YT")
             || player.getTeam().getPlayerPrefix().getString().contains("Y") && player.getTeam().getPlayerPrefix().getString().contains("T")) {
             String name = Arrays.asList(player.getTeam().getPlayers().toArray()).toString().replace("[", "").replace("]", "");
@@ -157,7 +167,8 @@ public class StaffBoard extends HudElement {
 
       this.vAnimation = AnimationUtility.fast(this.vAnimation, 14 + y_offset1, 15.0F);
       this.hAnimation = AnimationUtility.fast(this.hAnimation, max_width, 15.0F);
-      Render2DEngine.drawHudBase(context.pose(), this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation, 4.0F);
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawHudBase(matrices, this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation, 4.0F);
       if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
          FontRenderers.sf_bold
             .drawCenteredString(context.pose(), "Staff", this.getPosX() + this.hAnimation / 2.0F, this.getPosY() + 4.0F, HudEditor.getTextColor());
@@ -168,7 +179,7 @@ public class StaffBoard extends HudElement {
       if (y_offset1 > 0) {
          if (HudEditor.hudStyle.is(HudEditor.HudStyle.Blurry)) {
             Render2DEngine.drawRectDumbWay(
-               context.pose(),
+               matrices,
                this.getPosX() + 4.0F,
                this.getPosY() + 13.0F,
                this.getPosX() + this.getWidth() - 8.0F,
@@ -177,7 +188,7 @@ public class StaffBoard extends HudElement {
             );
          } else {
             Render2DEngine.horizontalGradient(
-               context.pose(),
+               matrices,
                this.getPosX() + 2.0F,
                this.getPosY() + 13.7F,
                this.getPosX() + 2.0F + this.hAnimation / 2.0F - 2.0F,
@@ -186,7 +197,7 @@ public class StaffBoard extends HudElement {
                HudEditor.getTextColor()
             );
             Render2DEngine.horizontalGradient(
-               context.pose(),
+               matrices,
                this.getPosX() + 2.0F + this.hAnimation / 2.0F - 2.0F,
                this.getPosY() + 13.7F,
                this.getPosX() + 2.0F + this.hAnimation - 4.0F,
@@ -197,15 +208,14 @@ public class StaffBoard extends HudElement {
          }
       }
 
-      Render2DEngine.addWindow(context.pose(), this.getPosX(), this.getPosY(), this.getPosX() + this.hAnimation, this.getPosY() + this.vAnimation, 1.0);
+      Render2DEngine.addWindow(matrices, this.getPosX(), this.getPosY(), this.getPosX() + this.hAnimation, this.getPosY() + this.vAnimation, 1.0);
       int y_offset = 0;
 
       for (String player : all) {
          float px = this.getPosX() + (max_width - pointerX - 10.0F);
-         ResourceLocation tex = this.getTexture(player);
+         Identifier tex = this.getTexture(player);
          if (tex != null) {
-            context.blit(tex, (int)(this.getPosX() + 3.0F), (int)(this.getPosY() + 16.0F + y_offset), 8, 8, 8.0F, 8.0F, 8, 8, 64, 64);
-            context.blit(tex, (int)(this.getPosX() + 3.0F), (int)(this.getPosY() + 16.0F + y_offset), 8, 8, 40.0F, 8.0F, 8, 8, 64, 64);
+            PlayerFaceRenderer.draw(context, tex, (int)(this.getPosX() + 3.0F), (int)(this.getPosY() + 16.0F + y_offset), 8, true, false, -1);
          }
 
          FontRenderers.sf_bold_mini
@@ -222,7 +232,7 @@ public class StaffBoard extends HudElement {
                this.getPosY() + 19.0F + y_offset,
                HudEditor.getTextColor().getRGB()
             );
-         Render2DEngine.drawRect(context.pose(), px, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
+         Render2DEngine.drawRect(matrices, px, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
          y_offset += 9;
       }
 
@@ -240,19 +250,21 @@ public class StaffBoard extends HudElement {
       }
    }
 
-   private ResourceLocation getTexture(String n) {
-      ResourceLocation id = null;
+   private Identifier getTexture(String n) {
+      Identifier id = null;
       if (this.skinMap.containsKey(n)) {
          id = this.skinMap.get(n);
       }
 
-      for (PlayerInfo ple : mc.getConnection().getOnlinePlayers()) {
-         if (n.contains(ple.getProfile().getName())) {
-            id = ple.getSkin().texture();
-            if (!this.skinMap.containsKey(n)) {
-               this.skinMap.put(n, id);
+      if (mc.getConnection() != null) {
+         for (PlayerInfo ple : mc.getConnection().getOnlinePlayers()) {
+            if (n.contains(ple.getProfile().name())) {
+               id = ple.getSkin().body().texturePath();
+               if (!this.skinMap.containsKey(n)) {
+                  this.skinMap.put(n, id);
+               }
+               break;
             }
-            break;
          }
       }
 

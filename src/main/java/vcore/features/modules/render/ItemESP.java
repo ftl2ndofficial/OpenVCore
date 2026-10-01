@@ -1,6 +1,6 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -196,26 +196,27 @@ public class ItemESP extends Module {
                      float textBgY = posY - 2.0F - textBgHeight;
                      float iconBgX = centerX - iconBgSize / 2.0F;
                      float iconBgY = textBgY - gap - iconBgSize;
+                     PoseStack itemPose = Render2DEngine.toPoseStack(context.pose());
                      Render2DEngine.drawBlurredShadow(
-                        context.pose(), iconBgX - 2.0F, iconBgY - 2.0F, iconBgSize + 4.0F, iconBgSize + 4.0F, 8, new Color(0, 0, 0, 120)
+                        itemPose, iconBgX - 2.0F, iconBgY - 2.0F, iconBgSize + 4.0F, iconBgSize + 4.0F, 8, new Color(0, 0, 0, 120)
                      );
-                     Render2DEngine.drawRect(context.pose(), iconBgX, iconBgY, iconBgSize, iconBgSize, new Color(0, 0, 0, 150));
+                     Render2DEngine.drawRect(itemPose, iconBgX, iconBgY, iconBgSize, iconBgSize, new Color(0, 0, 0, 150));
                      Render2DEngine.drawBlurredShadow(
-                        context.pose(), textBgX - 2.0F, textBgY - 2.0F, textBgWidth + 4.0F, textBgHeight + 4.0F, 10, new Color(0, 0, 0, 120)
+                        itemPose, textBgX - 2.0F, textBgY - 2.0F, textBgWidth + 4.0F, textBgHeight + 4.0F, 10, new Color(0, 0, 0, 120)
                      );
-                     Render2DEngine.drawRect(context.pose(), textBgX, textBgY, textBgWidth, textBgHeight, new Color(0, 0, 0, 150));
+                     Render2DEngine.drawRect(itemPose, textBgX, textBgY, textBgWidth, textBgHeight, new Color(0, 0, 0, 150));
                      float iconDrawX = iconBgX + iconBgPadding;
                      float iconDrawY = iconBgY + iconBgPadding;
-                     context.pose().pushPose();
-                     context.pose().translate(iconDrawX, iconDrawY, 0.0F);
+                     context.pose().pushMatrix();
+                     context.pose().translate(iconDrawX, iconDrawY);
                      float iconScale = iconSize / 16.0F;
-                     context.pose().scale(iconScale, iconScale, 1.0F);
+                     context.pose().scale(iconScale, iconScale);
                      context.renderItem(itemEntity.getItem(), 0, 0);
                      context.renderItemDecorations(mc.font, itemEntity.getItem(), 0, 0);
-                     context.pose().popPose();
+                     context.pose().popMatrix();
                      float tagXNew = centerX - textWidthVal / 2.0F;
                      float tagYNew = textBgY + (textBgHeight - textHeight) / 2.0F + 2.5F;
-                     FontRenderers.sf_bold_micro.drawString(context.pose(), name, tagXNew, tagYNew, groupColor);
+                     FontRenderers.sf_bold_micro.drawString(itemPose, name, tagXNew, tagYNew, groupColor);
                   }
                }
             }
@@ -252,9 +253,9 @@ public class ItemESP extends Module {
          }
 
          if (any) {
-            Matrix4f matrix = context.pose().last().pose();
+            PoseStack itemPose = Render2DEngine.toPoseStack(context.pose());
+            Matrix4f matrix = itemPose.last().pose();
             Render2DEngine.setupRender();
-            RenderSystem.setShader(GameRenderer::getPositionColorShader);
             BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
 
             for (Entity ent : mc.level.entitiesForRendering()) {

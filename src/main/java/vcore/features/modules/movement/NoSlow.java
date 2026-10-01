@@ -47,11 +47,12 @@ public class NoSlow extends Module {
          if (this.isUsingSlowItem()) {
             switch ((NoSlow.Mode)this.mode.getValue()) {
                case Grim:
-                  if (mc.player.getUsedItemHand() == InteractionHand.OFF_HAND) {
-                     this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected % 8 + 1));
-                     this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected % 7 + 2));
-                     this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected));
-                  } else if (this.mainHand.getValue() && (mc.player.getTicksUsingItem() <= 3 || mc.player.tickCount % 2 == 0)) {
+                   if (mc.player.getUsedItemHand() == InteractionHand.OFF_HAND) {
+                      int sel = mc.player.getInventory().getSelectedSlot();
+                      this.sendPacket(new ServerboundSetCarriedItemPacket(sel % 8 + 1));
+                      this.sendPacket(new ServerboundSetCarriedItemPacket(sel % 7 + 2));
+                      this.sendPacket(new ServerboundSetCarriedItemPacket(sel));
+                   } else if (this.mainHand.getValue() && (mc.player.getTicksUsingItem() <= 3 || mc.player.tickCount % 2 == 0)) {
                      this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.OFF_HAND, id, mc.player.getYRot(), mc.player.getXRot()));
                   }
                case GrimTick:
@@ -64,25 +65,26 @@ public class NoSlow extends Module {
    public void onKeyboardInput(EventKeyboardInput e) {
       if (e != null && mc.player != null) {
          if (this.mode.getValue() == NoSlow.Mode.Matrix && mc.player.isUsingItem() && !mc.player.isFallFlying()) {
-            mc.player.input.forwardImpulse *= 5.0F;
-            mc.player.input.leftImpulse *= 5.0F;
+            float forward = vcore.utility.player.InputUtility.getForward(mc.player.input) * 5.0F;
+            float left = vcore.utility.player.InputUtility.getLeft(mc.player.input) * 5.0F;
             float multiplier = 1.0F;
             if (mc.player.onGround()) {
-               if (mc.player.input.forwardImpulse != 0.0F && mc.player.input.leftImpulse != 0.0F) {
-                  mc.player.input.forwardImpulse *= 0.35F;
-                  mc.player.input.leftImpulse *= 0.35F;
+               if (forward != 0.0F && left != 0.0F) {
+                  forward *= 0.35F;
+                  left *= 0.35F;
                } else {
-                  mc.player.input.forwardImpulse *= 0.5F;
-                  mc.player.input.leftImpulse *= 0.5F;
+                  forward *= 0.5F;
+                  left *= 0.5F;
                }
-            } else if (mc.player.input.forwardImpulse != 0.0F && mc.player.input.leftImpulse != 0.0F) {
+            } else if (forward != 0.0F && left != 0.0F) {
                multiplier = 0.47F;
             } else {
                multiplier = 0.67F;
             }
 
-            mc.player.input.forwardImpulse *= multiplier;
-            mc.player.input.leftImpulse *= multiplier;
+            forward *= multiplier;
+            left *= multiplier;
+            vcore.utility.player.InputUtility.setMoveVector(mc.player.input, left, forward);
          }
       }
    }

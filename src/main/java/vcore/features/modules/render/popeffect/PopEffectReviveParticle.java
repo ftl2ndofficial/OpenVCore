@@ -1,19 +1,17 @@
 package vcore.features.modules.render.popeffect;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
-import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.particle.TextureSheetParticle;
+import net.minecraft.client.renderer.state.QuadParticleRenderState;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
@@ -21,7 +19,7 @@ import org.joml.Vector3f;
 import vcore.core.manager.client.ModuleManager;
 
 @Environment(EnvType.CLIENT)
-public final class PopEffectReviveParticle extends TextureSheetParticle {
+public final class PopEffectReviveParticle extends SingleQuadParticle {
    private final SpriteSet spriteProvider;
    private final double scaler;
    private final double rotX;
@@ -40,7 +38,7 @@ public final class PopEffectReviveParticle extends TextureSheetParticle {
       double velocityY,
       double velocityZ
    ) {
-      super(clientWorld, x, y, z, velocityX, velocityY, velocityZ);
+      super(clientWorld, x, y, z, velocityX, velocityY, velocityZ, spriteProvider.first());
       this.lifetime = 20;
       this.alpha = 0.0F;
       this.quadSize = 0.2F;
@@ -63,45 +61,17 @@ public final class PopEffectReviveParticle extends TextureSheetParticle {
       this.setSprite(this.spriteProvider.get(this.age, this.lifetime));
    }
 
-   public void render(@NotNull VertexConsumer vertexConsumer, @NotNull Camera camera, float tickDelta) {
-      Vec3 cameraPos = camera.getPosition();
-      float x = (float)(Mth.lerp(tickDelta, this.xo, this.x) - cameraPos.x);
-      float y = (float)(Mth.lerp(tickDelta, this.yo, this.y) - cameraPos.y);
-      float z = (float)(Mth.lerp(tickDelta, this.zo, this.z) - cameraPos.z);
-      Vector3f[] vertices = new Vector3f[]{
-         new Vector3f(-1.0F, -1.0F, 0.0F), new Vector3f(-1.0F, 1.0F, 0.0F), new Vector3f(1.0F, 1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F)
-      };
-      Vector3f[] bottomVertices = new Vector3f[]{
-         new Vector3f(-1.0F, -1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F), new Vector3f(-1.0F, -1.0F, 0.0F)
-      };
-      float size = this.getQuadSize(tickDelta);
-
-      for (int i = 0; i < 4; i++) {
-         Vector3f vertex = vertices[i];
-         vertex.rotate(this.quaternion);
-         vertex.mul(size);
-         vertex.add(x, y, z);
-         Vector3f bottomVertex = bottomVertices[i];
-         bottomVertex.rotate(this.quaternion);
-         bottomVertex.mul(size);
-         bottomVertex.add(x, y - 0.1F, z);
-      }
-
-      float minU = this.getU0();
-      float maxU = this.getU1();
-      float minV = this.getV0();
-      float maxV = this.getV1();
-      int light = this.getLightColor(tickDelta);
-      this.putVertex(vertexConsumer, vertices[0], maxU, maxV, light);
-      this.putVertex(vertexConsumer, vertices[1], maxU, minV, light);
-      this.putVertex(vertexConsumer, vertices[2], minU, minV, light);
-      this.putVertex(vertexConsumer, vertices[3], minU, maxV, light);
-      this.putVertex(vertexConsumer, vertices[3], minU, maxV, light);
-      this.putVertex(vertexConsumer, vertices[2], minU, minV, light);
-      this.putVertex(vertexConsumer, vertices[1], maxU, minV, light);
-      this.putVertex(vertexConsumer, vertices[0], maxU, maxV, light);
+   @Override
+   public void extract(QuadParticleRenderState particleTypeRenderState, Camera camera, float partialTickTime) {
+      this.extractRotatedQuad(particleTypeRenderState, camera, this.quaternion, partialTickTime);
    }
 
+   @Override
+   protected SingleQuadParticle.Layer getLayer() {
+      return SingleQuadParticle.Layer.TRANSLUCENT;
+   }
+
+   @Override
    public void tick() {
       super.tick();
       this.setSprite(this.spriteProvider.get(this.age, this.lifetime));
@@ -117,15 +87,6 @@ public final class PopEffectReviveParticle extends TextureSheetParticle {
          this.quadSize = this.alpha / opacity * (float)this.scaler;
          this.alpha = Mth.clamp((float)Math.sqrt(Math.sin((double)this.age / this.lifetime * Math.PI)) / 1.2F, 0.0F, 1.0F) * opacity;
       }
-   }
-
-   @NotNull
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
-   }
-
-   private void putVertex(@NotNull VertexConsumer buffer, @NotNull Vector3f vertex, float u, float v, int light) {
-      buffer.addVertex(vertex.x(), vertex.y(), vertex.z()).setUv(u, v).setColor(this.rCol, this.gCol, this.bCol, this.alpha).setLight(light);
    }
 
    @NotNull
@@ -150,7 +111,7 @@ public final class PopEffectReviveParticle extends TextureSheetParticle {
 
       @Nullable
       public Particle createParticle(
-         SimpleParticleType parameters, ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ
+         SimpleParticleType parameters, ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, net.minecraft.util.RandomSource random
       ) {
          return new PopEffectReviveParticle(world, x, y, z, this.spriteProvider, velocityX, velocityY, velocityZ);
       }

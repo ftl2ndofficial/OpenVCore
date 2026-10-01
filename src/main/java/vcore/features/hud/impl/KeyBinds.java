@@ -59,7 +59,8 @@ public class KeyBinds extends HudElement {
       max_width = Math.max(20.0F + pointerX + maxBindWidth, 50.0F);
       this.vAnimation = AnimationUtility.fast(this.vAnimation, 14 + y_offset1, 15.0F);
       this.hAnimation = AnimationUtility.fast(this.hAnimation, max_width, 15.0F);
-      Render2DEngine.drawHudBase(context.pose(), this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation, 4.0F);
+      com.mojang.blaze3d.vertex.PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawHudBase(matrices, this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation, 4.0F);
       if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
          FontRenderers.sf_bold
             .drawCenteredString(context.pose(), "KeyBinds", this.getPosX() + this.hAnimation / 2.0F, this.getPosY() + 4.0F, HudEditor.getTextColor());
@@ -71,7 +72,7 @@ public class KeyBinds extends HudElement {
       if (y_offset1 > 0) {
          if (HudEditor.hudStyle.is(HudEditor.HudStyle.Blurry)) {
             Render2DEngine.drawRectDumbWay(
-               context.pose(),
+               matrices,
                this.getPosX() + 4.0F,
                this.getPosY() + 13.0F,
                this.getPosX() + this.getWidth() - 4.0F,
@@ -80,7 +81,7 @@ public class KeyBinds extends HudElement {
             );
          } else {
             Render2DEngine.horizontalGradient(
-               context.pose(),
+               matrices,
                this.getPosX() + 2.0F,
                this.getPosY() + 13.7F,
                this.getPosX() + 2.0F + this.hAnimation / 2.0F - 2.0F,
@@ -89,7 +90,7 @@ public class KeyBinds extends HudElement {
                HudEditor.getTextColor()
             );
             Render2DEngine.horizontalGradient(
-               context.pose(),
+               matrices,
                this.getPosX() + 2.0F + this.hAnimation / 2.0F - 2.0F,
                this.getPosY() + 13.7F,
                this.getPosX() + 2.0F + this.hAnimation - 4.0F,
@@ -100,7 +101,7 @@ public class KeyBinds extends HudElement {
          }
       }
 
-      Render2DEngine.addWindow(context.pose(), this.getPosX(), this.getPosY(), this.getPosX() + this.hAnimation, this.getPosY() + this.vAnimation, 1.0);
+      Render2DEngine.addWindow(matrices, this.getPosX(), this.getPosY(), this.getPosX() + this.hAnimation, this.getPosY() + this.vAnimation, 1.0);
       int y_offset = 0;
 
       for (Module feature : Managers.MODULE.modules) {
@@ -115,7 +116,7 @@ public class KeyBinds extends HudElement {
                   this.getPosY() + 19.0F + y_offset,
                   feature.isOn() ? -1 : -1
                );
-            Render2DEngine.drawRect(context.pose(), px, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
+            Render2DEngine.drawRect(matrices, px, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
             y_offset += 9;
          }
       }

@@ -116,10 +116,10 @@ public class EClipCommand extends Command {
             mc.gameMode.handleInventoryMouseClick(0, 6, 1, ClickType.PICKUP, mc.player);
          }
 
-         mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), false));
-         mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), false));
+         mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), false, mc.player.horizontalCollision));
+         mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), false, mc.player.horizontalCollision));
          mc.player.connection.send(new ServerboundPlayerCommandPacket(mc.player, Action.START_FALL_FLYING));
-         mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY() + y, mc.player.getZ(), false));
+         mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY() + y, mc.player.getZ(), false, mc.player.horizontalCollision));
          mc.player.connection.send(new ServerboundPlayerCommandPacket(mc.player, Action.START_FALL_FLYING));
          if (elytra != -2) {
             mc.gameMode.handleInventoryMouseClick(0, 6, 1, ClickType.PICKUP, mc.player);

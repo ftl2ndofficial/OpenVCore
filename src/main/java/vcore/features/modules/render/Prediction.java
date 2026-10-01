@@ -10,8 +10,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.projectile.Arrow;
-import net.minecraft.world.entity.projectile.ThrownEnderpearl;
+import net.minecraft.world.entity.projectile.arrow.Arrow;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
@@ -150,7 +150,7 @@ public class Prediction extends Module {
             break;
          }
 
-         if (next.y <= mc.level.getMinBuildHeight()) {
+         if (next.y <= mc.level.getMinY()) {
             points.add(next);
             landing = next;
             display = next;
@@ -236,7 +236,7 @@ public class Prediction extends Module {
       Vec3 screen = Render3DEngine.worldSpaceToScreenSpace(result.displayPos());
       if (this.isOnScreen(screen)) {
          Prediction.TagLayout layout = this.createTagLayout(result, screen);
-         PoseStack matrices = context.pose();
+         PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
          matrices.pushPose();
          this.applyTagScale(matrices, layout);
          Render2DEngine.drawRound(matrices, layout.x(), layout.y(), layout.width(), layout.height(), 3.0F, new Color(0, 0, 0, 150));

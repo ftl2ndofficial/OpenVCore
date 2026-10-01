@@ -1,9 +1,9 @@
 package vcore.injection;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.blockentity.SignRenderer;
-import net.minecraft.core.BlockPos;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.blockentity.AbstractSignRenderer;
+import net.minecraft.client.renderer.blockentity.state.SignRenderState;
 import net.minecraft.world.level.block.entity.SignText;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,19 +11,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.core.manager.client.ModuleManager;
 
-@Mixin(SignRenderer.class)
+@Mixin(AbstractSignRenderer.class)
 public class MixinSignBlockEntityRenderer {
-   @Inject(method = "renderSignText", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "submitSignText", at = @At("HEAD"), cancellable = true)
    public final void renderTextHook(
-      BlockPos pos,
-      SignText signText,
-      PoseStack matrices,
-      MultiBufferSource vertexConsumers,
-      int light,
-      int lineHeight,
-      int lineWidth,
-      boolean front,
-      CallbackInfo ci
+      SignRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, boolean isFront, CallbackInfo ci
    ) {
       if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.signText.getValue()) {
          ci.cancel();

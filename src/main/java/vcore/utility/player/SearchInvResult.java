@@ -17,7 +17,7 @@ public record SearchInvResult(int slot, boolean found, ItemStack stack) {
    }
 
    public boolean isHolding() {
-      return Module.mc.player == null ? false : Module.mc.player.getInventory().selected == this.slot;
+      return Module.mc.player == null ? false : Module.mc.player.getInventory().getSelectedSlot() == this.slot;
    }
 
    public boolean isInHotBar() {

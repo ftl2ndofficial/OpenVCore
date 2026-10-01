@@ -35,7 +35,7 @@ public class AutoTpAccept extends Module {
                      if (!this.duo.getValue()) {
                         this.acceptRequest(packet.content().getString());
                      } else {
-                        this.tpTask = new AutoTpAccept.TpTask(() -> this.acceptRequest(packet.content.getString()), System.currentTimeMillis());
+                        this.tpTask = new AutoTpAccept.TpTask(() -> this.acceptRequest(packet.content().getString()), System.currentTimeMillis());
                      }
                   }
                } else {

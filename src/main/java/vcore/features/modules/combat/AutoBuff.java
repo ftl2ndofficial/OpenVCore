@@ -64,16 +64,16 @@ public final class AutoBuff extends Module {
          Holder<MobEffect> id = null;
          switch (potion) {
             case STRENGTH:
-               id = MobEffects.DAMAGE_BOOST;
+               id = MobEffects.STRENGTH;
                break;
             case SPEED:
-               id = MobEffects.MOVEMENT_SPEED;
+               id = MobEffects.SPEED;
                break;
             case FIRERES:
                id = MobEffects.FIRE_RESISTANCE;
                break;
             case HEAL:
-               id = MobEffects.HEAL;
+               id = MobEffects.INSTANT_HEALTH;
                break;
             case REGEN:
                id = MobEffects.REGENERATION;
@@ -100,8 +100,8 @@ public final class AutoBuff extends Module {
    }
 
    private boolean shouldThrow() {
-      return !mc.player.hasEffect(MobEffects.MOVEMENT_SPEED) && isPotionOnHotBar(AutoBuff.Potions.SPEED) && this.speed.getValue()
-         || !mc.player.hasEffect(MobEffects.DAMAGE_BOOST) && isPotionOnHotBar(AutoBuff.Potions.STRENGTH) && this.strength.getValue()
+      return !mc.player.hasEffect(MobEffects.SPEED) && isPotionOnHotBar(AutoBuff.Potions.SPEED) && this.speed.getValue()
+         || !mc.player.hasEffect(MobEffects.STRENGTH) && isPotionOnHotBar(AutoBuff.Potions.STRENGTH) && this.strength.getValue()
          || !mc.player.hasEffect(MobEffects.FIRE_RESISTANCE) && isPotionOnHotBar(AutoBuff.Potions.FIRERES) && this.fire.getValue()
          || mc.player.getHealth() + mc.player.getAbsorptionAmount() < this.healthH.getValue().intValue()
             && isPotionOnHotBar(AutoBuff.Potions.HEAL)
@@ -121,11 +121,11 @@ public final class AutoBuff extends Module {
       if (Aura.target == null || !(mc.player.getAttackStrengthScale(1.0F) > 0.5F)) {
          if (!this.onDaGround.getValue() || mc.player.onGround()) {
             if (mc.player.tickCount > 80 && this.shouldThrow() && this.timer.passedMs(1000L) && this.spoofed) {
-               if (!mc.player.hasEffect(MobEffects.MOVEMENT_SPEED) && isPotionOnHotBar(AutoBuff.Potions.SPEED) && this.speed.getValue()) {
+               if (!mc.player.hasEffect(MobEffects.SPEED) && isPotionOnHotBar(AutoBuff.Potions.SPEED) && this.speed.getValue()) {
                   this.throwPotion(AutoBuff.Potions.SPEED);
                }
 
-               if (!mc.player.hasEffect(MobEffects.DAMAGE_BOOST) && isPotionOnHotBar(AutoBuff.Potions.STRENGTH) && this.strength.getValue()) {
+               if (!mc.player.hasEffect(MobEffects.STRENGTH) && isPotionOnHotBar(AutoBuff.Potions.STRENGTH) && this.strength.getValue()) {
                   this.throwPotion(AutoBuff.Potions.STRENGTH);
                }
 
@@ -149,7 +149,7 @@ public final class AutoBuff extends Module {
                   this.throwPotion(AutoBuff.Potions.REGEN);
                }
 
-               this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected));
+               this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().getSelectedSlot()));
                this.timer.reset();
                this.spoofed = false;
             }

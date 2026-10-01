@@ -109,10 +109,9 @@ public class FreeCam extends Module {
             }
          }
 
-         mc.player.input.forwardImpulse = 0.0F;
-         mc.player.input.leftImpulse = 0.0F;
-         mc.player.input.jumping = false;
-         mc.player.input.shiftKeyDown = false;
+         vcore.utility.player.InputUtility.setMoveVector(mc.player.input, 0.0F, 0.0F);
+         vcore.utility.player.InputUtility.setJumping(mc.player.input, false);
+         vcore.utility.player.InputUtility.setSneaking(mc.player.input, false);
       }
    }
 

@@ -20,17 +20,20 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.animal.feline.Cat;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Slime;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.LargeFireball;
+import net.minecraft.world.entity.projectile.hurtingprojectile.LargeFireball;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ShulkerBullet;
 import net.minecraft.world.inventory.ClickType;
@@ -39,9 +42,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.MaceItem;
-import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.TridentItem;
-import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.item.ItemUseAnimation;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -220,10 +222,11 @@ public class Aura extends Module {
    }
 
    private boolean hasWeapon() {
-      Item handItem = mc.player.getMainHandItem().getItem();
+      ItemStack handStack = mc.player.getMainHandItem();
+      Item handItem = handStack.getItem();
       return !this.onlyWeapon.getValue()
          ? true
-         : handItem instanceof SwordItem || handItem instanceof AxeItem || handItem instanceof TridentItem || handItem instanceof MaceItem;
+         : handStack.is(ItemTags.SWORDS) || handItem instanceof AxeItem || handItem instanceof TridentItem || handItem instanceof MaceItem;
    }
 
    private boolean skipRayTraceCheck() {
@@ -273,7 +276,7 @@ public class Aura extends Module {
    }
 
    private boolean @NotNull [] preAttack() {
-      boolean blocking = mc.player.isUsingItem() && mc.player.getUseItem().getItem().getUseAnimation(mc.player.getUseItem()) == UseAnim.BLOCK;
+      boolean blocking = mc.player.isUsingItem() && mc.player.getUseItem().getUseAnimation() == ItemUseAnimation.BLOCK;
       if (blocking && this.timing.is(Aura.Timing.NEW) && this.unpressShield.getValue()) {
          this.sendPacket(new ServerboundPlayerActionPacket(Action.RELEASE_USE_ITEM, BlockPos.ZERO, Direction.DOWN));
       }
@@ -502,19 +505,19 @@ public class Aura extends Module {
       }
 
       if (axeSlot >= 9) {
-         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, axeSlot, mc.player.getInventory().selected, ClickType.SWAP, mc.player);
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, axeSlot, mc.player.getInventory().getSelectedSlot(), ClickType.SWAP, mc.player);
          this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
          mc.gameMode.attack(mc.player, target);
          mc.player.swing(InteractionHand.MAIN_HAND);
          this.tryMaceSwapAttack();
-         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, axeSlot, mc.player.getInventory().selected, ClickType.SWAP, mc.player);
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, axeSlot, mc.player.getInventory().getSelectedSlot(), ClickType.SWAP, mc.player);
          this.sendPacket(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       } else {
          this.sendPacket(new ServerboundSetCarriedItemPacket(axeSlot));
          mc.gameMode.attack(mc.player, target);
          mc.player.swing(InteractionHand.MAIN_HAND);
          this.tryMaceSwapAttack();
-         this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().selected));
+         this.sendPacket(new ServerboundSetCarriedItemPacket(mc.player.getInventory().getSelectedSlot()));
       }
 
       this.hitTicks = 10;
@@ -749,7 +752,8 @@ public class Aura extends Module {
    private static double computeDurabilityScore(LivingEntity e) {
       float v = 0.0F;
 
-      for (ItemStack armor : e.getArmorSlots()) {
+      for (EquipmentSlot slot : EquipmentSlotGroup.ARMOR) {
+         ItemStack armor = e.getItemBySlot(slot);
          if (armor != null && !armor.isEmpty()) {
             int max = armor.getMaxDamage();
             if (max > 0) {
@@ -839,7 +843,7 @@ public class Aura extends Module {
          }
 
          if (this.onlyAngry.getValue()) {
-            return !he.isPreventingPlayerRest(mc.player);
+            return he.getTarget() != mc.player;
          }
       }
 
@@ -865,8 +869,8 @@ public class Aura extends Module {
 
    private boolean isConsumingItem() {
       if (mc.player != null && mc.player.isUsingItem()) {
-         UseAnim useAction = mc.player.getUseItem().getUseAnimation();
-         return useAction == UseAnim.EAT || useAction == UseAnim.DRINK;
+         ItemUseAnimation useAction = mc.player.getUseItem().getUseAnimation();
+         return useAction == ItemUseAnimation.EAT || useAction == ItemUseAnimation.DRINK;
       } else {
          return false;
       }

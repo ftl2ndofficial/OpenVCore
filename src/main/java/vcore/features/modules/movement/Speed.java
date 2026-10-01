@@ -16,11 +16,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.entity.vehicle.boat.Boat;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import vcore.Vcore;
@@ -152,9 +153,9 @@ public class Speed extends Module {
             return;
          }
 
-         this.prevSlot = mc.player.getInventory().selected;
+         this.prevSlot = mc.player.getInventory().getSelectedSlot();
          result.switchTo();
-         this.sendPacket(new PosRot(mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.getYRot(), 90.0F, mc.player.onGround()));
+         this.sendPacket(new PosRot(mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.getYRot(), 90.0F, mc.player.onGround(), mc.player.horizontalCollision));
          if (this.strict.getValue()) {
             this.sendPacket(new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, pos, Direction.UP));
             this.sendPacket(new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, pos, Direction.UP));
@@ -163,7 +164,7 @@ public class Speed extends Module {
          this.sendPacket(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, pos, Direction.UP));
          this.sendSequencedPacket(
             id -> new ServerboundUseItemOnPacket(
-               InteractionHand.MAIN_HAND, new BlockHitResult(pos.below().getCenter().add(0.0, 0.5, 0.0), Direction.UP, pos.below(), false), id
+               InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos.below()).add(0.0, 0.5, 0.0), Direction.UP, pos.below(), false), id
             )
          );
          mc.level.setBlockAndUpdate(pos, Blocks.ICE.defaultBlockState());
@@ -173,7 +174,7 @@ public class Speed extends Module {
    @EventHandler
    public void onPostTick(EventPostTick e) {
       if ((this.mode.is(Speed.Mode.GrimIce) || this.mode.is(Speed.Mode.GrimCombo)) && this.prevSlot != -1) {
-         mc.player.getInventory().selected = this.prevSlot;
+         mc.player.getInventory().setSelectedSlot(this.prevSlot);
          ((IInteractionManager)mc.gameMode).syncSlot();
          this.prevSlot = -1;
       }
@@ -204,7 +205,7 @@ public class Speed extends Module {
                mc.player
                   .connection
                   .send(new ServerboundPlayerCommandPacket(mc.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
-               int prevSlot = mc.player.getInventory().selected;
+               int prevSlot = mc.player.getInventory().getSelectedSlot();
                if (prevSlot != fireSlot && !inOffHand) {
                   this.sendPacket(new ServerboundSetCarriedItemPacket(fireSlot));
                }
@@ -278,7 +279,7 @@ public class Speed extends Module {
                         event.cancel();
                         if (MovementUtility.isMoving()) {
                            Vcore.TICK_TIMER = this.useTimer.getValue() ? 1.088F : 1.0F;
-                           float currentSpeed = this.mode.getValue() == Speed.Mode.NCP && mc.player.input.forwardImpulse <= 0.0F && this.prevForward > 0.0F
+                           float currentSpeed = this.mode.getValue() == Speed.Mode.NCP && vcore.utility.player.InputUtility.getForward(mc.player.input) <= 0.0F && this.prevForward > 0.0F
                               ? Managers.PLAYER.currentPlayerSpeed * 0.66F
                               : Managers.PLAYER.currentPlayerSpeed;
                            boolean canJump = !mc.player.horizontalCollision;
@@ -303,16 +304,16 @@ public class Speed extends Module {
                            }
 
                            this.baseSpeed = Math.max(this.baseSpeed, MovementUtility.getBaseMoveSpeed());
-                           double ncpSpeed = this.mode.getValue() != Speed.Mode.StrictStrafe && !(mc.player.input.forwardImpulse < 1.0F) ? 0.576 : 0.465;
-                           double ncpBypassSpeed = this.mode.getValue() != Speed.Mode.StrictStrafe && !(mc.player.input.forwardImpulse < 1.0F) ? 0.57 : 0.44;
-                           if (mc.player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
-                              double amplifier = mc.player.getEffect(MobEffects.MOVEMENT_SPEED).getAmplifier();
+                           double ncpSpeed = this.mode.getValue() != Speed.Mode.StrictStrafe && !(vcore.utility.player.InputUtility.getForward(mc.player.input) < 1.0F) ? 0.576 : 0.465;
+                           double ncpBypassSpeed = this.mode.getValue() != Speed.Mode.StrictStrafe && !(vcore.utility.player.InputUtility.getForward(mc.player.input) < 1.0F) ? 0.57 : 0.44;
+                           if (mc.player.hasEffect(MobEffects.SPEED)) {
+                              double amplifier = mc.player.getEffect(MobEffects.SPEED).getAmplifier();
                               ncpSpeed *= 1.0 + 0.2 * (amplifier + 1.0);
                               ncpBypassSpeed *= 1.0 + 0.2 * (amplifier + 1.0);
                            }
 
-                           if (mc.player.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
-                              double amplifier = mc.player.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier();
+                           if (mc.player.hasEffect(MobEffects.SLOWNESS)) {
+                              double amplifier = mc.player.getEffect(MobEffects.SLOWNESS).getAmplifier();
                               ncpSpeed /= 1.0 + 0.2 * (amplifier + 1.0);
                               ncpBypassSpeed /= 1.0 + 0.2 * (amplifier + 1.0);
                            }
@@ -323,7 +324,7 @@ public class Speed extends Module {
                            }
 
                            MovementUtility.modifyEventSpeed(event, this.baseSpeed);
-                           this.prevForward = mc.player.input.forwardImpulse;
+                           this.prevForward = vcore.utility.player.InputUtility.getForward(mc.player.input);
                         } else {
                            Vcore.TICK_TIMER = 1.0F;
                            event.setX(0.0);

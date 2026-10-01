@@ -1,11 +1,11 @@
 package vcore.gui.font;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import vcore.utility.render.RenderSystem;
 import it.unimi.dsi.fastutil.chars.Char2IntArrayMap;
 import it.unimi.dsi.fastutil.chars.Char2ObjectArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
@@ -27,7 +27,7 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +60,7 @@ public class FontRenderer implements Closeable {
       }
    };
    private static final ExecutorService ASYNC_WORKER = Executors.newCachedThreadPool();
-   private final Object2ObjectMap<ResourceLocation, ObjectList<FontRenderer.DrawEntry>> GLYPH_PAGE_CACHE = new Object2ObjectOpenHashMap();
+   private final Object2ObjectMap<Identifier, ObjectList<FontRenderer.DrawEntry>> GLYPH_PAGE_CACHE = new Object2ObjectOpenHashMap();
    private final float originalSize;
    private final ObjectList<GlyphMap> maps = new ObjectArrayList();
    private final Char2ObjectArrayMap<Glyph> allGlyphs = new Char2ObjectArrayMap();
@@ -217,7 +217,6 @@ public class FontRenderer implements Closeable {
       RenderSystem.disableCull();
       GL11.glTexParameteri(3553, 10241, 9729);
       GL11.glTexParameteri(3553, 10240, 9729);
-      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
       Matrix4f mat = stack.last().pose();
       char[] chars = s.toCharArray();
       float xOffset = 0.0F;
@@ -251,7 +250,7 @@ public class FontRenderer implements Closeable {
                Glyph glyph = this.locateGlyph1(c);
                if (glyph != null) {
                   if (glyph.value() != ' ') {
-                     ResourceLocation i1 = glyph.owner().bindToTexture;
+                     Identifier i1 = glyph.owner().bindToTexture;
                      FontRenderer.DrawEntry entry = new FontRenderer.DrawEntry(xOffset, yOffset, r2, g2, b2, glyph);
                      ((ObjectList)this.GLYPH_PAGE_CACHE.computeIfAbsent(i1, integer -> new ObjectArrayList())).add(entry);
                   }
@@ -264,7 +263,7 @@ public class FontRenderer implements Closeable {
          ObjectIterator var49 = this.GLYPH_PAGE_CACHE.keySet().iterator();
 
          while (var49.hasNext()) {
-            ResourceLocation identifier = (ResourceLocation)var49.next();
+            Identifier identifier = (Identifier)var49.next();
             RenderSystem.setShaderTexture(0, identifier);
             List<FontRenderer.DrawEntry> objects = (List<FontRenderer.DrawEntry>)this.GLYPH_PAGE_CACHE.get(identifier);
             BufferBuilder bb = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
@@ -323,7 +322,6 @@ public class FontRenderer implements Closeable {
       RenderSystem.disableCull();
       GL11.glTexParameteri(3553, 10241, 9729);
       GL11.glTexParameteri(3553, 10240, 9729);
-      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
       Matrix4f mat = stack.last().pose();
       char[] chars = s.toCharArray();
       float xOffset = 0.0F;
@@ -366,7 +364,7 @@ public class FontRenderer implements Closeable {
                   Glyph glyph = this.locateGlyph1(c);
                   if (glyph != null) {
                      if (glyph.value() != ' ') {
-                        ResourceLocation i1 = glyph.owner().bindToTexture;
+                        Identifier i1 = glyph.owner().bindToTexture;
                         FontRenderer.DrawEntry entry = new FontRenderer.DrawEntry(xOffset, yOffset, r2, g2, b2, glyph);
                         ((ObjectList)this.GLYPH_PAGE_CACHE.computeIfAbsent(i1, integer -> new ObjectArrayList())).add(entry);
                      }
@@ -380,7 +378,7 @@ public class FontRenderer implements Closeable {
          ObjectIterator var44 = this.GLYPH_PAGE_CACHE.keySet().iterator();
 
          while (var44.hasNext()) {
-            ResourceLocation identifier = (ResourceLocation)var44.next();
+            Identifier identifier = (Identifier)var44.next();
             RenderSystem.setShaderTexture(0, identifier);
             List<FontRenderer.DrawEntry> objects = (List<FontRenderer.DrawEntry>)this.GLYPH_PAGE_CACHE.get(identifier);
             BufferBuilder bb = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
@@ -526,8 +524,8 @@ public class FontRenderer implements Closeable {
 
    @Contract(value = "-> new", pure = true)
    @NotNull
-   public static ResourceLocation randomIdentifier() {
-      return ResourceLocation.fromNamespaceAndPath("vcore", "temp/" + randomString());
+   public static Identifier randomIdentifier() {
+      return Identifier.fromNamespaceAndPath("vcore", "temp/" + randomString());
    }
 
    private static String randomString() {
@@ -552,6 +550,50 @@ public class FontRenderer implements Closeable {
 
    public void drawGradientCenteredString(PoseStack matrices, String s, float x, float y, int i) {
       this.drawGradientString(matrices, s, x - this.getStringWidth(s) / 2.0F, y, i);
+   }
+
+   public void drawString(org.joml.Matrix3x2fStack stack, String s, double x, double y, int color) {
+      this.drawString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, color);
+   }
+
+   public void drawString(org.joml.Matrix3x2fStack stack, String s, double x, double y, Color color) {
+      this.drawString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, color);
+   }
+
+   public void drawString(org.joml.Matrix3x2fStack stack, String s, float x, float y, float r, float g, float b, float a) {
+      this.drawString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, r, g, b, a);
+   }
+
+   public void drawCenteredString(org.joml.Matrix3x2fStack stack, String s, double x, double y, int color) {
+      this.drawCenteredString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, color);
+   }
+
+   public void drawCenteredString(org.joml.Matrix3x2fStack stack, String s, double x, double y, Color color) {
+      this.drawCenteredString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, color);
+   }
+
+   public void drawCenteredString(org.joml.Matrix3x2fStack stack, String s, float x, float y, float r, float g, float b, float a) {
+      this.drawCenteredString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, r, g, b, a);
+   }
+
+   public void drawGradientString(org.joml.Matrix3x2fStack stack, String s, float x, float y, int offset) {
+      this.drawGradientString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, offset);
+   }
+
+   public void drawGradientCenteredString(org.joml.Matrix3x2fStack stack, String s, float x, float y, int i) {
+      this.drawGradientCenteredString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, i);
+   }
+
+   public void drawStringWithHorizontalFade(org.joml.Matrix3x2fStack stack, String s, float x, float y, int color, float visibleWidth, float fadeWidth) {
+      this.drawStringWithHorizontalFade(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, color, visibleWidth, fadeWidth);
+   }
+
+   public void drawString(org.joml.Matrix3x2f stack, String s, double x, double y, int color) {
+      this.drawString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, color);
+   }
+
+   public void drawCenteredString(org.joml.Matrix3x2f stack, String s, double x, double y, int color) {
+      this.drawCenteredString(vcore.utility.render.Render2DEngine.toPoseStack(stack), s, x, y, color);
    }
 
    record DrawEntry(float atX, float atY, float r, float g, float b, Glyph toDraw) {

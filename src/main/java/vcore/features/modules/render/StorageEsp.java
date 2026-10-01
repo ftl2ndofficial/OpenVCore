@@ -8,7 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.entity.vehicle.MinecartChest;
+import net.minecraft.world.entity.vehicle.minecart.MinecartChest;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
@@ -178,8 +178,8 @@ public class StorageEsp extends Module {
             double y1 = mc.player.getEyeHeight(mc.player.getPose()) + mc.player.yo + (mc.player.getY() - mc.player.yo) * Render3DEngine.getTickDelta();
             double z1 = mc.player.zo + (mc.player.getZ() - mc.player.zo) * Render3DEngine.getTickDelta();
             Vec3 start = new Vec3(0.0, 0.0, 75.0)
-               .xRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().getXRot())))
-               .yRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().getYRot())))
+               .xRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().xRot())))
+               .yRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().yRot())))
                .add(x1, y1, z1);
 
             for (BlockEntity blockEntity : getBlockEntities()) {

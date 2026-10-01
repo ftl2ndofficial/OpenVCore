@@ -1,4 +1,4 @@
-accessWidener	v1	official
+accessWidener	v1	named
 accessible	field	net/minecraft/client/player/LocalPlayer	wasSprinting	Z
 accessible	field	net/minecraft/world/entity/projectile/FishingHook	DATA_BITING	Lnet/minecraft/network/syncher/EntityDataAccessor;
 accessible	field	net/minecraft/network/protocol/game/ServerboundMovePlayerPacket	onGround	Z
@@ -9,6 +9,8 @@ accessible	field	net/minecraft/client/MouseHandler	accumulatedDX	D
 accessible	field	net/minecraft/client/MouseHandler	accumulatedDY	D
 accessible	field	net/minecraft/world/entity/Entity	hasVisualFire	Z
 accessible	field	net/minecraft/world/level/BaseSpawner	spawnDelay	I
-accessible	class	net/minecraft/client/gui/Hud$HeartType
+accessible	class	net/minecraft/client/gui/Gui$HeartType
 accessible	field	net/minecraft/client/multiplayer/ClientLevel	blockStatePredictionHandler	Lnet/minecraft/client/multiplayer/prediction/BlockStatePredictionHandler;
 accessible	method	net/minecraft/client/multiplayer/ClientLevel	getBlockStatePredictionHandler	()Lnet/minecraft/client/multiplayer/prediction/BlockStatePredictionHandler;
+accessible	field	net/minecraft/client/player/ClientInput	moveVector	Lnet/minecraft/world/phys/Vec2;
+mutable	field	net/minecraft/client/player/ClientInput	moveVector	Lnet/minecraft/world/phys/Vec2;

@@ -136,7 +136,7 @@ public class TargetStrafe extends Module {
          MutableBlockPos mutable = new MutableBlockPos();
          int top = (int)(player.getY() + 4.0);
 
-         for (int y = top; y >= world.getMinBuildHeight(); y--) {
+         for (int y = top; y >= world.getMinY(); y--) {
             mutable.set(x, y, z);
             BlockState state = world.getBlockState(mutable);
             Block block = state.getBlock();
@@ -159,7 +159,7 @@ public class TargetStrafe extends Module {
    private boolean isVoidAboveVoid(double x, double z, LocalPlayer player, ClientLevel world) {
       MutableBlockPos mutable = new MutableBlockPos();
 
-      for (int y = (int)player.getY(); y > world.getMinBuildHeight(); y--) {
+      for (int y = (int)player.getY(); y > world.getMinY(); y--) {
          mutable.set(x, y, z);
          if (!world.getBlockState(mutable).isAir()) {
             return false;

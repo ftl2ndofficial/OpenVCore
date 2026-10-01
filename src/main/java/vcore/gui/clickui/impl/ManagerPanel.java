@@ -1,6 +1,6 @@
 package vcore.gui.clickui.impl;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.lang.reflect.Field;
@@ -88,7 +88,7 @@ public class ManagerPanel {
       this.alphaAnim = this.lerp(this.alphaAnim, target, 0.15F);
       if (!(this.alphaAnim < 0.01F) || this.open) {
          RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-         PoseStack matrices = context.pose();
+         PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
          matrices.pushPose();
          float scale = 0.9F + 0.1F * this.alphaAnim;
          matrices.translate(this.x + this.width / 2.0F, this.y + this.height / 2.0F, 0.0F);
@@ -173,7 +173,7 @@ public class ManagerPanel {
 
          Render2DEngine.endScissor();
          matrices.popPose();
-         this.renderTabHints(context.pose());
+         this.renderTabHints(matrices);
          if (Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height) && this.isOpen()) {
             ClickGUI.anyHovered = true;
          }
@@ -809,7 +809,7 @@ public class ManagerPanel {
       }
 
       for (PlayerInfo entry : Module.mc.getConnection().getOnlinePlayers()) {
-         if (entry.getProfile().getName().equalsIgnoreCase(name)) {
+         if (entry.getProfile().name().equalsIgnoreCase(name)) {
             return true;
          }
       }

@@ -4,6 +4,7 @@ import java.util.Objects;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.HitResult.Type;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -13,15 +14,15 @@ import vcore.utility.world.ExplosionUtility;
 
 public final class PlayerUtility {
    public static boolean isInHell() {
-      return Module.mc.level == null ? false : Objects.equals(Module.mc.level.dimension().location().getPath(), "the_nether");
+      return Module.mc.level != null && Module.mc.level.dimension() == Level.NETHER;
    }
 
    public static boolean isInEnd() {
-      return Module.mc.level == null ? false : Objects.equals(Module.mc.level.dimension().location().getPath(), "the_end");
+      return Module.mc.level != null && Module.mc.level.dimension() == Level.END;
    }
 
    public static boolean isInOver() {
-      return Module.mc.level == null ? false : Objects.equals(Module.mc.level.dimension().location().getPath(), "overworld");
+      return Module.mc.level != null && Module.mc.level.dimension() == Level.OVERWORLD;
    }
 
    public static boolean isEating() {

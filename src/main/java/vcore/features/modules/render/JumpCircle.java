@@ -1,13 +1,15 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.math.Axis;
+import org.lwjgl.opengl.GL11;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -15,7 +17,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
@@ -36,7 +38,7 @@ public class JumpCircle extends Module {
    private static final float GLOW_BOOST_ALPHA = 0.65F;
    private final List<UUID> cache = new CopyOnWriteArrayList<>();
    private final List<JumpCircle.Circle> circles = new ArrayList<>();
-   private ResourceLocation custom;
+   private Identifier custom;
    private int lastWorldId = -1;
 
    public JumpCircle() {
@@ -97,7 +99,7 @@ public class JumpCircle extends Module {
    }
 
    private int getWorldId() {
-      return mc.level == null ? -1 : mc.level.dimension().location().hashCode();
+      return mc.level == null ? -1 : mc.level.dimension().identifier().hashCode();
    }
 
    @Override
@@ -105,7 +107,7 @@ public class JumpCircle extends Module {
       Collections.reverse(this.circles);
       RenderSystem.disableDepthTest();
       RenderSystem.enableBlend();
-      RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
+      RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
       switch ((JumpCircle.Mode)this.mode.getValue()) {
          case Default:
             RenderSystem.setShaderTexture(0, TextureStorage.defaultCircle);
@@ -117,8 +119,7 @@ public class JumpCircle extends Module {
             RenderSystem.setShaderTexture(0, Objects.requireNonNullElse(this.custom, TextureStorage.defaultCircle));
       }
 
-      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-      BufferBuilder buffer = Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+      BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
       for (JumpCircle.Circle c : this.circles) {
          float colorAnim = (float)c.timer.getPassedTimeMs() / 6000.0F;
@@ -126,9 +127,9 @@ public class JumpCircle extends Module {
             - (float)Math.pow(1.0F - (float)c.timer.getPassedTimeMs() * (this.easeOut.getValue() ? 2.0F : 1.0F) / 5000.0F, 4.0);
          stack.pushPose();
          stack.translate(
-            c.pos().x - mc.getEntityRenderDispatcher().camera.getPosition().x(),
-            c.pos().y - mc.getEntityRenderDispatcher().camera.getPosition().y(),
-            c.pos().z - mc.getEntityRenderDispatcher().camera.getPosition().z()
+            c.pos().x - mc.getEntityRenderDispatcher().camera.position().x,
+            c.pos().y - mc.getEntityRenderDispatcher().camera.position().y,
+            c.pos().z - mc.getEntityRenderDispatcher().camera.position().z
          );
          stack.mulPose(Axis.XP.rotationDegrees(90.0F));
          stack.mulPose(Axis.ZP.rotationDegrees(sizeAnim * this.rotateSpeed.getValue() * 1000.0F));

@@ -25,22 +25,15 @@ import vcore.utility.render.TextureStorage;
 
 @Mixin(Screen.class)
 public abstract class MixinScreen {
-   @Shadow
-   public abstract void init(Minecraft var1, int var2, int var3);
-
-   @Inject(
-      method = "handleComponentClicked",
-      at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;)V", ordinal = 1, remap = false),
-      cancellable = true
-   )
-   private void onRunCommand(Style style, CallbackInfoReturnable<Boolean> cir) {
-      if (Objects.requireNonNull(style.getClickEvent()) instanceof ClientClickEvent clientClickEvent
-         && clientClickEvent.getValue().startsWith(Managers.COMMAND.getPrefix())) {
+   @Inject(method = "defaultHandleClickEvent", at = @At("HEAD"), cancellable = true)
+   private static void onRunCommand(net.minecraft.network.chat.ClickEvent event, Minecraft minecraft, Screen activeScreen, CallbackInfo ci) {
+      if (event instanceof ClientClickEvent clientClickEvent
+         && clientClickEvent.value().startsWith(Managers.COMMAND.getPrefix())) {
          try {
             CommandManager manager = Managers.COMMAND;
-            manager.getDispatcher().execute(style.getClickEvent().getValue().substring(Managers.COMMAND.getPrefix().length()), manager.getSource());
-            cir.setReturnValue(true);
-         } catch (CommandSyntaxException var5) {
+            manager.getDispatcher().execute(clientClickEvent.value().substring(Managers.COMMAND.getPrefix().length()), manager.getSource());
+            ci.cancel();
+         } catch (CommandSyntaxException ignored) {
          }
       }
    }
@@ -64,14 +57,14 @@ public abstract class MixinScreen {
    }
 
    @Inject(method = "renderTransparentBackground", at = @At("HEAD"), cancellable = true)
-   private void renderInGameBackground(CallbackInfo info) {
+   private void renderInGameBackground(GuiGraphics graphics, CallbackInfo info) {
       if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.disableGuiBackGround.getValue()) {
          info.cancel();
       }
    }
 
-   @Inject(method = "renderBackground(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", at = @At("HEAD"), cancellable = true)
-   public void onRenderBackground(GuiGraphics context, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+   @Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
+   public void onExtractBackground(GuiGraphics graphics, int mouseX, int mouseY, float a, CallbackInfo ci) {
       if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.disableGuiBackGround.getValue() && Module.mc.level != null) {
          ci.cancel();
       }

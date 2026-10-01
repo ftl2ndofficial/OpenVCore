@@ -3,7 +3,7 @@ package vcore.utility.render.shaders;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
 import vcore.utility.render.shaders.satin.api.managed.ManagedCoreShader;
@@ -21,7 +21,7 @@ public class RectangleShader {
    private Uniform4f color3;
    private Uniform4f color4;
    public static final ManagedCoreShader RECTANGLE_SHADER = ShaderEffectManager.getInstance()
-      .manageCoreShader(ResourceLocation.fromNamespaceAndPath("vcore", "rectangle"), DefaultVertexFormat.POSITION);
+      .manageCoreShader(Identifier.fromNamespaceAndPath("vcore", "rectangle"), DefaultVertexFormat.POSITION);
 
    public RectangleShader() {
       this.setup();
@@ -54,7 +54,7 @@ public class RectangleShader {
    }
 
    public void use() {
-      RenderSystem.setShader(RECTANGLE_SHADER::getProgram);
+      RECTANGLE_SHADER.use();
    }
 
    protected void setup() {

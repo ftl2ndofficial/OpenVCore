@@ -20,8 +20,8 @@ public class MixinWorldChunk {
    Level level;
 
    @Inject(method = "setBlockState", at = @At("RETURN"))
-   private void setBlockStateHook(BlockPos pos, BlockState state, boolean moved, CallbackInfoReturnable<BlockState> cir) {
-      if (this.level.isClientSide) {
+   private void setBlockStateHook(BlockPos pos, BlockState state, int flags, CallbackInfoReturnable<BlockState> cir) {
+      if (this.level.isClientSide()) {
          Vcore.EVENT_BUS.post(new EventSetBlockState(pos, state, (BlockState)cir.getReturnValue()));
       }
    }

@@ -18,7 +18,7 @@ import vcore.features.modules.misc.XRay;
 public abstract class MixinBlock {
    @Inject(method = "shouldRenderFace", at = @At("HEAD"), cancellable = true)
    private static void shouldDrawSideHook(
-      BlockState state, BlockGetter world, BlockPos pos, Direction side, BlockPos blockPos, CallbackInfoReturnable<Boolean> cir
+      BlockState state, BlockState neighborState, Direction side, CallbackInfoReturnable<Boolean> cir
    ) {
       if (ModuleManager.xray.shouldUseWallHack()) {
          cir.setReturnValue(XRay.isCheckableOre(state.getBlock()));

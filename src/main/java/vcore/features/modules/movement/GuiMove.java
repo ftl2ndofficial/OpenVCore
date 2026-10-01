@@ -111,7 +111,7 @@ public class GuiMove extends Module {
             return;
          }
 
-         if (click.getContainerId() == 0 && mc.screen instanceof InventoryScreen && this.isGrimActionInputActive()) {
+         if (click.containerId() == 0 && mc.screen instanceof InventoryScreen && this.isGrimActionInputActive()) {
             this.grimPacketQueue.add(click);
             e.cancel();
             return;
@@ -123,7 +123,7 @@ public class GuiMove extends Module {
             return;
          }
 
-         if (click.getContainerId() == 0 && MovementUtility.isMoving() && mc.screen instanceof AbstractContainerScreen) {
+         if (click.containerId() == 0 && MovementUtility.isMoving() && mc.screen instanceof AbstractContainerScreen) {
             this.grimOldPacketQueue.add(click);
             e.cancel();
             return;

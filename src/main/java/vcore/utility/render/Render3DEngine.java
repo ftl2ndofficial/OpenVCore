@@ -1,8 +1,6 @@
 package vcore.utility.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -19,7 +17,6 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -35,6 +32,8 @@ import vcore.Vcore;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.font.FontRenderers;
+import vcore.utility.render.RenderSystem.DestFactor;
+import vcore.utility.render.RenderSystem.SourceFactor;
 
 public class Render3DEngine {
    public static List<Render3DEngine.FillAction> FILLED_QUEUE = new ArrayList<>();
@@ -49,6 +48,14 @@ public class Render3DEngine {
    public static final Matrix4f lastProjMat = new Matrix4f();
    public static final Matrix4f lastModMat = new Matrix4f();
    public static final Matrix4f lastWorldSpaceMatrix = new Matrix4f();
+   public static boolean rendering3D = false;
+
+   public static Vec3 getCameraPos() {
+      if (Module.mc.getEntityRenderDispatcher().camera != null) {
+         return Module.mc.getEntityRenderDispatcher().camera.position();
+      }
+      return Module.mc.gameRenderer.getMainCamera().position();
+   }
 
    public static void onRender3D(PoseStack stack) {
       if (!FILLED_QUEUE.isEmpty() || !FILLED_SIDE_QUEUE.isEmpty()) {
@@ -56,7 +63,6 @@ public class Render3DEngine {
          BufferBuilder bufferBuilder = tessellator.begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
          RenderSystem.disableDepthTest();
          setupRender();
-         RenderSystem.setShader(GameRenderer::getPositionColorShader);
          FILLED_QUEUE.forEach(action -> setFilledBoxVertexes(bufferBuilder, stack.last().pose(), action.box(), action.color()));
          FILLED_SIDE_QUEUE.forEach(action -> setFilledSidePoints(bufferBuilder, stack.last().pose(), action.box, action.color(), action.side()));
          Render2DEngine.endBuilding(bufferBuilder);
@@ -72,7 +78,6 @@ public class Render3DEngine {
          RenderSystem.disableDepthTest();
          RenderSystem.disableCull();
          setupRender();
-         RenderSystem.setShader(GameRenderer::getPositionColorShader);
          FADE_QUEUE.forEach(action -> setFilledFadePoints(action.box(), bufferBuilder, stack.last().pose(), action.color(), action.color2()));
          GRADIENT_FADE_QUEUE.forEach(
             action -> setGradientFilledFadePoints(action.box(), bufferBuilder, stack.last().pose(), action.bottomColors(), action.topColors())
@@ -90,7 +95,6 @@ public class Render3DEngine {
          Tesselator tessellator = Tesselator.getInstance();
          RenderSystem.disableCull();
          RenderSystem.disableDepthTest();
-         RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
          Set<Float> lineWidths = new LinkedHashSet<>();
          OUTLINE_QUEUE.forEach(action -> lineWidths.add(action.lineWidth()));
          OUTLINE_SIDE_QUEUE.forEach(action -> lineWidths.add(action.lineWidth()));
@@ -141,7 +145,6 @@ public class Render3DEngine {
          Tesselator tessellator = Tesselator.getInstance();
          BufferBuilder buffer = tessellator.begin(Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
          RenderSystem.disableCull();
-         RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
          DEBUG_LINE_QUEUE.forEach(
             action -> {
                PoseStack matrices = matrixFrom(action.start.x(), action.start.y(), action.start.z());
@@ -169,7 +172,6 @@ public class Render3DEngine {
          setupRender();
          Tesselator tessellator = Tesselator.getInstance();
          RenderSystem.disableCull();
-         RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
          RenderSystem.lineWidth(2.5F);
          RenderSystem.disableDepthTest();
          BufferBuilder buffer = tessellator.begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
@@ -204,12 +206,13 @@ public class Render3DEngine {
    }
 
    public static void setFilledBoxVertexes(@NotNull BufferBuilder bufferBuilder, Matrix4f m, @NotNull AABB box, @NotNull Color c) {
-      float minX = (float)(box.minX - Module.mc.getEntityRenderDispatcher().camera.getPosition().x());
-      float minY = (float)(box.minY - Module.mc.getEntityRenderDispatcher().camera.getPosition().y());
-      float minZ = (float)(box.minZ - Module.mc.getEntityRenderDispatcher().camera.getPosition().z());
-      float maxX = (float)(box.maxX - Module.mc.getEntityRenderDispatcher().camera.getPosition().x());
-      float maxY = (float)(box.maxY - Module.mc.getEntityRenderDispatcher().camera.getPosition().y());
-      float maxZ = (float)(box.maxZ - Module.mc.getEntityRenderDispatcher().camera.getPosition().z());
+      Vec3 camPos = getCameraPos();
+      float minX = (float)(box.minX - camPos.x);
+      float minY = (float)(box.minY - camPos.y);
+      float minZ = (float)(box.minZ - camPos.z);
+      float maxX = (float)(box.maxX - camPos.x);
+      float maxY = (float)(box.maxY - camPos.y);
+      float maxZ = (float)(box.maxZ - camPos.z);
       bufferBuilder.addVertex(m, minX, minY, minZ).setColor(c.getRGB());
       bufferBuilder.addVertex(m, maxX, minY, minZ).setColor(c.getRGB());
       bufferBuilder.addVertex(m, maxX, minY, maxZ).setColor(c.getRGB());
@@ -253,12 +256,13 @@ public class Render3DEngine {
    }
 
    public static void setFilledSidePoints(BufferBuilder buffer, Matrix4f matrix, AABB box, Color c, Direction dir) {
-      float minX = (float)(box.minX - Module.mc.getEntityRenderDispatcher().camera.getPosition().x());
-      float minY = (float)(box.minY - Module.mc.getEntityRenderDispatcher().camera.getPosition().y());
-      float minZ = (float)(box.minZ - Module.mc.getEntityRenderDispatcher().camera.getPosition().z());
-      float maxX = (float)(box.maxX - Module.mc.getEntityRenderDispatcher().camera.getPosition().x());
-      float maxY = (float)(box.maxY - Module.mc.getEntityRenderDispatcher().camera.getPosition().y());
-      float maxZ = (float)(box.maxZ - Module.mc.getEntityRenderDispatcher().camera.getPosition().z());
+      Vec3 camPos = getCameraPos();
+      float minX = (float)(box.minX - camPos.x);
+      float minY = (float)(box.minY - camPos.y);
+      float minZ = (float)(box.minZ - camPos.z);
+      float maxX = (float)(box.maxX - camPos.x);
+      float maxY = (float)(box.maxY - camPos.y);
+      float maxZ = (float)(box.maxZ - camPos.z);
       if (dir == Direction.DOWN) {
          buffer.addVertex(matrix, minX, minY, minZ).setColor(c.getRGB());
          buffer.addVertex(matrix, maxX, minY, minZ).setColor(c.getRGB());
@@ -307,11 +311,11 @@ public class Render3DEngine {
       Camera camera = Module.mc.gameRenderer.getMainCamera();
       RenderSystem.disableDepthTest();
       RenderSystem.disableCull();
-      matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-      matrices.mulPose(Axis.YP.rotationDegrees(camera.getYRot() + 180.0F));
-      matrices.translate(pos.x() - camera.getPosition().x, pos.y() - camera.getPosition().y, pos.z() - camera.getPosition().z);
-      matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-      matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+      matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
+      matrices.mulPose(Axis.YP.rotationDegrees(camera.yRot() + 180.0F));
+      matrices.translate(pos.x() - camera.position().x, pos.y() - camera.position().y, pos.z() - camera.position().z);
+      matrices.mulPose(Axis.YP.rotationDegrees(-camera.yRot()));
+      matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
       setupRender();
       matrices.translate(offX, offY - 0.1, -0.01);
       matrices.scale(-0.025F, -0.025F, 0.0F);
@@ -323,14 +327,14 @@ public class Render3DEngine {
 
    @NotNull
    public static Vec3 worldSpaceToScreenSpace(@NotNull Vec3 pos) {
-      Camera camera = Module.mc.getEntityRenderDispatcher().camera;
+      Vec3 camPos = getCameraPos();
       int displayHeight = Module.mc.getWindow().getScreenHeight();
       int[] viewport = new int[4];
       GL11.glGetIntegerv(2978, viewport);
       Vector3f target = new Vector3f();
-      double deltaX = pos.x - camera.getPosition().x;
-      double deltaY = pos.y - camera.getPosition().y;
-      double deltaZ = pos.z - camera.getPosition().z;
+      double deltaX = pos.x - camPos.x;
+      double deltaY = pos.y - camPos.y;
+      double deltaZ = pos.z - camPos.z;
       Vector4f transformedCoordinates = new Vector4f((float)deltaX, (float)deltaY, (float)deltaZ, 1.0F).mul(lastWorldSpaceMatrix);
       Matrix4f matrixProj = new Matrix4f(lastProjMat);
       Matrix4f matrixModel = new Matrix4f(lastModMat);
@@ -354,12 +358,13 @@ public class Render3DEngine {
    }
 
    public static void setFilledFadePoints(AABB box, BufferBuilder buffer, Matrix4f posMatrix, Color c, Color c1) {
-      float minX = (float)(box.minX - Module.mc.getEntityRenderDispatcher().camera.getPosition().x());
-      float minY = (float)(box.minY - Module.mc.getEntityRenderDispatcher().camera.getPosition().y());
-      float minZ = (float)(box.minZ - Module.mc.getEntityRenderDispatcher().camera.getPosition().z());
-      float maxX = (float)(box.maxX - Module.mc.getEntityRenderDispatcher().camera.getPosition().x());
-      float maxY = (float)(box.maxY - Module.mc.getEntityRenderDispatcher().camera.getPosition().y());
-      float maxZ = (float)(box.maxZ - Module.mc.getEntityRenderDispatcher().camera.getPosition().z());
+      Vec3 camPos = getCameraPos();
+      float minX = (float)(box.minX - camPos.x);
+      float minY = (float)(box.minY - camPos.y);
+      float minZ = (float)(box.minZ - camPos.z);
+      float maxX = (float)(box.maxX - camPos.x);
+      float maxY = (float)(box.maxY - camPos.y);
+      float maxZ = (float)(box.maxZ - camPos.z);
       buffer.addVertex(posMatrix, minX, minY, minZ).setColor(c.getRGB());
       buffer.addVertex(posMatrix, maxX, minY, minZ).setColor(c.getRGB());
       buffer.addVertex(posMatrix, maxX, minY, maxZ).setColor(c.getRGB());
@@ -387,12 +392,13 @@ public class Render3DEngine {
    }
 
    public static void setGradientFilledFadePoints(AABB box, BufferBuilder buffer, Matrix4f posMatrix, Color[] bottomColors, Color[] topColors) {
-      float minX = (float)(box.minX - Module.mc.getEntityRenderDispatcher().camera.getPosition().x());
-      float minY = (float)(box.minY - Module.mc.getEntityRenderDispatcher().camera.getPosition().y());
-      float minZ = (float)(box.minZ - Module.mc.getEntityRenderDispatcher().camera.getPosition().z());
-      float maxX = (float)(box.maxX - Module.mc.getEntityRenderDispatcher().camera.getPosition().x());
-      float maxY = (float)(box.maxY - Module.mc.getEntityRenderDispatcher().camera.getPosition().y());
-      float maxZ = (float)(box.maxZ - Module.mc.getEntityRenderDispatcher().camera.getPosition().z());
+      Vec3 camPos = getCameraPos();
+      float minX = (float)(box.minX - camPos.x);
+      float minY = (float)(box.minY - camPos.y);
+      float minZ = (float)(box.minZ - camPos.z);
+      float maxX = (float)(box.maxX - camPos.x);
+      float maxY = (float)(box.maxY - camPos.y);
+      float maxZ = (float)(box.maxZ - camPos.z);
       int bottomMinMin = bottomColors[0].getRGB();
       int bottomMaxMin = bottomColors[1].getRGB();
       int bottomMaxMax = bottomColors[2].getRGB();
@@ -631,9 +637,9 @@ public class Render3DEngine {
    public static PoseStack matrixFrom(double x, double y, double z) {
       PoseStack matrices = new PoseStack();
       Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-      matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-      matrices.mulPose(Axis.YP.rotationDegrees(camera.getYRot() + 180.0F));
-      matrices.translate(x - camera.getPosition().x, y - camera.getPosition().y, z - camera.getPosition().z);
+      matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
+      matrices.mulPose(Axis.YP.rotationDegrees(camera.yRot() + 180.0F));
+      matrices.translate(x - camera.position().x, y - camera.position().y, z - camera.position().z);
       return matrices;
    }
 
@@ -650,9 +656,10 @@ public class Render3DEngine {
       ArrayList<Vec3> vecs = new ArrayList<>();
       ArrayList<Vec3> vecs1 = new ArrayList<>();
       ArrayList<Vec3> vecs2 = new ArrayList<>();
-      double x = target.xo + (target.getX() - target.xo) * getTickDelta() - Module.mc.getEntityRenderDispatcher().camera.getPosition().x();
-      double y = target.yo + (target.getY() - target.yo) * getTickDelta() - Module.mc.getEntityRenderDispatcher().camera.getPosition().y();
-      double z = target.zo + (target.getZ() - target.zo) * getTickDelta() - Module.mc.getEntityRenderDispatcher().camera.getPosition().z();
+      Vec3 camPos = getCameraPos();
+      double x = target.xo + (target.getX() - target.xo) * getTickDelta() - camPos.x;
+      double y = target.yo + (target.getY() - target.yo) * getTickDelta() - camPos.y;
+      double z = target.zo + (target.getZ() - target.zo) * getTickDelta() - camPos.z;
       double height = target.getBbHeight();
 
       for (int i = 0; i <= 361; i++) {
@@ -676,7 +683,6 @@ public class Render3DEngine {
       setupRender();
       RenderSystem.disableCull();
       RenderSystem.disableDepthTest();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
       Matrix4f matrix = stack.last().pose();
 
@@ -689,7 +695,6 @@ public class Render3DEngine {
       }
 
       Render2DEngine.endBuilding(bufferBuilder);
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
 
       for (int j = 0; j < vecs1.size() - 1; j++) {
@@ -701,7 +706,6 @@ public class Render3DEngine {
       }
 
       Render2DEngine.endBuilding(bufferBuilder);
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
 
       for (int j = 0; j < vecs2.size() - 1; j++) {
@@ -722,11 +726,11 @@ public class Render3DEngine {
 
    public static void drawCircle3D(PoseStack stack, Entity ent, float radius, int color, int points, boolean hudColor, int colorOffset) {
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
-      double x = ent.xo + (ent.getX() - ent.xo) * getTickDelta() - Module.mc.getEntityRenderDispatcher().camera.getPosition().x();
-      double y = ent.yo + (ent.getY() - ent.yo) * getTickDelta() - Module.mc.getEntityRenderDispatcher().camera.getPosition().y();
-      double z = ent.zo + (ent.getZ() - ent.zo) * getTickDelta() - Module.mc.getEntityRenderDispatcher().camera.getPosition().z();
+      Vec3 camPos = getCameraPos();
+      double x = ent.xo + (ent.getX() - ent.xo) * getTickDelta() - camPos.x;
+      double y = ent.yo + (ent.getY() - ent.yo) * getTickDelta() - camPos.y;
+      double z = ent.zo + (ent.getZ() - ent.zo) * getTickDelta() - camPos.z;
       stack.pushPose();
       stack.translate(x, y, z);
       Matrix4f matrix = stack.last().pose();
@@ -749,9 +753,9 @@ public class Render3DEngine {
       if (target != null && Module.mc.player != null) {
          Camera camera = Module.mc.gameRenderer.getMainCamera();
          Vec3 targetPos = new Vec3(
-            Render2DEngine.interpolate(target.xo, target.getX(), getTickDelta()) - camera.getPosition().x,
-            Render2DEngine.interpolate(target.yo, target.getY(), getTickDelta()) - camera.getPosition().y,
-            Render2DEngine.interpolate(target.zo, target.getZ(), getTickDelta()) - camera.getPosition().z
+            Render2DEngine.interpolate(target.xo, target.getX(), getTickDelta()) - camera.position().x,
+            Render2DEngine.interpolate(target.yo, target.getY(), getTickDelta()) - camera.position().y,
+            Render2DEngine.interpolate(target.zo, target.getZ(), getTickDelta()) - camera.position().z
          );
          double iAge = Render2DEngine.interpolate(Module.mc.player.tickCount - 1, Module.mc.player.tickCount, getTickDelta());
          float halfHeight = target.getBbHeight() / 2.0F + 0.2F;
@@ -765,7 +769,6 @@ public class Render3DEngine {
          RenderSystem.disableCull();
          RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
          RenderSystem.setShaderTexture(0, TextureStorage.firefly);
-         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
          RenderSystem.disableDepthTest();
          BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
          int length = 10;
@@ -781,11 +784,11 @@ public class Render3DEngine {
                float offset = (float)(i + length) / (length + length);
                double finalWidth = baseWidth * distanceMultiplier * 1.04F;
                PoseStack matrices = new PoseStack();
-               matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-               matrices.mulPose(Axis.YP.rotationDegrees(camera.getYRot() + 180.0F));
+               matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
+               matrices.mulPose(Axis.YP.rotationDegrees(camera.yRot() + 180.0F));
                matrices.translate(targetPos.x + Math.cos(radians) * finalWidth, targetPos.y + yOffset, targetPos.z + Math.sin(radians) * finalWidth);
-               matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-               matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+               matrices.mulPose(Axis.YP.rotationDegrees(-camera.yRot()));
+               matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
                float scale = 0.6F * offset * (0.6F + speed * 0.1F) + bany;
                if (!(scale <= 0.0F)) {
                   int baseColor = HudEditor.getColor(i).getRGB();
@@ -819,7 +822,7 @@ public class Render3DEngine {
    }
 
    public static float getTickDelta() {
-      return Module.mc.getTimer().getGameTimeDeltaPartialTick(true);
+      return Module.mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
    }
 
    public record DebugLineAction(Vec3 start, Vec3 end, Color color) {

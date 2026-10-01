@@ -34,10 +34,12 @@ import vcore.features.cmd.impl.TabParseCommand;
 import vcore.features.cmd.impl.TreasureCommand;
 import vcore.features.cmd.impl.VClipCommand;
 
+import net.minecraft.server.permissions.PermissionSet;
+
 public class CommandManager implements IManager {
    private String prefix = "@";
    private final CommandDispatcher<SharedSuggestionProvider> dispatcher = new CommandDispatcher();
-   private final SharedSuggestionProvider source = new ClientSuggestionProvider(null, Minecraft.getInstance());
+   private final SharedSuggestionProvider source = new ClientSuggestionProvider(null, Minecraft.getInstance(), PermissionSet.ALL_PERMISSIONS);
    private final List<Command> commands = new ArrayList<>();
 
    public CommandManager() {

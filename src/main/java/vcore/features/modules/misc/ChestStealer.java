@@ -13,6 +13,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.EnderChestBlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import vcore.events.impl.PlayerUpdateEvent;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.StorageEsp;
@@ -45,6 +46,7 @@ public class ChestStealer extends Module {
                && this.isAllowed(slot.getItem())
                && this.timer
                   .every(this.delay.getValue() + (this.random.getValue() && this.delay.getValue() != 0 ? this.rnd.nextInt(this.delay.getValue()) : 0))
+               && mc.screen != null
                && !mc.screen.getTitle().getString().toLowerCase().contains("auction")
                && !mc.screen.getTitle().getString().toLowerCase().contains("purchase")
                && !mc.screen.getTitle().getString().contains("Аукцион")
@@ -64,13 +66,13 @@ public class ChestStealer extends Module {
    public void onPlayerUpdate(PlayerUpdateEvent event) {
       if (this.autoMyst.getValue() && mc.screen == null && this.autoMystDelay.passedMs(3000L)) {
          for (BlockEntity be : StorageEsp.getBlockEntities()) {
-            if (be instanceof EnderChestBlockEntity && !(mc.player.distanceToSqr(be.getBlockPos().getCenter()) > 39.0)) {
+            if (be instanceof EnderChestBlockEntity && !(mc.player.distanceToSqr(Vec3.atCenterOf(be.getBlockPos())) > 39.0)) {
                mc.gameMode
                   .useItemOn(
                      mc.player,
                      InteractionHand.MAIN_HAND,
                      new BlockHitResult(
-                        be.getBlockPos().getCenter().add(MathUtility.random(-0.4, 0.4), 0.375, MathUtility.random(-0.4, 0.4)), Direction.UP, be.getBlockPos(), false
+                        Vec3.atCenterOf(be.getBlockPos()).add(MathUtility.random(-0.4, 0.4), 0.375, MathUtility.random(-0.4, 0.4)), Direction.UP, be.getBlockPos(), false
                      )
                   );
                mc.player.swing(InteractionHand.MAIN_HAND);

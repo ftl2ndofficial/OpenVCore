@@ -3,8 +3,8 @@ package vcore.injection;
 import net.minecraft.client.particle.CampfireSmokeParticle;
 import net.minecraft.client.particle.FireworkParticles.OverlayParticle;
 import net.minecraft.client.particle.FireworkParticles.Starter;
+import net.minecraft.client.particle.ElderGuardianParticle;
 import net.minecraft.client.particle.HugeExplosionParticle;
-import net.minecraft.client.particle.MobAppearanceParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.client.particle.TerrainParticle;
@@ -28,7 +28,7 @@ public class MixinParticleManager {
             }
          }
 
-         if (nR.elderGuardian.getValue() && p instanceof MobAppearanceParticle) {
+         if (nR.elderGuardian.getValue() && p instanceof ElderGuardianParticle) {
             e.cancel();
          }
 

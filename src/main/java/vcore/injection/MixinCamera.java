@@ -2,7 +2,7 @@ package vcore.injection;
 
 import net.minecraft.client.Camera;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -25,7 +25,7 @@ public abstract class MixinCamera {
    @Shadow
    protected abstract float getMaxZoom(float var1);
 
-   @ModifyArgs(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;moveBy(FFF)V", ordinal = 0))
+   @ModifyArgs(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;move(FFF)V", ordinal = 0))
    private void modifyCameraDistance(Args args) {
       if (ModuleManager.noCameraClip.isEnabled()) {
          args.set(0, -this.getMaxZoom(ModuleManager.noCameraClip.getDistance()));
@@ -40,13 +40,13 @@ public abstract class MixinCamera {
    }
 
    @Inject(method = "setup", at = @At("TAIL"))
-   private void updateHook(BlockGetter area, Entity focusedEntity, boolean thirdPerson, boolean inverseView, float tickDelta, CallbackInfo ci) {
+   private void updateHook(Level level, Entity entity, boolean detached, boolean mirror, float partialTickTime, CallbackInfo ci) {
       if (ModuleManager.freeCam.isEnabled()) {
          this.detached = true;
       }
    }
 
-   @ModifyArgs(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V"))
+   @ModifyArgs(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V"))
    private void setRotationHook(Args args) {
       if (ModuleManager.freeCam.isEnabled()) {
          args.setAll(new Object[]{ModuleManager.freeCam.getFakeYaw(), ModuleManager.freeCam.getFakePitch()});
@@ -57,7 +57,7 @@ public abstract class MixinCamera {
       }
    }
 
-   @ModifyArgs(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setPos(DDD)V"))
+   @ModifyArgs(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setPosition(DDD)V"))
    private void setPosHook(Args args) {
       if (ModuleManager.freeCam.isEnabled()) {
          args.setAll(new Object[]{ModuleManager.freeCam.getFakeX(), ModuleManager.freeCam.getFakeY(), ModuleManager.freeCam.getFakeZ()});

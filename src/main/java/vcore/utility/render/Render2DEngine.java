@@ -1,9 +1,8 @@
 package vcore.utility.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -18,7 +17,6 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Stack;
 import javax.imageio.ImageIO;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.util.Mth;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -26,6 +24,8 @@ import org.jetbrains.annotations.NotNull;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
+import vcore.utility.render.RenderSystem.SourceFactor;
+import vcore.utility.render.RenderSystem.DestFactor;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.font.Texture;
@@ -66,6 +66,30 @@ public class Render2DEngine {
    private static Color applyGlobalAlphaToColor(Color color) {
       int a = Mth.clamp(Math.round(color.getAlpha() * globalAlpha), 0, 255);
       return a == color.getAlpha() ? color : new Color(color.getRed(), color.getGreen(), color.getBlue(), a);
+   }
+
+   public static PoseStack toPoseStack(org.joml.Matrix3x2fStack stack) {
+      PoseStack poseStack = new PoseStack();
+      Matrix4f mat = poseStack.last().pose();
+      mat.set(
+         stack.m00, stack.m01, 0.0F, 0.0F,
+         stack.m10, stack.m11, 0.0F, 0.0F,
+         0.0F,      0.0F,      1.0F, 0.0F,
+         stack.m20, stack.m21, 0.0F, 1.0F
+      );
+      return poseStack;
+   }
+
+   public static PoseStack toPoseStack(org.joml.Matrix3x2f stack) {
+      PoseStack poseStack = new PoseStack();
+      Matrix4f mat = poseStack.last().pose();
+      mat.set(
+         stack.m00, stack.m01, 0.0F, 0.0F,
+         stack.m10, stack.m11, 0.0F, 0.0F,
+         0.0F,      0.0F,      1.0F, 0.0F,
+         stack.m20, stack.m21, 0.0F, 1.0F
+      );
+      return poseStack;
    }
 
    public static void addWindow(PoseStack stack, Render2DEngine.Rectangle r1) {
@@ -142,7 +166,6 @@ public class Render2DEngine {
    public static void horizontalGradient(PoseStack matrices, float x1, float y1, float x2, float y2, Color startColor, Color endColor) {
       Matrix4f matrix = matrices.last().pose();
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
       int start = applyGlobalAlphaToInt(startColor.getRGB());
       int end = applyGlobalAlphaToInt(endColor.getRGB());
@@ -157,7 +180,6 @@ public class Render2DEngine {
    public static void verticalGradient(PoseStack matrices, float left, float top, float right, float bottom, Color startColor, Color endColor) {
       Matrix4f matrix = matrices.last().pose();
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
       int start = applyGlobalAlphaToInt(startColor.getRGB());
       int end = applyGlobalAlphaToInt(endColor.getRGB());
@@ -172,7 +194,6 @@ public class Render2DEngine {
    public static void drawRect(PoseStack matrices, float x, float y, float width, float height, Color c) {
       Matrix4f matrix = matrices.last().pose();
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
       int color = applyGlobalAlphaToInt(c.getRGB());
       buffer.addVertex(matrix, x, y + height, 0.0F).setColor(color);
@@ -188,7 +209,6 @@ public class Render2DEngine {
    ) {
       Matrix4f matrix = matrices.last().pose();
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
       setRectPoints(buffer, matrix, x, y, x + width, y + height, bottomLeft, bottomRight, topRight, topLeft);
       BufferUploader.drawWithShader(buffer.buildOrThrow());
@@ -202,7 +222,6 @@ public class Render2DEngine {
    public static void drawRectWithOutline(PoseStack matrices, float x, float y, float width, float height, Color c, Color c2) {
       Matrix4f matrix = matrices.last().pose();
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
       int fill = applyGlobalAlphaToInt(c.getRGB());
       buffer.addVertex(matrix, x, y + height, 0.0F).setColor(fill);
@@ -224,7 +243,6 @@ public class Render2DEngine {
    public static void drawRectDumbWay(PoseStack matrices, float x, float y, float x1, float y1, Color c1) {
       Matrix4f matrix = matrices.last().pose();
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
       int color = applyGlobalAlphaToInt(c1.getRGB());
       buffer.addVertex(matrix, x, y1, 0.0F).setColor(color);
@@ -273,7 +291,7 @@ public class Render2DEngine {
       try {
          ByteBuffer data = BufferUtils.createByteBuffer(content.length).put(content);
          data.flip();
-         DynamicTexture tex = new DynamicTexture(NativeImage.read(data));
+         DynamicTexture tex = new DynamicTexture(() -> "vcore_2d_tex", NativeImage.read(data));
          Module.mc.execute(() -> Module.mc.getTextureManager().register(i.getId(), tex));
       } catch (Exception var4) {
       }
@@ -296,7 +314,6 @@ public class Render2DEngine {
       double y1 = y0 + height;
       double z = 0.0;
       Matrix4f matrix = matrices.last().pose();
-      RenderSystem.setShader(GameRenderer::getPositionTexShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
       buffer.addVertex(matrix, (float)x0, (float)y1, (float)z).setUv(u / (float)textureWidth, (v + (float)regionHeight) / (float)textureHeight);
       buffer.addVertex(matrix, (float)x1, (float)y1, (float)z)
@@ -323,7 +340,6 @@ public class Render2DEngine {
       Color c3,
       Color c4
    ) {
-      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
       BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
       renderGradientTextureInternal(buffer, matrices, x0, y0, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight, c1, c2, c3, c4);
       BufferUploader.drawWithShader(buffer.buildOrThrow());
@@ -401,7 +417,6 @@ public class Render2DEngine {
 
    public static void renderRoundedQuad(PoseStack matrices, Color c, double fromX, double fromY, double toX, double toY, double radius, double samples) {
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       renderRoundedQuadInternal(
          matrices.last().pose(),
          c.getRed() / 255.0F,
@@ -422,7 +437,6 @@ public class Render2DEngine {
       PoseStack matrices, Color c, Color c2, Color c3, Color c4, double fromX, double fromY, double toX, double toY, double radius
    ) {
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       renderRoundedQuadInternal2(
          matrices.last().pose(),
          c.getRed() / 255.0F,
@@ -557,7 +571,6 @@ public class Render2DEngine {
    ) {
       Matrix4f matrix = matrices.last().pose();
       setupRender();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
       bufferBuilder.addVertex(matrix, right, top, 0.0F).setColor(applyGlobalAlphaToInt(rightTopColor.getRGB()));
       bufferBuilder.addVertex(matrix, left, top, 0.0F).setColor(applyGlobalAlphaToInt(leftTopColor.getRGB()));
@@ -587,7 +600,6 @@ public class Render2DEngine {
       RenderSystem.disableDepthTest();
       RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
       Matrix4f matrix = matrices.last().pose();
-      RenderSystem.setShader(GameRenderer::getPositionTexShader);
       BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
       bufferBuilder.addVertex(matrix, x - size / 2.0F, y + size, 0.0F).setUv(0.0F, 1.0F);
       bufferBuilder.addVertex(matrix, x + size / 2.0F, y + size, 0.0F).setUv(1.0F, 1.0F);
@@ -610,7 +622,6 @@ public class Render2DEngine {
       matrices.pushPose();
       setupRender();
       Matrix4f matrix = matrices.last().pose();
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
       int baseColor = applyGlobalAlphaToInt(color);
       bufferBuilder.addVertex(matrix, x, y, 0.0F).setColor(baseColor);
@@ -641,6 +652,7 @@ public class Render2DEngine {
       RenderSystem.defaultBlendFunc();
       RenderSystem.disableBlend();
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, applyGlobalAlpha(1.0F));
+      BufferUploader.activeCustomProgram = 0;
    }
 
    public static void drawGradientRound(
@@ -920,7 +932,6 @@ public class Render2DEngine {
    }
 
    public static void drawLine(float x, float y, float x1, float y1, int color) {
-      RenderSystem.setShader(GameRenderer::getPositionColorShader);
       BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
       int lineColor = applyGlobalAlphaToInt(color);
       bufferBuilder.addVertex(x, y, 0.0F).setColor(lineColor);

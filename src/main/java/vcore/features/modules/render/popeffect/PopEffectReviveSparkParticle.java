@@ -5,9 +5,8 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
-import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.particle.TextureSheetParticle;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -17,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
 import vcore.core.manager.client.ModuleManager;
 
 @Environment(EnvType.CLIENT)
-public final class PopEffectReviveSparkParticle extends TextureSheetParticle {
+public final class PopEffectReviveSparkParticle extends SingleQuadParticle {
    private LivingEntity target;
    private Vec3 targetDirection;
 
@@ -31,7 +30,7 @@ public final class PopEffectReviveSparkParticle extends TextureSheetParticle {
       double velocityY,
       double velocityZ
    ) {
-      super(clientWorld, x, y, z, velocityX, velocityY, velocityZ);
+      super(clientWorld, x, y, z, velocityX, velocityY, velocityZ, spriteProvider.first());
       this.lifetime = this.random.nextIntBetweenInclusive(30, 48);
       this.alpha = getEffectOpacity();
       this.quadSize = 0.1F;
@@ -80,9 +79,9 @@ public final class PopEffectReviveSparkParticle extends TextureSheetParticle {
       }
    }
 
-   @NotNull
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+   @Override
+   protected SingleQuadParticle.Layer getLayer() {
+      return SingleQuadParticle.Layer.TRANSLUCENT;
    }
 
    private static float getEffectOpacity() {
@@ -99,7 +98,7 @@ public final class PopEffectReviveSparkParticle extends TextureSheetParticle {
 
       @Nullable
       public Particle createParticle(
-         SimpleParticleType parameters, ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ
+         SimpleParticleType parameters, ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, net.minecraft.util.RandomSource random
       ) {
          return new PopEffectReviveSparkParticle(world, x, y, z, this.spriteProvider, velocityX, velocityY, velocityZ);
       }

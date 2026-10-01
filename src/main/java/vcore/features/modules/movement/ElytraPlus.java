@@ -1,7 +1,8 @@
 package vcore.features.modules.movement;
 
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.systems.RenderSystem;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -25,8 +26,8 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.inventory.ClickType;
-import net.minecraft.world.item.ElytraItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -466,15 +467,14 @@ public class ElytraPlus extends Module {
          Render3DEngine.setupRender();
          RenderSystem.disableCull();
          Tesselator tessellator = Tesselator.getInstance();
-         RenderSystem.setShader(GameRenderer::getPositionColorShader);
-         BufferBuilder bufferBuilder = Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+         BufferBuilder bufferBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
 
          for (int i = 0; i <= 30; i++) {
-            float cos = (float)(this.flightZonePos.x() - mc.getEntityRenderDispatcher().camera.getPosition().x() + Math.cos(i * (Math.PI * 2) / 30.0) * 95.0);
-            float sin = (float)(this.flightZonePos.z() - mc.getEntityRenderDispatcher().camera.getPosition().z() + Math.sin(i * (Math.PI * 2) / 30.0) * 95.0);
-            bufferBuilder.addVertex(stack.last().pose(), cos, (float)(-mc.getEntityRenderDispatcher().camera.getPosition().y()), sin)
+            float cos = (float)(this.flightZonePos.x() - mc.getEntityRenderDispatcher().camera.position().x + Math.cos(i * (Math.PI * 2) / 30.0) * 95.0);
+            float sin = (float)(this.flightZonePos.z() - mc.getEntityRenderDispatcher().camera.position().z + Math.sin(i * (Math.PI * 2) / 30.0) * 95.0);
+            bufferBuilder.addVertex(stack.last().pose(), cos, (float)(-mc.getEntityRenderDispatcher().camera.position().y), sin)
                .setColor(Render2DEngine.injectAlpha(HudEditor.getColor(i), 255).getRGB());
-            bufferBuilder.addVertex(stack.last().pose(), cos, (float)(128.0 - mc.getEntityRenderDispatcher().camera.getPosition().y()), sin)
+            bufferBuilder.addVertex(stack.last().pose(), cos, (float)(128.0 - mc.getEntityRenderDispatcher().camera.position().y), sin)
                .setColor(Render2DEngine.injectAlpha(HudEditor.getColor(i), 0).getRGB());
          }
 
@@ -532,7 +532,7 @@ public class ElytraPlus extends Module {
                this.acceleration = 0.0F;
             }
 
-            if (InputConstants.isKeyDown(mc.getWindow().getWindow(), this.bombKey.getValue().getKey())) {
+            if (InputConstants.isKeyDown(mc.getWindow(), this.bombKey.getValue().getKey())) {
                MovementUtility.setMotion(0.8F);
                mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), mc.player.tickCount % 2 == 0 ? 0.42F : -0.42F, mc.player.getDeltaMovement().z());
                this.acceleration = 70.0F;
@@ -567,7 +567,7 @@ public class ElytraPlus extends Module {
          && !mc.player.isInWater()
          && !mc.player.isInLava()
          && mc.player.isFallFlying()) {
-         float moveForward = mc.player.input.forwardImpulse;
+         float moveForward = vcore.utility.player.InputUtility.getForward(mc.player.input);
          if (this.cruiseControl.getValue()) {
             if (mc.options.keyJump.isDown()) {
                this.height++;
@@ -796,7 +796,7 @@ public class ElytraPlus extends Module {
 
    private boolean shouldSwapToElytra() {
       ItemStack is = mc.player.getItemBySlot(EquipmentSlot.CHEST);
-      return is.getItem() != Items.ELYTRA || !ElytraItem.isFlyEnabled(is);
+      return is.getItem() != Items.ELYTRA || !LivingEntity.canGlideUsing(is, EquipmentSlot.CHEST);
    }
 
    private void doFireWork(boolean started) {
@@ -815,7 +815,7 @@ public class ElytraPlus extends Module {
                   } else {
                      this.slotWithFireWorks = slot;
                      boolean inOffhand = mc.player.getOffhandItem().getItem() == Items.FIREWORK_ROCKET;
-                     int prevSlot = mc.player.getInventory().selected;
+                     int prevSlot = mc.player.getInventory().getSelectedSlot();
                      if (!inOffhand && prevSlot != slot) {
                         this.sendPacket(new ServerboundSetCarriedItemPacket(slot));
                      }
@@ -823,7 +823,7 @@ public class ElytraPlus extends Module {
                      this.sendSequencedPacket(
                         id -> new ServerboundUseItemPacket(inOffhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, id, mc.player.getYRot(), mc.player.getXRot())
                      );
-                     if (!inOffhand && prevSlot != mc.player.getInventory().selected) {
+                     if (!inOffhand && prevSlot != mc.player.getInventory().getSelectedSlot()) {
                         this.sendPacket(new ServerboundSetCarriedItemPacket(prevSlot));
                      }
 
@@ -996,10 +996,10 @@ public class ElytraPlus extends Module {
             this.acceleration = 0.0F;
          }
 
-         if (mc.player.input.leftImpulse > 0.0F) {
-            mc.player.input.leftImpulse = 1.0F;
-         } else if (mc.player.input.leftImpulse < 0.0F) {
-            mc.player.input.leftImpulse = -1.0F;
+         if (vcore.utility.player.InputUtility.getLeft(mc.player.input) > 0.0F) {
+            vcore.utility.player.InputUtility.setLeft(mc.player.input, 1.0F);
+         } else if (vcore.utility.player.InputUtility.getLeft(mc.player.input) < 0.0F) {
+            vcore.utility.player.InputUtility.setLeft(mc.player.input, -1.0F);
          }
 
          MovementUtility.modifyEventSpeed(e, this.xzSpeed.getValue() * Math.min((this.acceleration += 9.0F) / 100.0F, 1.0F));

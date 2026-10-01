@@ -1,7 +1,7 @@
 package vcore.features.modules.misc;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.client.gui.screens.EditServerScreen;
+import net.minecraft.client.gui.screens.ManageServerScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import vcore.core.manager.client.ModuleManager;
@@ -89,7 +89,7 @@ public final class RPC extends Module {
 
    private String getDetails() {
       String result = "";
-      if (!(mc.screen instanceof JoinMultiplayerScreen) && !(mc.screen instanceof EditServerScreen) && !(mc.screen instanceof TitleScreen)) {
+      if (!(mc.screen instanceof JoinMultiplayerScreen) && !(mc.screen instanceof ManageServerScreen) && !(mc.screen instanceof TitleScreen)) {
          if (mc.getCurrentServer() != null) {
             result = showIP.getValue() ? "Playing on " + mc.getCurrentServer().ip : "Playing on server";
          } else if (mc.isLocalServer()) {

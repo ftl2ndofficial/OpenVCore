@@ -1,6 +1,7 @@
 package vcore.gui.clickui;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -133,6 +134,7 @@ public class ModuleButton extends AbstractButton {
       float offsetY = 0.0F;
       float rawRadius = this.getCornerRadius();
       float cornerRadiusCard = this.clampRadius(rawRadius, this.height - 2.0F);
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
       if (this.isOpen()) {
          float panelHeight = this.height + (float)this.getElementsHeight();
          float cornerRadiusPanel = this.clampRadius(rawRadius, panelHeight);
@@ -140,18 +142,18 @@ public class ModuleButton extends AbstractButton {
          float guideClipRight = this.x + this.width - 4.0F;
          float guideClipBottom = this.y + panelHeight;
          if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
-            Render2DEngine.drawGuiBase(context.pose(), this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, 0.0F);
+            Render2DEngine.drawGuiBase(matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, 0.0F);
             Render2DEngine.drawRound(
-               context.pose(), this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, this.getModuleBackgroundColor()
+               matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, this.getModuleBackgroundColor()
             );
          } else {
             Render2DEngine.drawClickGuiRound(
-               context.pose(), this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, this.getModuleBackgroundColor()
+               matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, this.getModuleBackgroundColor()
             );
          }
 
          Render2DEngine.addWindow(
-            context.pose(),
+            matrices,
             new Render2DEngine.Rectangle(
                this.x + 1.0F, this.y + this.height, this.width + this.x - 2.0F, (float)(this.height + this.y + this.getElementsHeight())
             )
@@ -159,7 +161,7 @@ public class ModuleButton extends AbstractButton {
          if (Render2DEngine.isHovered(
             mouseX, mouseY, this.x + 4.0F, this.y + this.height - 12.0F, this.width - 8.0F, this.height + (float)this.getElementsHeight()
          )) {
-            Render2DEngine.drawBlurredShadow(context.pose(), mouseX - 10, mouseY - 10, 20.0F, 20.0F, 40, HudEditor.getColor(270));
+            Render2DEngine.drawBlurredShadow(matrices, mouseX - 10, mouseY - 10, 20.0F, 20.0F, 40, HudEditor.getColor(270));
          }
 
          for (AbstractElement element : this.elements) {
@@ -194,15 +196,15 @@ public class ModuleButton extends AbstractButton {
          });
          Render2DEngine.popWindow();
       } else if (this.hovered) {
-         Render2DEngine.addWindow(context.pose(), this.x + 1.0F, this.y, this.x + this.width - 2.0F, this.y + this.height, 1.0);
-         Render2DEngine.drawBlurredShadow(context.pose(), mouseX - 10, mouseY - 10, 20.0F, 20.0F, 35, HudEditor.getColor(270));
+         Render2DEngine.addWindow(matrices, this.x + 1.0F, this.y, this.x + this.width - 2.0F, this.y + this.height, 1.0);
+         Render2DEngine.drawBlurredShadow(matrices, mouseX - 10, mouseY - 10, 20.0F, 20.0F, 35, HudEditor.getColor(270));
          Render2DEngine.popWindow();
       }
 
       this.category_animation = AnimationUtility.fast(this.category_animation, offsetY + this.getSettingsBottomPadding(offsetY), 20.0F);
       if (this.animation < 0.05) {
          Render2DEngine.drawClickGuiRound(
-            context.pose(), this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, this.height - 2.0F, cornerRadiusCard, this.getModuleBackgroundColor()
+            matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, this.height - 2.0F, cornerRadiusCard, this.getModuleBackgroundColor()
          );
       } else {
          Color c1 = Render2DEngine.applyOpacity(HudEditor.getColor(270), this.animation * 2.0F);
@@ -210,7 +212,7 @@ public class ModuleButton extends AbstractButton {
          Color c3 = Render2DEngine.applyOpacity(HudEditor.getColor(180), this.animation);
          Color c4 = Render2DEngine.applyOpacity(HudEditor.getColor(90), this.animation);
          Render2DEngine.drawGradientRound(
-            context.pose(), this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, this.height - 2.0F, cornerRadiusCard, c1, c2, c3, c4
+            matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, this.height - 2.0F, cornerRadiusCard, c1, c2, c3, c4
          );
       }
 
@@ -299,7 +301,7 @@ public class ModuleButton extends AbstractButton {
       }
 
       if (this.hovered) {
-         if (InputConstants.isKeyDown(Module.mc.getWindow().getWindow(), 261) && button == 0) {
+         if (InputConstants.isKeyDown(Module.mc.getWindow(), 261) && button == 0) {
             DialogScreen dialogScreen = new DialogScreen(
                TextureStorage.setting, "Reset module", "Are you sure you want to reset " + this.module.getName() + "?", "Yes", "No", () -> {
                   if (this.module.isEnabled()) {
@@ -646,7 +648,7 @@ public class ModuleButton extends AbstractButton {
 
       private void draw(GuiGraphics context) {
          if (!(this.height <= 0.25F) && !(this.alpha <= 0.01F)) {
-            Render2DEngine.drawRect(context.pose(), this.x, this.y, 1.0F, this.height, Render2DEngine.applyOpacity(HudEditor.getColor(1), this.alpha));
+            Render2DEngine.drawRect(Render2DEngine.toPoseStack(context.pose()), this.x, this.y, 1.0F, this.height, Render2DEngine.applyOpacity(HudEditor.getColor(1), this.alpha));
          }
       }
    }

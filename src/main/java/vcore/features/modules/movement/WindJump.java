@@ -94,7 +94,7 @@ public final class WindJump extends Module {
       if (!windCharge.found()) {
          this.endSilentRotation();
       } else {
-         int previousSlot = mc.player.getInventory().selected;
+         int previousSlot = mc.player.getInventory().getSelectedSlot();
          boolean switched = false;
 
          try {
@@ -138,7 +138,7 @@ public final class WindJump extends Module {
    private void pressJumpInput() {
       this.previousJumpPressed = mc.options.keyJump.isDown();
       mc.options.keyJump.setDown(true);
-      mc.player.input.jumping = true;
+      vcore.utility.player.InputUtility.setJumping(mc.player.input, true);
       if (mc.player.onGround()) {
          mc.player.jumpFromGround();
       }
@@ -150,7 +150,7 @@ public final class WindJump extends Module {
       if (this.restoreJumpInput) {
          mc.options.keyJump.setDown(this.previousJumpPressed);
          if (mc.player != null) {
-            mc.player.input.jumping = this.previousJumpPressed;
+            vcore.utility.player.InputUtility.setJumping(mc.player.input, this.previousJumpPressed);
          }
 
          this.restoreJumpInput = false;

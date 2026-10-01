@@ -9,9 +9,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -70,36 +74,41 @@ public class ItemSelectScreen extends Screen {
       return false;
    }
 
-   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
-      if (ModuleManager.clickGui.blur.getValue()) {
-         this.renderBlurredBackground(delta);
-      }
-
+   @Override
+   public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
       if (Module.fullNullCheck()) {
-         this.renderBackground(context, mouseX, mouseY, delta);
+         super.renderBackground(context, mouseX, mouseY, delta);
+      }
+   }
+
+   @Override
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+      if (!Module.fullNullCheck() && ModuleManager.clickGui.blur.getValue()) {
+         Module.mc.gameRenderer.processBlurEffect();
       }
 
       float x = (this.width - 260.0F) / 2.0F;
       float y = (this.height - 320.0F) / 2.0F;
-      Render2DEngine.drawClickGuiRound(context.pose(), x, y, 260.0F, 320.0F, 8.0F, new Color(28, 28, 30, 230));
-      Render2DEngine.drawClickGuiRound(context.pose(), x, y, 260.0F, 28.0F, 8.0F, new Color(24, 24, 26, 210));
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawClickGuiRound(matrices, x, y, 260.0F, 320.0F, 8.0F, new Color(28, 28, 30, 230));
+      Render2DEngine.drawClickGuiRound(matrices, x, y, 260.0F, 28.0F, 8.0F, new Color(24, 24, 26, 210));
       String title = "Items / " + this.itemSetting.getModule().getName();
-      FontRenderers.sf_medium.drawString(context.pose(), title, x + 8.0F, y + 9.0F, Color.WHITE.getRGB());
+      FontRenderers.sf_medium.drawString(matrices, title, x + 8.0F, y + 9.0F, Color.WHITE.getRGB());
       float searchX = this.getSearchX(x);
       float searchY = this.getSearchY(y);
       float closeX = this.getCloseButtonX(x);
       float closeY = this.getCloseButtonY(y);
-      Render2DEngine.drawClickGuiRound(context.pose(), closeX, closeY, 10.0F, 10.0F, 2.0F, new Color(75, 75, 75, 180));
+      Render2DEngine.drawClickGuiRound(matrices, closeX, closeY, 10.0F, 10.0F, 2.0F, new Color(75, 75, 75, 180));
       Render2DEngine.drawLine(closeX + 2.0F, closeY + 2.0F, closeX + 8.0F, closeY + 8.0F, Color.WHITE.getRGB());
       Render2DEngine.drawLine(closeX + 2.0F, closeY + 8.0F, closeX + 8.0F, closeY + 2.0F, Color.WHITE.getRGB());
-      Render2DEngine.drawClickGuiRound(context.pose(), searchX, searchY, 90.0F, 12.0F, 3.0F, new Color(54, 54, 56, 180));
+      Render2DEngine.drawClickGuiRound(matrices, searchX, searchY, 90.0F, 12.0F, 3.0F, new Color(54, 54, 56, 180));
       String searchDisplay = this.getSearchDisplayText();
       float searchTextX = searchX + 4.0F;
       float searchTextY = this.getCenteredTextY(FontRenderers.sf_medium_mini, searchDisplay.isEmpty() ? "|" : searchDisplay, searchY, 12.0F);
-      FontRenderers.sf_medium_mini.drawString(context.pose(), searchDisplay, searchTextX, searchTextY, new Color(14013909).getRGB());
+      FontRenderers.sf_medium_mini.drawString(matrices, searchDisplay, searchTextX, searchTextY, new Color(14013909).getRGB());
       if (this.shouldRenderSearchCaret()) {
          float caretX = searchTextX + FontRenderers.sf_medium_mini.getStringWidth(searchDisplay);
-         FontRenderers.sf_medium_mini.drawString(context.pose(), "|", caretX, searchTextY, Color.WHITE.getRGB());
+         FontRenderers.sf_medium_mini.drawString(matrices, "|", caretX, searchTextY, Color.WHITE.getRGB());
       }
 
       float allTabX = x + 10.0F;
@@ -115,7 +124,7 @@ public class ItemSelectScreen extends Screen {
       this.clampScroll(listHeight, activeItems.size());
       Render2DEngine.beginScissor(listX, listY, listX + listWidth, listY + listHeight);
       if (activeItems.isEmpty()) {
-         FontRenderers.sf_medium.drawCenteredString(context.pose(), "It's empty here yet", x + 130.0F, listY + 18.0F, new Color(12434877).getRGB());
+         FontRenderers.sf_medium.drawCenteredString(matrices, "It's empty here yet", x + 130.0F, listY + 18.0F, new Color(12434877).getRGB());
       }
 
       int startIndex = Math.max(0, (int)Math.floor(-this.scrollOffset / 20.0F));
@@ -132,10 +141,11 @@ public class ItemSelectScreen extends Screen {
    }
 
    private void drawTab(GuiGraphics context, String title, float x, float y, float width, boolean active) {
-      Render2DEngine.drawClickGuiRound(context.pose(), x, y, width, 16.0F, 3.0F, active ? new Color(90, 90, 96, 170) : new Color(48, 48, 52, 140));
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawClickGuiRound(matrices, x, y, width, 16.0F, 3.0F, active ? new Color(90, 90, 96, 170) : new Color(48, 48, 52, 140));
       FontRenderers.sf_medium_mini
          .drawCenteredString(
-            context.pose(),
+            matrices,
             title,
             x + width / 2.0F,
             this.getCenteredTextY(FontRenderers.sf_medium_mini, title, y, 16.0F),
@@ -145,14 +155,15 @@ public class ItemSelectScreen extends Screen {
 
    private void drawRow(GuiGraphics context, ItemSelectScreen.ItemPlate itemPlate, float x, float y, float width, int mouseX, int mouseY) {
       boolean hovered = Render2DEngine.isHovered(mouseX, mouseY, x, y, width, 20.0);
-      Render2DEngine.drawClickGuiRound(context.pose(), x, y, width, 18.0F, 3.0F, hovered ? new Color(70, 70, 75, 130) : new Color(52, 52, 56, 110));
-      context.pose().pushPose();
-      context.pose().translate(x + 4.0F, y + 1.0F, 0.0F);
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawClickGuiRound(matrices, x, y, width, 18.0F, 3.0F, hovered ? new Color(70, 70, 75, 130) : new Color(52, 52, 56, 110));
+      context.pose().pushMatrix();
+      context.pose().translate(x + 4.0F, y + 1.0F);
       context.renderItem(itemPlate.stack(), 0, 0);
-      context.pose().popPose();
+      context.pose().popMatrix();
       FontRenderers.sf_medium
          .drawString(
-            context.pose(),
+            matrices,
             itemPlate.displayName(),
             x + 24.0F,
             this.getCenteredTextY(FontRenderers.sf_medium, itemPlate.displayName(), y, 18.0F),
@@ -162,10 +173,10 @@ public class ItemSelectScreen extends Screen {
       String actionLabel = selected ? "-" : "+";
       float actionX = this.getActionButtonX(x, width);
       float actionY = this.getActionButtonY(y);
-      Render2DEngine.drawClickGuiRound(context.pose(), actionX, actionY, 12.0F, 12.0F, 3.0F, new Color(82, 82, 88, 180));
+      Render2DEngine.drawClickGuiRound(matrices, actionX, actionY, 12.0F, 12.0F, 3.0F, new Color(82, 82, 88, 180));
       FontRenderers.sf_medium_mini
          .drawCenteredString(
-            context.pose(),
+            matrices,
             actionLabel,
             actionX + 6.0F,
             this.getCenteredTextY(FontRenderers.sf_medium_mini, actionLabel, actionY, 12.0F),
@@ -173,7 +184,11 @@ public class ItemSelectScreen extends Screen {
          );
    }
 
-   public boolean mouseClicked(double mouseX, double mouseY, int button) {
+   @Override
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+      double mouseX = event.x();
+      double mouseY = event.y();
+      int button = event.button();
       float x = (this.width - 260.0F) / 2.0F;
       float y = (this.height - 320.0F) / 2.0F;
       if (Render2DEngine.isHovered(mouseX, mouseY, this.getCloseButtonX(x), this.getCloseButtonY(y), 10.0, 10.0)) {
@@ -214,7 +229,7 @@ public class ItemSelectScreen extends Screen {
          float listWidth = 240.0F;
          float listHeight = 256.0F;
          if (!Render2DEngine.isHovered(mouseX, mouseY, listX, listY, listWidth, listHeight)) {
-            return super.mouseClicked(mouseX, mouseY, button);
+            return super.mouseClicked(event, doubleClick);
          }
 
          int startIndex = Math.max(0, (int)Math.floor(-this.scrollOffset / 20.0F));
@@ -240,10 +255,11 @@ public class ItemSelectScreen extends Screen {
             }
          }
 
-         return super.mouseClicked(mouseX, mouseY, button);
+         return super.mouseClicked(event, doubleClick);
       }
    }
 
+   @Override
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
       float x = (this.width - 260.0F) / 2.0F;
       float y = (this.height - 320.0F) / 2.0F;
@@ -260,7 +276,9 @@ public class ItemSelectScreen extends Screen {
       }
    }
 
-   public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+   @Override
+   public boolean keyPressed(KeyEvent event) {
+      int keyCode = event.key();
       if (this.listening) {
          if (keyCode == 256) {
             this.listening = false;
@@ -294,11 +312,13 @@ public class ItemSelectScreen extends Screen {
          this.onClose();
          return true;
       } else {
-         return super.keyPressed(keyCode, scanCode, modifiers);
+         return super.keyPressed(event);
       }
    }
 
-   public boolean charTyped(char chr, int modifiers) {
+   @Override
+   public boolean charTyped(CharacterEvent event) {
+      char chr = (char)event.codepoint();
       if (this.listening && StringUtil.isAllowedChatCharacter(chr)) {
          if ("Search".equals(this.search)) {
             this.search = "";
@@ -308,10 +328,11 @@ public class ItemSelectScreen extends Screen {
          this.refreshAllItems();
          return true;
       } else {
-         return super.charTyped(chr, modifiers);
+         return super.charTyped(event);
       }
    }
 
+   @Override
    public void onClose() {
       if (this.minecraft != null) {
          this.minecraft.setScreen(this.parent);
@@ -431,7 +452,7 @@ public class ItemSelectScreen extends Screen {
    private static void cachePlate(Map<String, ItemSelectScreen.ItemPlate> destination, Item item, String translationKey) {
       String simpleId = simplifyId(translationKey);
       if (!destination.containsKey(simpleId)) {
-         String displayName = "block.minecraft.air".equals(translationKey) ? I18n.get(translationKey, new Object[0]) : item.getDescription().getString();
+         String displayName = "block.minecraft.air".equals(translationKey) ? I18n.get(translationKey, new Object[0]) : item.getDefaultInstance().getHoverName().getString();
          String searchKey = (translationKey + " " + displayName).toLowerCase(Locale.ROOT);
          destination.put(simpleId, new ItemSelectScreen.ItemPlate(item.getDefaultInstance(), simpleId, displayName, searchKey));
       }

@@ -49,7 +49,7 @@ public class ColorPickerElement extends AbstractElement {
 
    @Override
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
-      PoseStack matrixStack = context.pose();
+      PoseStack matrixStack = Render2DEngine.toPoseStack(context.pose());
       this.drawGroupGuide(context, this.height);
       float swatchX = this.x + this.width - 22.0F;
       float swatchY = this.y + 5.0F;

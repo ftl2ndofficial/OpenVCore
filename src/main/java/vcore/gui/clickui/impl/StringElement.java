@@ -24,12 +24,13 @@ public class StringElement extends AbstractElement {
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       super.render(context, mouseX, mouseY, delta);
       this.drawGroupGuide(context, this.height);
+      com.mojang.blaze3d.vertex.PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
       Render2DEngine.drawClickGuiRect(
-         context.pose(), this.getX() + 5.0F, this.getY() + 2.0F, this.getWidth() - 11.0F, 10.0F, new Color(-1811939328, true)
+         matrices, this.getX() + 5.0F, this.getY() + 2.0F, this.getWidth() - 11.0F, 10.0F, new Color(-1811939328, true)
       );
       FontRenderers.sf_medium_mini
          .drawString(
-            context.pose(),
+            matrices,
             this.listening ? this.currentString + (Module.mc.player != null && Module.mc.player.tickCount % 5 != 0 ? "" : "_") : (String)this.setting.getValue(),
             this.getSettingNameX(),
             this.y + this.height / 2.0F,
@@ -37,7 +38,7 @@ public class StringElement extends AbstractElement {
          );
       if (Render2DEngine.isHovered(mouseX, mouseY, this.getX() + 5.0F, this.getY() + 2.0F, this.getWidth() - 11.0F, 10.0)) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(Module.mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221186));
+            GLFW.glfwSetCursor(Module.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221186));
          }
 
          ClickGUI.anyHovered = true;

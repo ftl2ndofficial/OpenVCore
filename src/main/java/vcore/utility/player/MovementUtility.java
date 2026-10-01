@@ -11,7 +11,7 @@ public final class MovementUtility {
       return Module.mc.player != null
          && Module.mc.level != null
          && Module.mc.player.input != null
-         && (Module.mc.player.input.forwardImpulse != 0.0 || Module.mc.player.input.leftImpulse != 0.0);
+         && (InputUtility.getForward(Module.mc.player.input) != 0.0 || InputUtility.getLeft(Module.mc.player.input) != 0.0);
    }
 
    public static double getSpeed() {
@@ -19,8 +19,8 @@ public final class MovementUtility {
    }
 
    public static double[] forward(double d) {
-      float f = Module.mc.player.input.forwardImpulse;
-      float f2 = Module.mc.player.input.leftImpulse;
+      float f = InputUtility.getForward(Module.mc.player.input);
+      float f2 = InputUtility.getLeft(Module.mc.player.input);
       float f3 = Module.mc.player.getYRot();
       if (f != 0.0F) {
          if (f2 > 0.0F) {
@@ -45,8 +45,8 @@ public final class MovementUtility {
    }
 
    public static void setMotion(double speed) {
-      double forward = Module.mc.player.input.forwardImpulse;
-      double strafe = Module.mc.player.input.leftImpulse;
+      double forward = InputUtility.getForward(Module.mc.player.input);
+      double strafe = InputUtility.getLeft(Module.mc.player.input);
       float yaw = Module.mc.player.getYRot();
       if (forward == 0.0 && strafe == 0.0) {
          Module.mc.player.setDeltaMovement(0.0, Module.mc.player.getDeltaMovement().y, 0.0);
@@ -75,8 +75,8 @@ public final class MovementUtility {
    }
 
    public static float getMoveDirection() {
-      double forward = Module.mc.player.input.forwardImpulse;
-      double strafe = Module.mc.player.input.leftImpulse;
+      double forward = InputUtility.getForward(Module.mc.player.input);
+      double strafe = InputUtility.getLeft(Module.mc.player.input);
       if (strafe > 0.0) {
          strafe = 1.0;
       } else if (strafe < 0.0) {
@@ -118,8 +118,8 @@ public final class MovementUtility {
 
    public static double getJumpSpeed() {
       double jumpSpeed = 0.39999995F;
-      if (Module.mc.player.hasEffect(MobEffects.JUMP)) {
-         double amplifier = Module.mc.player.getEffect(MobEffects.JUMP).getAmplifier();
+      if (Module.mc.player.hasEffect(MobEffects.JUMP_BOOST)) {
+         double amplifier = Module.mc.player.getEffect(MobEffects.JUMP_BOOST).getAmplifier();
          jumpSpeed += (amplifier + 1.0) * 0.1;
       }
 
@@ -127,8 +127,8 @@ public final class MovementUtility {
    }
 
    public static void modifyEventSpeed(EventMove event, double d) {
-      double d2 = Module.mc.player.input.forwardImpulse;
-      double d3 = Module.mc.player.input.leftImpulse;
+      double d2 = InputUtility.getForward(Module.mc.player.input);
+      double d3 = InputUtility.getLeft(Module.mc.player.input);
       float f = Module.mc.player.getYRot();
       if (d2 == 0.0 && d3 == 0.0) {
          event.setX(0.0);
@@ -162,18 +162,18 @@ public final class MovementUtility {
          return d;
       }
 
-      if (Module.mc.player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
-         int n = Module.mc.player.getEffect(MobEffects.MOVEMENT_SPEED).getAmplifier();
+      if (Module.mc.player.hasEffect(MobEffects.SPEED)) {
+         int n = Module.mc.player.getEffect(MobEffects.SPEED).getAmplifier();
          d *= 1.0 + 0.2 * (n + 1);
       }
 
-      if (Module.mc.player.hasEffect(MobEffects.JUMP)) {
-         int n = Module.mc.player.getEffect(MobEffects.JUMP).getAmplifier();
+      if (Module.mc.player.hasEffect(MobEffects.JUMP_BOOST)) {
+         int n = Module.mc.player.getEffect(MobEffects.JUMP_BOOST).getAmplifier();
          d /= 1.0 + 0.2 * (n + 1);
       }
 
-      if (Module.mc.player.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
-         int n = Module.mc.player.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier();
+      if (Module.mc.player.hasEffect(MobEffects.SLOWNESS)) {
+         int n = Module.mc.player.getEffect(MobEffects.SLOWNESS).getAmplifier();
          d /= 1.0 + 0.2 * (n + 1);
       }
 

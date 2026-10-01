@@ -79,15 +79,15 @@ public class GhostRenderer3D {
          if (!(vec.w() <= 0.0F)) {
             float progress = vec.w() / 20.5F;
             float miniSize = this.size * progress;
-            double relX = vec.x() - camera.getPosition().x;
-            double relY = vec.y() - camera.getPosition().y;
-            double relZ = vec.z() - camera.getPosition().z;
+            double relX = vec.x() - camera.position().x;
+            double relY = vec.y() - camera.position().y;
+            double relZ = vec.z() - camera.position().z;
             PoseStack matrices = new PoseStack();
-            matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-            matrices.mulPose(Axis.YP.rotationDegrees(camera.getYRot() + 180.0F));
+            matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
+            matrices.mulPose(Axis.YP.rotationDegrees(camera.yRot() + 180.0F));
             matrices.translate(relX, relY, relZ);
-            matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-            matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+            matrices.mulPose(Axis.YP.rotationDegrees(-camera.yRot()));
+            matrices.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
             Matrix4f matrix = matrices.last().pose();
             int alphaValue = Mth.clamp((int)(progress * 255.0F), 0, 255);
             int color = Render2DEngine.injectAlpha(HudEditor.getColor(0), alphaValue).getRGB();

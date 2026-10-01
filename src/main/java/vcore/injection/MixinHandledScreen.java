@@ -1,21 +1,22 @@
 package vcore.injection;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.platform.Lighting;
-import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.state.MapRenderState;
+import net.minecraft.client.input.MouseButtonEvent;
+import vcore.utility.render.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.SimpleContainer;
@@ -88,14 +89,7 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
       this.openTime = System.currentTimeMillis();
    }
 
-   @Inject(
-      method = "renderBackground",
-      at = @At(
-         value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;renderBg(Lnet/minecraft/client/gui/GuiGraphics;FII)V",
-         shift = Shift.BEFORE
-      )
-   )
+   @Inject(method = "render", at = @At("HEAD"))
    private void drawScreenBackgroundHook(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
       if (this.isInventoryScreen() && this.isSurvivalMode()) {
          float progress = this.getOpenProgress();
@@ -103,10 +97,10 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
             float anim = this.getBackOutScale(progress);
             int centerX = context.guiWidth() / 2;
             int centerY = context.guiHeight() / 2;
-            context.pose().pushPose();
-            context.pose().translate(centerX, centerY, 0.0F);
-            context.pose().scale(anim, anim, 1.0F);
-            context.pose().translate(-centerX, -centerY, 0.0F);
+            context.pose().pushMatrix();
+            context.pose().translate(centerX, centerY);
+            context.pose().scale(anim, anim);
+            context.pose().translate(-centerX, -centerY);
             this.inventoryAnimActive = true;
          } else {
             this.inventoryAnimActive = false;
@@ -137,14 +131,14 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
    @Inject(method = "render", at = @At("TAIL"))
    private void drawScreenHookTail(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
       if (this.inventoryAnimActive) {
-         context.pose().popPose();
+         context.pose().popMatrix();
          this.inventoryAnimActive = false;
       }
    }
 
    private boolean shit() {
-      return InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), 340)
-         || InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), 344);
+      return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 340)
+         || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 344);
    }
 
    private boolean attack() {
@@ -212,13 +206,9 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
          }
 
          float[] colors = new float[]{1.0F, 1.0F, 1.0F};
-         if (stack.getItem() instanceof BlockItem bi && bi.getBlock() instanceof ShulkerBoxBlock) {
-            try {
-               Color c = new Color(Objects.requireNonNull(ShulkerBoxBlock.getColorFromItem(stack.getItem())).getTextureDiffuseColor());
-               colors = new float[]{c.getRed() / 255.0F, c.getGreen() / 255.0F, c.getRed() / 255.0F, c.getAlpha() / 255.0F};
-            } catch (NullPointerException npe) {
-               colors = new float[]{1.0F, 1.0F, 1.0F};
-            }
+         if (stack.getItem() instanceof BlockItem bi && bi.getBlock() instanceof ShulkerBoxBlock sbb && sbb.getColor() != null) {
+            Color c = new Color(sbb.getColor().getTextureDiffuseColor());
+            colors = new float[]{c.getRed() / 255.0F, c.getGreen() / 255.0F, c.getBlue() / 255.0F, 1.0F};
          }
 
          this.draw(context, compoundTag.stream().toList(), offsetX, offsetY, mouseX, mouseY, colors);
@@ -254,17 +244,16 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
             float anim = this.getBackOutScale(progress);
             float centerX = offsetX + 88.0F;
             float centerY = offsetY + 33.5F;
-            context.pose().pushPose();
-            context.pose().translate(centerX, centerY, 0.0F);
-            context.pose().scale(anim, anim, 1.0F);
-            context.pose().translate(-centerX, -centerY, 0.0F);
+            context.pose().pushMatrix();
+            context.pose().translate(centerX, centerY);
+            context.pose().scale(anim, anim);
+            context.pose().translate(-centerX, -centerY);
             shulkerAnimPushed = true;
          }
       }
 
       this.drawBackground(context, offsetX, offsetY, colors);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      Lighting.setupFor3DItems();
       int row = 0;
       int i = 0;
 
@@ -272,7 +261,7 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
          context.renderItem(itemStack, offsetX + 8 + i * 18, offsetY + 7 + row * 18);
          context.renderItemDecorations(Module.mc.font, itemStack, offsetX + 8 + i * 18, offsetY + 7 + row * 18);
          if (mouseX > offsetX + 8 + i * 18 && mouseX < offsetX + 28 + i * 18 && mouseY > offsetY + 7 + row * 18 && mouseY < offsetY + 27 + row * 18) {
-            this.postRender = () -> context.renderTooltip(this.font, getTooltipFromItem(Module.mc, itemStack), itemStack.getTooltipImage(), mouseX, mouseY);
+            this.postRender = () -> context.setTooltipForNextFrame(this.font, itemStack, mouseX, mouseY);
          }
 
          if (++i >= 9) {
@@ -281,10 +270,9 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
          }
       }
 
-      Lighting.setupForFlatItems();
       RenderSystem.enableDepthTest();
       if (shulkerAnimPushed) {
-         context.pose().popPose();
+         context.pose().popMatrix();
       }
    }
 
@@ -316,39 +304,38 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
       RenderSystem.setShaderColor(colors[0], colors[1], colors[2], 1.0F);
       RenderSystem.texParameter(3553, 10240, 9729);
       RenderSystem.texParameter(3553, 10241, 9987);
-      context.blit(TextureStorage.container, x, y, 0.0F, 0.0F, 176, 67, 176, 67);
+      context.blit(RenderPipelines.GUI_TEXTURED, TextureStorage.container, x, y, 0.0F, 0.0F, 176, 67, 176, 67);
       RenderSystem.enableBlend();
    }
 
    private void drawMapPreview(GuiGraphics context, ItemStack stack, int x, int y) {
       RenderSystem.enableBlend();
-      context.pose().pushPose();
+      context.pose().pushMatrix();
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       int y1 = y - 12;
       int x1 = x + 8;
-      int z = 300;
       MapItemSavedData mapState = MapItem.getSavedData(stack, this.minecraft.level);
       if (mapState != null) {
          mapState.getHoldingPlayer(this.minecraft.player);
          x1 += 8;
          y1 += 8;
-         int var14 = 310;
          double scale = 0.65625;
-         context.pose().translate(x1, y1, var14);
-         context.pose().scale((float)scale, (float)scale, 0.0F);
-         BufferSource consumer = this.minecraft.renderBuffers().bufferSource();
-         this.minecraft
-            .gameRenderer
-            .getMapRenderer()
-            .render(context.pose(), consumer, (MapId)stack.get(DataComponents.MAP_ID), mapState, false, 15728880);
+         context.pose().translate(x1, y1);
+         context.pose().scale((float)scale, (float)scale);
+         MapRenderState mapRenderState = new MapRenderState();
+         this.minecraft.getMapRenderer().extractRenderState((MapId)stack.get(DataComponents.MAP_ID), mapState, mapRenderState);
+         context.submitMapRenderState(mapRenderState);
       }
 
-      context.pose().popPose();
+      context.pose().popMatrix();
    }
 
    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
-   private void mouseClicked(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+   private void mouseClicked(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
       if (!Module.fullNullCheck()) {
+         double mouseX = event.x();
+         double mouseY = event.y();
+         int button = event.button();
          if (button == 2
             && this.hoveredSlot != null
             && !this.hoveredSlot.getItem().isEmpty()

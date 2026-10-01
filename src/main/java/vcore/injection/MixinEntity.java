@@ -42,12 +42,12 @@ public abstract class MixinEntity implements IEntity, CameraOverriddenEntity {
       return this.getBlockPosBelowThatAffectsMyMovement();
    }
 
-   @ModifyArgs(method = "pushAwayFrom", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;addVelocity(DDD)V"))
-   public void pushAwayFromHook(Args args) {
-      if ((Object)this == Module.mc.player && ModuleManager.noPush.isEnabled() && ModuleManager.noPush.players.getValue()) {
-         args.set(0, 0.0);
-         args.set(1, 0.0);
-         args.set(2, 0.0);
+   @Inject(method = "push(Lnet/minecraft/world/entity/Entity;)V", at = @At("HEAD"), cancellable = true)
+   public void pushHook(Entity entity, CallbackInfo ci) {
+      if (ModuleManager.noPush != null && ModuleManager.noPush.isEnabled() && ModuleManager.noPush.players.getValue()) {
+         if ((Object)this == Module.mc.player || entity == Module.mc.player) {
+            ci.cancel();
+         }
       }
    }
 

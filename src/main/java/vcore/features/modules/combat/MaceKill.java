@@ -57,7 +57,9 @@ public class MaceKill extends Module {
                      this.spoofLiquidFallHeight(height);
                   } else {
                      event.cancel();
-                     this.performMineRuaBypassAttack(packet, height);
+                     if (Criticals.getEntity(packet) instanceof LivingEntity living) {
+                        this.performMineRuaBypassAttack(living, packet.isUsingSecondaryAction(), height);
+                     }
                   }
                }
             }
@@ -120,28 +122,26 @@ public class MaceKill extends Module {
    private void warp(Vec3 pos, boolean onGround) {
       if (mc.player != null) {
          if (pos == null) {
-            this.sendPacket(new StatusOnly(onGround));
+            this.sendPacket(new StatusOnly(onGround, mc.player.horizontalCollision));
          } else {
-            this.sendPacket(new Pos(pos.x, pos.y, pos.z, onGround));
+            this.sendPacket(new Pos(pos.x, pos.y, pos.z, onGround, mc.player.horizontalCollision));
          }
       }
    }
 
-   private void performMineRuaBypassAttack(ServerboundInteractPacket originalPacket, int height) {
-      if (mc.player != null && mc.level != null) {
-         if (Criticals.getEntity(originalPacket) instanceof LivingEntity livingEntity && livingEntity.isAlive()) {
-            if (this.ensureWearingElytra()) {
-               this.sendAirborneStatePacket();
-               this.blockMineRuaSpoofClientSync();
+   private void performMineRuaBypassAttack(LivingEntity livingEntity, boolean sneaking, int height) {
+      if (mc.player != null && mc.level != null && livingEntity.isAlive()) {
+         if (this.ensureWearingElytra()) {
+            this.sendAirborneStatePacket();
+            this.blockMineRuaSpoofClientSync();
 
-               for (int i = 0; i < 2; i++) {
-                  if (!this.performMineRuaStateCycle(i == 0)) {
-                     return;
-                  }
+            for (int i = 0; i < 2; i++) {
+               if (!this.performMineRuaStateCycle(i == 0)) {
+                  return;
                }
-
-               this.sendFakeFallAttack(livingEntity, originalPacket.isUsingSecondaryAction(), height);
             }
+
+            this.sendFakeFallAttack(livingEntity, sneaking, height);
          }
       }
    }
@@ -169,7 +169,7 @@ public class MaceKill extends Module {
    private void sendCancelElytraFlyingPacket() {
       if (mc.player != null) {
          Vec3 pos = mc.player.position();
-         this.sendPacketSilent(new Pos(pos.x, pos.y, pos.z, true));
+         this.sendPacketSilent(new Pos(pos.x, pos.y, pos.z, true, mc.player.horizontalCollision));
       }
    }
 
@@ -190,7 +190,7 @@ public class MaceKill extends Module {
    private void sendAirborneStatePacket() {
       if (mc.player != null) {
          Vec3 pos = mc.player.position();
-         this.sendPacketSilent(new Pos(pos.x, pos.y, pos.z, false));
+         this.sendPacketSilent(new Pos(pos.x, pos.y, pos.z, false, mc.player.horizontalCollision));
       }
    }
 

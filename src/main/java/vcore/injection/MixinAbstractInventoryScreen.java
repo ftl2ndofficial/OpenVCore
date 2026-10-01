@@ -1,8 +1,7 @@
 package vcore.injection;
 
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen;
-import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.client.gui.screens.inventory.EffectsInInventory;
 import net.minecraft.world.level.GameType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -11,8 +10,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import vcore.features.modules.Module;
 
-@Mixin(EffectRenderingInventoryScreen.class)
-public abstract class MixinAbstractInventoryScreen<T extends AbstractContainerMenu> {
+@Mixin(EffectsInInventory.class)
+public abstract class MixinAbstractInventoryScreen {
    @Unique
    private static final float EFFECTS_ANIM_DURATION = 250.0F;
    @Unique
@@ -20,7 +19,7 @@ public abstract class MixinAbstractInventoryScreen<T extends AbstractContainerMe
    @Unique
    private boolean statusEffectsAnimPushed;
 
-   @Inject(method = "renderEffects", at = @At("HEAD"))
+   @Inject(method = "render", at = @At("HEAD"))
    private void onDrawStatusEffectsHead(GuiGraphics context, int mouseX, int mouseY, CallbackInfo ci) {
       if (!this.isSurvivalMode()) {
          this.statusEffectsAnimPushed = false;
@@ -34,10 +33,10 @@ public abstract class MixinAbstractInventoryScreen<T extends AbstractContainerMe
             float anim = this.getAnim(progress);
             int centerX = context.guiWidth() / 2;
             int centerY = context.guiHeight() / 2;
-            context.pose().pushPose();
-            context.pose().translate(centerX, centerY, 0.0F);
-            context.pose().scale(anim, anim, 1.0F);
-            context.pose().translate(-centerX, -centerY, 0.0F);
+            context.pose().pushMatrix();
+            context.pose().translate(centerX, centerY);
+            context.pose().scale(anim, anim);
+            context.pose().translate(-centerX, -centerY);
             this.statusEffectsAnimPushed = true;
          } else {
             this.statusEffectsAnimPushed = false;
@@ -45,10 +44,10 @@ public abstract class MixinAbstractInventoryScreen<T extends AbstractContainerMe
       }
    }
 
-   @Inject(method = "renderEffects", at = @At("TAIL"))
+   @Inject(method = "render", at = @At("TAIL"))
    private void onDrawStatusEffectsTail(GuiGraphics context, int mouseX, int mouseY, CallbackInfo ci) {
       if (this.statusEffectsAnimPushed) {
-         context.pose().popPose();
+         context.pose().popMatrix();
          this.statusEffectsAnimPushed = false;
       }
    }

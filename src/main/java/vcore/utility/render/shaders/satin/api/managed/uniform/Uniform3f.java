@@ -5,5 +5,7 @@ import org.joml.Vector3f;
 public interface Uniform3f {
    void set(float var1, float var2, float var3);
 
-   void set(Vector3f var1);
+   default void set(Vector3f var1) {
+      this.set(var1.x, var1.y, var1.z);
+   }
 }

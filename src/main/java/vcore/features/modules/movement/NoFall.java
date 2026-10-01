@@ -44,7 +44,7 @@ public class NoFall extends Module {
          if (this.isFalling()) {
             switch ((NoFall.Mode)this.mode.getValue()) {
                case Rubberband:
-                  this.sendPacket(new StatusOnly(true));
+                  this.sendPacket(new StatusOnly(true, mc.player.horizontalCollision));
                   break;
                case Items:
                   BlockPos playerPos = BlockPos.containing(mc.player.position());
@@ -90,7 +90,7 @@ public class NoFall extends Module {
    @EventHandler
    public void onTick(EventTick e) {
       if (this.mode.is(NoFall.Mode.Grim2b2t) && this.isFalling()) {
-         this.sendPacket(new PosRot(mc.player.getX(), mc.player.getY() + 1.0E-9, mc.player.getZ(), mc.player.getYRot(), mc.player.getXRot(), false));
+         this.sendPacket(new PosRot(mc.player.getX(), mc.player.getY() + 1.0E-9, mc.player.getZ(), mc.player.getYRot(), mc.player.getXRot(), false, mc.player.horizontalCollision));
          mc.player.resetFallDistance();
       }
    }

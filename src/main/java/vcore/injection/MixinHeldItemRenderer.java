@@ -4,7 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
@@ -28,62 +28,46 @@ public abstract class MixinHeldItemRenderer {
       method = "renderArmWithItem",
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"
+         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V"
       )
    )
    private void onRenderItem(
       AbstractClientPlayer player,
-      float tickDelta,
-      float pitch,
+      float frameInterp,
+      float xRot,
       InteractionHand hand,
-      float swingProgress,
-      ItemStack item,
-      float equipProgress,
-      PoseStack matrices,
-      MultiBufferSource vertexConsumers,
-      int light,
+      float attack,
+      ItemStack itemStack,
+      float inverseArmHeight,
+      PoseStack poseStack,
+      SubmitNodeCollector submitNodeCollector,
+      int lightCoords,
       CallbackInfo ci
    ) {
       if (!Module.fullNullCheck()) {
-         EventHeldItemRenderer event = new EventHeldItemRenderer(hand, item, equipProgress, matrices);
+         EventHeldItemRenderer event = new EventHeldItemRenderer(hand, itemStack, inverseArmHeight, poseStack);
          Vcore.EVENT_BUS.post(event);
       }
-   }
-
-   @Inject(method = "renderArmWithItem", at = @At("RETURN"))
-   private void onRenderItemPost(
-      AbstractClientPlayer player,
-      float tickDelta,
-      float pitch,
-      InteractionHand hand,
-      float swingProgress,
-      ItemStack item,
-      float equipProgress,
-      PoseStack matrices,
-      MultiBufferSource vertexConsumers,
-      int light,
-      CallbackInfo ci
-   ) {
    }
 
    @Inject(method = "renderArmWithItem", at = @At("HEAD"), cancellable = true)
    private void onRenderItemHook(
       AbstractClientPlayer player,
-      float tickDelta,
-      float pitch,
+      float frameInterp,
+      float xRot,
       InteractionHand hand,
-      float swingProgress,
-      ItemStack item,
-      float equipProgress,
-      PoseStack matrices,
-      MultiBufferSource vertexConsumers,
-      int light,
+      float attack,
+      ItemStack itemStack,
+      float inverseArmHeight,
+      PoseStack poseStack,
+      SubmitNodeCollector submitNodeCollector,
+      int lightCoords,
       CallbackInfo ci
    ) {
-      if (Managers.MODULE != null && ModuleManager.animations.shouldAnimate(item) && !item.isEmpty() && !(item.getItem() instanceof MapItem)) {
+      if (Managers.MODULE != null && ModuleManager.animations.shouldAnimate(itemStack) && !itemStack.isEmpty() && !(itemStack.getItem() instanceof MapItem)) {
          ci.cancel();
          ModuleManager.animations
-            .renderFirstPersonItemCustom(player, tickDelta, pitch, hand, swingProgress, item, equipProgress, matrices, vertexConsumers, light);
+            .renderFirstPersonItemCustom(player, frameInterp, xRot, hand, attack, itemStack, inverseArmHeight, poseStack, submitNodeCollector, lightCoords);
       }
    }
 
@@ -104,9 +88,9 @@ public abstract class MixinHeldItemRenderer {
    }
 
    @Inject(method = "applyEatTransform", at = @At("HEAD"), cancellable = true)
-   private void applyEatOrDrinkTransformationHook(PoseStack matrices, float tickDelta, HumanoidArm arm, ItemStack stack, Player player, CallbackInfo ci) {
-      if (ModuleManager.animations.shouldAnimate(stack)) {
-         this.applyEatOrDrinkTransformationCustom(matrices, tickDelta, arm, stack);
+   private void applyEatOrDrinkTransformationHook(PoseStack poseStack, float frameInterp, HumanoidArm arm, ItemStack itemStack, Player player, CallbackInfo ci) {
+      if (ModuleManager.animations.shouldAnimate(itemStack)) {
+         this.applyEatOrDrinkTransformationCustom(poseStack, frameInterp, arm, itemStack);
          ci.cancel();
       }
    }

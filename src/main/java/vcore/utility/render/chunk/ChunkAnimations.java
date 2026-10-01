@@ -25,7 +25,7 @@ public class ChunkAnimations {
    private final HashMap<Long, ChunkAnimations.AnimationData> timeStamps = new HashMap<>();
 
    public Vec3 getOffset(RenderSection chunk) {
-      return chunk == null ? Vec3.ZERO : this.getOffset(chunk.getOrigin());
+      return chunk == null ? Vec3.ZERO : this.getOffset(chunk.getRenderOrigin());
    }
 
    public Vec3 getOffset(BlockPos origin) {
@@ -72,7 +72,7 @@ public class ChunkAnimations {
                case 3:
                   Direction chunkFacing = animationData.chunkFacing;
                   if (chunkFacing != null) {
-                     Vec3i vec = chunkFacing.getNormal();
+                     Vec3i vec = chunkFacing.getUnitVec3i();
                      double mod = -(200.0F - this.getFunctionValue((float)timeDif, 0.0F, 200.0F, animationDuration));
                      return new Vec3(vec.getX() * mod, 0.0, vec.getZ() * mod);
                   }
@@ -148,7 +148,7 @@ public class ChunkAnimations {
    }
 
    private int getVoidFogHeight() {
-      return this.mc.level == null ? 0 : this.mc.level.getMinBuildHeight() + 64;
+      return this.mc.level == null ? 0 : this.mc.level.getMinY() + 64;
    }
 
    public void clear() {

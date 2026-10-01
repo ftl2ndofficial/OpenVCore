@@ -14,6 +14,7 @@ import net.minecraft.world.level.ClipContext.Fluid;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventCollision;
 import vcore.events.impl.EventPostSync;
@@ -74,10 +75,10 @@ public class Phase extends Module {
                ? 1
                : 2;
             mc.player.setPos(mc.player.getX() + directionVec[0], mc.player.getY() + height, mc.player.getZ() + directionVec[1]);
-            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true));
+            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true, mc.player.horizontalCollision));
             height = mc.level.isEmptyBlock(BlockPos.containing(mc.player.position().add(diagonalOffset[0], -2.0, diagonalOffset[1]))) ? 2 : 1;
             mc.player.setPos(mc.player.getX() + directionVec[0], mc.player.getY() - height, mc.player.getZ() + directionVec[1]);
-            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true));
+            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true, mc.player.horizontalCollision));
             this.disable("diagonal");
          } else {
             double[] directionVec = MovementUtility.forwardWithoutStrafe(0.57);
@@ -96,12 +97,12 @@ public class Phase extends Module {
                ? 1
                : 2;
             mc.player.setPos(mc.player.getX() + directionVec[0], mc.player.getY() + height, mc.player.getZ() + directionVec[1]);
-            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true));
+            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true, mc.player.horizontalCollision));
             mc.player.setPos(mc.player.getX() + directionVec[0], mc.player.getY(), mc.player.getZ() + directionVec[1]);
-            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true));
+            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true, mc.player.horizontalCollision));
             height = mc.level.isEmptyBlock(BlockPos.containing(mc.player.position().add(diagonalOffset[0], -2.0, diagonalOffset[1]))) ? 2 : 1;
             mc.player.setPos(mc.player.getX() + directionVec[0], mc.player.getY() - height, mc.player.getZ() + directionVec[1]);
-            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true));
+            this.sendPacket(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), true, mc.player.horizontalCollision));
             this.disable("normal");
          }
       }
@@ -130,7 +131,7 @@ public class Phase extends Module {
 
             double[] dir = MovementUtility.forward(0.5);
             BlockPos block = BlockPos.containing(mc.player.getX() + dir[0], mc.player.getY(), mc.player.getZ() + dir[1]);
-            float[] angle = InteractionUtility.calculateAngle(block.getCenter());
+            float[] angle = InteractionUtility.calculateAngle(Vec3.atCenterOf(block));
             int epSlot = this.findEPSlot();
             if (epSlot != -1) {
                ModuleManager.aura.pause();
@@ -154,7 +155,7 @@ public class Phase extends Module {
          }
 
          int epSlot = this.findEPSlot();
-         int prevItem = mc.player.getInventory().selected;
+         int prevItem = mc.player.getInventory().getSelectedSlot();
          if (epSlot != -1) {
             InventoryUtility.switchTo(epSlot);
             this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, mc.player.getYRot(), mc.player.getXRot()));
@@ -173,7 +174,7 @@ public class Phase extends Module {
    private int findEPSlot() {
       int epSlot = -1;
       if (mc.player.getMainHandItem().getItem() == Items.ENDER_PEARL) {
-         epSlot = mc.player.getInventory().selected;
+         epSlot = mc.player.getInventory().getSelectedSlot();
       }
 
       if (epSlot == -1) {

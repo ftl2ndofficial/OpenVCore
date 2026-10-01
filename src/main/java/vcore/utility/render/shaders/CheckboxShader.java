@@ -3,7 +3,7 @@ package vcore.utility.render.shaders;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import vcore.features.modules.Module;
 import vcore.utility.render.shaders.satin.api.managed.ManagedCoreShader;
 import vcore.utility.render.shaders.satin.api.managed.ShaderEffectManager;
@@ -19,7 +19,7 @@ public class CheckboxShader {
    private Uniform1f progress;
    private Uniform4f color;
    public static final ManagedCoreShader CHECKBOX_SHADER = ShaderEffectManager.getInstance()
-      .manageCoreShader(ResourceLocation.fromNamespaceAndPath("vcore", "checkbox"), DefaultVertexFormat.POSITION);
+      .manageCoreShader(Identifier.fromNamespaceAndPath("vcore", "checkbox"), DefaultVertexFormat.POSITION);
 
    public CheckboxShader() {
       this.setup();
@@ -36,7 +36,7 @@ public class CheckboxShader {
    }
 
    public void use() {
-      RenderSystem.setShader(CHECKBOX_SHADER::getProgram);
+      CHECKBOX_SHADER.use();
    }
 
    protected void setup() {

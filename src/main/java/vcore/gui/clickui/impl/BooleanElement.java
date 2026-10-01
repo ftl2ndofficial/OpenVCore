@@ -33,17 +33,18 @@ public class BooleanElement extends AbstractElement {
       this.animation = AnimationUtility.fast(this.animation, (Boolean)this.setting.getValue() ? 1.0F : 0.0F, 20.0F);
       float checkboxX = this.x + this.width - 10.0F - 7.0F;
       float checkboxY = this.y + this.height / 2.0F - 5.0F;
-      SettingControlRenderer.drawCheckbox(context.pose(), checkboxX, checkboxY, this.animation);
+      com.mojang.blaze3d.vertex.PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      SettingControlRenderer.drawCheckbox(matrices, checkboxX, checkboxY, this.animation);
       if (Render2DEngine.isHovered(mouseX, mouseY, checkboxX, checkboxY, 10.0, 10.0)) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(IManager.mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221188));
+            GLFW.glfwSetCursor(IManager.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221188));
          }
 
          ClickGUI.anyHovered = true;
       }
 
       FontRenderers.sf_medium_mini
-         .drawString(context.pose(), this.setting.getName(), this.getSettingNameX(), this.y + this.height / 2.0F - 3.0F + 2.0F, new Color(-1).getRGB());
+         .drawString(matrices, this.setting.getName(), this.getSettingNameX(), this.y + this.height / 2.0F - 3.0F + 2.0F, new Color(-1).getRGB());
    }
 
    @Override

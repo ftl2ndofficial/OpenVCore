@@ -12,11 +12,10 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Entity.RemovalReason;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.ShovelItem;
-import net.minecraft.world.item.SwordItem;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.events.impl.PacketEvent;
@@ -58,26 +57,28 @@ public final class CrystalOptimizer extends Module {
 
    @EventHandler
    private void onPacketSend(PacketEvent.@NotNull Send event) {
-      if (!fullNullCheck() && event.getPacket() instanceof ServerboundInteractPacket packet) {
-         if (Criticals.getInteractType(packet) == Criticals.InteractType.ATTACK) {
-            if (this.blatant.getValue()) {
-               this.pruneInhibitedCrystals();
-            }
+      if (!fullNullCheck()) {
+         if (event.getPacket() instanceof ServerboundInteractPacket packet) {
+            if (Criticals.getInteractType(packet) == Criticals.InteractType.ATTACK) {
+               if (this.blatant.getValue()) {
+                  this.pruneInhibitedCrystals();
+               }
 
-            Entity entity = Criticals.getEntity(packet);
-            if (this.blatant.getValue()) {
-               this.handleBlatantAttack(event, packet, entity);
-            } else {
-               if (entity instanceof EndCrystal crystal && !this.cantBreakCrystal()) {
-                  this.removeCrystal(crystal);
+               Entity entity = Criticals.getEntity(packet);
+               if (this.blatant.getValue()) {
+                  this.handleBlatantAttack(event, this.getEntityId(packet), entity);
+               } else {
+                  if (entity instanceof EndCrystal crystal && !this.cantBreakCrystal()) {
+                     this.removeCrystal(crystal);
+                  }
                }
             }
          }
       }
    }
 
-   private void handleBlatantAttack(PacketEvent.@NotNull Send event, @NotNull ServerboundInteractPacket packet, Entity entity) {
-      if (this.shouldBlatantInhibit(this.getEntityId(packet))) {
+   private void handleBlatantAttack(PacketEvent.@NotNull Send event, int entityId, Entity entity) {
+      if (this.shouldBlatantInhibit(entityId)) {
          if (entity instanceof EndCrystal crystal) {
             this.removeCrystal(crystal);
          }
@@ -98,14 +99,14 @@ public final class CrystalOptimizer extends Module {
          if (this.blatant.getValue()) {
             this.pruneInhibitedCrystals();
             if (event.getPacket() instanceof ClientboundExplodePacket explosion) {
-               this.markNearbyCrystalsDead(explosion.getX(), explosion.getY(), explosion.getZ());
+               this.markNearbyCrystalsDead(explosion.center().x, explosion.center().y, explosion.center().z);
             }
          }
       }
    }
 
    private void removeCrystal(@NotNull Entity entity) {
-      entity.kill();
+      entity.discard();
       entity.setRemoved(RemovalReason.KILLED);
       entity.onClientRemoval();
    }
@@ -165,20 +166,18 @@ public final class CrystalOptimizer extends Module {
    }
 
    private int getEntityId(@NotNull ServerboundInteractPacket packet) {
-      FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.buffer());
-      packet.write(packetBuf);
-      return packetBuf.readVarInt();
+      return ((vcore.injection.accesors.IPlayerInteractEntityC2SPacket)packet).getEntityId();
    }
 
    private boolean cantBreakCrystal() {
       MobEffectInstance weakness = mc.player.getEffect(MobEffects.WEAKNESS);
-      MobEffectInstance strength = mc.player.getEffect(MobEffects.DAMAGE_BOOST);
+      MobEffectInstance strength = mc.player.getEffect(MobEffects.STRENGTH);
       return weakness != null && (strength == null || strength.getAmplifier() <= weakness.getAmplifier()) && !this.isTool(mc.player.getMainHandItem());
    }
 
    private boolean isTool(@NotNull ItemStack stack) {
-      return stack.getItem() instanceof SwordItem
-         || stack.getItem() instanceof PickaxeItem
+      return stack.is(ItemTags.SWORDS)
+         || stack.is(ItemTags.PICKAXES)
          || stack.getItem() instanceof AxeItem
          || stack.getItem() instanceof ShovelItem;
    }

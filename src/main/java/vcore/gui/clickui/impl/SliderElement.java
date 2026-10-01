@@ -43,7 +43,7 @@ public class SliderElement extends AbstractElement {
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       super.render(context, mouseX, mouseY, delta);
       this.animation = Render2DEngine.scrollAnimate(this.animation, this.getValueProgress(), 0.4F);
-      PoseStack matrixStack = context.pose();
+      PoseStack matrixStack = Render2DEngine.toPoseStack(context.pose());
       this.drawGroupGuide(context, this.height);
       String inputValue = this.getInputValue();
       if (!this.dragging) {

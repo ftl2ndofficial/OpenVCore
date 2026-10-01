@@ -23,6 +23,7 @@ import vcore.events.impl.EventSync;
 import vcore.events.impl.PacketEvent;
 import vcore.events.impl.TotemPopEvent;
 import vcore.features.modules.Module;
+import vcore.injection.accesors.ILivingEntity;
 import vcore.setting.Setting;
 import vcore.utility.player.InventoryUtility;
 import vcore.utility.world.ExplosionUtility;
@@ -57,7 +58,7 @@ public class FakePlayer extends Module {
          mc.level.addEntity(fakePlayer);
          fakePlayer.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 9999, 2));
          fakePlayer.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 9999, 4));
-         fakePlayer.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 9999, 1));
+         fakePlayer.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 9999, 1));
       } else {
          this.disable();
       }
@@ -86,9 +87,9 @@ public class FakePlayer extends Module {
          fakePlayer.setHealth(
             fakePlayer.getHealth()
                + fakePlayer.getAbsorptionAmount()
-               - ExplosionUtility.getAutoCrystalDamage(new Vec3(explosion.getX(), explosion.getY(), explosion.getZ()), fakePlayer, 0, false)
+               - ExplosionUtility.getAutoCrystalDamage(explosion.center(), fakePlayer, 0, false)
          );
-         if (fakePlayer.isDeadOrDying() && fakePlayer.checkTotemDeathProtection(mc.level.damageSources().generic())) {
+         if (fakePlayer.isDeadOrDying() && ((ILivingEntity)fakePlayer).invokeCheckTotemDeathProtection(mc.level.damageSources().generic())) {
             this.handleTotemPop();
          }
       }
@@ -133,7 +134,7 @@ public class FakePlayer extends Module {
             fakePlayer.setHealth(fakePlayer.getHealth() + fakePlayer.getAbsorptionAmount() - 1.0F);
          }
 
-         if (fakePlayer.isDeadOrDying() && fakePlayer.checkTotemDeathProtection(mc.level.damageSources().generic())) {
+         if (fakePlayer.isDeadOrDying() && ((ILivingEntity)fakePlayer).invokeCheckTotemDeathProtection(mc.level.damageSources().generic())) {
             this.handleTotemPop();
          }
       }
@@ -158,9 +159,7 @@ public class FakePlayer extends Module {
    public void onDisable() {
       if (fakePlayer != null) {
          Managers.COMBAT.popList.remove(fakePlayer.getName().getString());
-         fakePlayer.kill();
-         fakePlayer.setRemoved(RemovalReason.KILLED);
-         fakePlayer.onClientRemoval();
+         fakePlayer.discard();
          fakePlayer = null;
          this.deathTime = 0;
          this.lastTotemPopAt = 0L;

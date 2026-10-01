@@ -20,18 +20,19 @@ public class BindElement extends AbstractElement {
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       super.render(context, mouseX, mouseY, delta);
       this.drawGroupGuide(context, this.height);
+      com.mojang.blaze3d.vertex.PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
       FontRenderers.sf_medium_mini
          .drawString(
-            context.pose(), this.setting.getName(), this.getSettingNameX(), this.getY() + this.height / 2.0F - 3.0F + 2.0F, new Color(-1).getRGB()
+            matrices, this.setting.getName(), this.getSettingNameX(), this.getY() + this.height / 2.0F - 3.0F + 2.0F, new Color(-1).getRGB()
          );
       String bindText = this.getBindText();
       float tWidth = FontRenderers.sf_medium_mini.getStringWidth(bindText);
       Render2DEngine.drawClickGuiRect(
-         context.pose(), this.getX() + (this.getWidth() - tWidth - 11.0F), this.getY() + 2.0F, tWidth + 4.0F, 10.0F, new Color(-1811939328, true)
+         matrices, this.getX() + (this.getWidth() - tWidth - 11.0F), this.getY() + 2.0F, tWidth + 4.0F, 10.0F, new Color(-1811939328, true)
       );
       FontRenderers.sf_medium_mini
          .drawString(
-            context.pose(), bindText, this.getX() + (this.getWidth() - tWidth - 9.0F), this.getY() + this.height / 2.0F - 1.0F, new Color(-1).getRGB()
+            matrices, bindText, this.getX() + (this.getWidth() - tWidth - 9.0F), this.getY() + this.height / 2.0F - 1.0F, new Color(-1).getRGB()
          );
    }
 

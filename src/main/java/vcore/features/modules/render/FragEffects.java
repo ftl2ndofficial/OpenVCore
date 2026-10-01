@@ -1,8 +1,7 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
-import com.mojang.blaze3d.systems.RenderSystem;
+import org.lwjgl.opengl.GL11;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -12,7 +11,7 @@ import java.awt.Color;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.joml.Matrix4f;
@@ -29,7 +28,7 @@ import vcore.utility.Timer;
 import vcore.utility.render.Render2DEngine;
 
 public final class FragEffects extends Module {
-   private static final ResourceLocation VIGNETTE_TEXTURE = ResourceLocation.fromNamespaceAndPath("vcore", "textures/effects/lightarroundscreen.png");
+   private static final Identifier VIGNETTE_TEXTURE = Identifier.fromNamespaceAndPath("vcore", "textures/effects/lightarroundscreen.png");
    private static final long EFFECT_MS_MAX = 2800L;
    private static final int COLOR_5 = -65536;
    private static final int COLOR_6 = -1;
@@ -196,11 +195,10 @@ public final class FragEffects extends Module {
          int color = FragEffectMath.multAlpha(FragEffectMath.getOverallColorFrom(-65536, -1, effectPC), alphaPC);
          Color renderColor = new Color(color, true);
          RenderSystem.enableBlend();
-         RenderSystem.blendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ZERO, DestFactor.ONE);
-         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+         RenderSystem.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO, GL11.GL_ONE);
          RenderSystem.setShaderTexture(0, VIGNETTE_TEXTURE);
          BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-         Matrix4f matrix = context.pose().last().pose();
+         Matrix4f matrix = Render2DEngine.toPoseStack(context.pose()).last().pose();
 
          for (int i = 0; i < 4; i++) {
             buffer.addVertex(matrix, x, y2, 0.0F).setUv(0.0F, 1.0F).setColor(renderColor.getRGB());

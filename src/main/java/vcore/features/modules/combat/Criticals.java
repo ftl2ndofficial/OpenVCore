@@ -26,11 +26,11 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.animal.feline.Cat;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.item.ItemUseAnimation;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
@@ -42,6 +42,7 @@ import vcore.features.modules.Module;
 import vcore.injection.accesors.IClientPlayerEntity;
 import vcore.setting.Setting;
 import vcore.setting.impl.ColorSetting;
+import vcore.utility.player.InputUtility;
 import vcore.utility.render.Render3DEngine;
 
 public final class Criticals extends Module {
@@ -99,7 +100,7 @@ public final class Criticals extends Module {
          event.cancel();
       } else if (!this.handleBlinkPacket(event)) {
          if (event.getPacket() instanceof ServerboundInteractPacket packet && getInteractType(packet) == Criticals.InteractType.ATTACK) {
-            Entity ent = getEntity(packet);
+            Entity ent = getEntity(event.getPacket());
             if (ent == null || ent instanceof EndCrystal || cancelCrit) {
                return;
             }
@@ -131,8 +132,7 @@ public final class Criticals extends Module {
             } else {
                player.setDeltaMovement(0.0, 0.0, 0.0);
                if (player.input != null) {
-                  player.input.forwardImpulse = 0.0F;
-                  player.input.leftImpulse = 0.0F;
+                  InputUtility.clearMovement(player.input);
                }
 
                player.setPosRaw(player.getX(), this.freezePos.y, player.getZ());
@@ -167,7 +167,7 @@ public final class Criticals extends Module {
 
    private void critPacket(double yDelta, boolean full) {
       if (!full) {
-         this.sendPacket(new Pos(mc.player.getX(), mc.player.getY() + yDelta, mc.player.getZ(), false));
+         this.sendPacket(new Pos(mc.player.getX(), mc.player.getY() + yDelta, mc.player.getZ(), false, mc.player.horizontalCollision));
       } else {
          this.sendPacket(
             new PosRot(
@@ -176,23 +176,43 @@ public final class Criticals extends Module {
                mc.player.getZ(),
                ((IClientPlayerEntity)mc.player).getLastYaw(),
                ((IClientPlayerEntity)mc.player).getLastPitch(),
-               false
+               false,
+               mc.player.horizontalCollision
             )
          );
       }
    }
 
-   public static Entity getEntity(@NotNull ServerboundInteractPacket packet) {
-      FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.buffer());
-      packet.write(packetBuf);
-      return mc.level.getEntity(packetBuf.readVarInt());
+   public static Entity getEntity(@NotNull Packet<?> packet) {
+      if (packet instanceof ServerboundInteractPacket interactPacket) {
+         int id = ((vcore.injection.accesors.IPlayerInteractEntityC2SPacket) interactPacket).getEntityId();
+         return mc.level != null ? mc.level.getEntity(id) : null;
+      }
+      return null;
    }
 
-   public static Criticals.InteractType getInteractType(@NotNull ServerboundInteractPacket packet) {
-      FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.buffer());
-      packet.write(packetBuf);
-      packetBuf.readVarInt();
-      return (Criticals.InteractType)packetBuf.readEnum(Criticals.InteractType.class);
+   public static Criticals.InteractType getInteractType(@NotNull Packet<?> packet) {
+      if (packet instanceof ServerboundInteractPacket interactPacket) {
+         final Criticals.InteractType[] result = new Criticals.InteractType[1];
+         interactPacket.dispatch(new ServerboundInteractPacket.Handler() {
+            @Override
+            public void onInteraction(net.minecraft.world.InteractionHand hand) {
+               result[0] = Criticals.InteractType.INTERACT;
+            }
+
+            @Override
+            public void onInteraction(net.minecraft.world.InteractionHand hand, Vec3 interactionLocation) {
+               result[0] = Criticals.InteractType.INTERACT_AT;
+            }
+
+            @Override
+            public void onAttack() {
+               result[0] = Criticals.InteractType.ATTACK;
+            }
+         });
+         return result[0];
+      }
+      return null;
    }
 
    private boolean shouldAirStuck() {
@@ -221,8 +241,8 @@ public final class Criticals extends Module {
 
    private boolean isConsumingItem() {
       if (mc.player != null && mc.player.isUsingItem()) {
-         UseAnim useAction = mc.player.getUseItem().getUseAnimation();
-         return useAction == UseAnim.EAT || useAction == UseAnim.DRINK;
+         ItemUseAnimation useAction = mc.player.getUseItem().getUseAnimation();
+         return useAction == ItemUseAnimation.EAT || useAction == ItemUseAnimation.DRINK;
       } else {
          return false;
       }

@@ -1,6 +1,6 @@
 package vcore.features.hud.impl;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.List;
 import java.util.function.Supplier;
@@ -13,6 +13,7 @@ import vcore.features.hud.HudElement;
 import vcore.gui.font.FontRenderers;
 import vcore.setting.impl.PositionSetting;
 import vcore.utility.render.Render2DEngine;
+import vcore.utility.render.RenderSystem;
 
 public class TotemCounter extends HudElement {
    private float angle;
@@ -40,8 +41,9 @@ public class TotemCounter extends HudElement {
          context.renderItemDecorations(mc.font, Items.TOTEM_OF_UNDYING.getDefaultInstance(), x, y);
          RenderSystem.setShaderColor(1.0F, 1.0F - factor, 1.0F - factor, 1.0F);
          if (factor > 0.0F) {
+            PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
             Render2DEngine.drawBlurredShadow(
-               context.pose(), x - 6, y - 5, 11.0F, 11.0F, 8, Render2DEngine.injectAlpha(new Color(16711680), (int)(255.0F * factor))
+               matrices, x - 6, y - 5, 11.0F, 11.0F, 8, Render2DEngine.injectAlpha(new Color(16711680), (int)(255.0F * factor))
             );
          }
 

@@ -2,8 +2,9 @@ package vcore.events.impl;
 
 import net.minecraft.network.chat.ClickEvent;
 
-public class ClientClickEvent extends ClickEvent {
-   public ClientClickEvent(Action action, String value) {
-      super(action, value);
+public record ClientClickEvent(Action action, String value) implements ClickEvent {
+   @Override
+   public Action action() {
+      return this.action;
    }
 }

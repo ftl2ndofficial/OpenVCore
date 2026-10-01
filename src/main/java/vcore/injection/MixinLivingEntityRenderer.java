@@ -4,10 +4,13 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import java.util.List;
 import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.model.PlayerModel;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -17,10 +20,8 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArgs;
-import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import vcore.Vcore;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
@@ -31,68 +32,69 @@ import vcore.features.modules.render.Hat;
 import vcore.injection.accesors.IClientPlayerEntity;
 import vcore.utility.math.MathUtility;
 import vcore.utility.render.Render2DEngine;
-import vcore.utility.render.Render3DEngine;
 
 @Mixin(LivingEntityRenderer.class)
-public abstract class MixinLivingEntityRenderer<T extends LivingEntity, M extends EntityModel<T>> {
-   private LivingEntity lastEntity;
-   private float originalHeadYaw;
-   private float originalPrevHeadYaw;
-   private float originalPrevHeadPitch;
-   private float originalHeadPitch;
-   private float originalBodyYaw;
-   private float originalPrevBodyYaw;
+public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extends LivingEntityRenderState, M extends EntityModel<? super S>> {
    @Shadow
    protected M model;
    @Shadow
    @Final
-   protected List<RenderLayer<T, M>> layers;
+   protected List<RenderLayer<S, M>> layers;
 
-   @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-   public void onRenderPre(T livingEntity, float f, float g, PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int i, CallbackInfo ci) {
+   @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;F)V", at = @At("TAIL"))
+   public void onExtractRenderState(T livingEntity, S state, float partialTicks, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
-         boolean applyRenderRotations = this.shouldApplyRenderRotations(livingEntity);
-         if (applyRenderRotations) {
-            Player player = Module.mc.player;
-            IClientPlayerEntity playerAccessor = (IClientPlayerEntity)player;
-            float tickDelta = Render3DEngine.getTickDelta();
-            float interpolatedBodyYaw = Render2DEngine.interpolateFloat(Managers.PLAYER.prevBodyYaw, Managers.PLAYER.bodyYaw, tickDelta);
-            this.originalHeadYaw = livingEntity.yHeadRot;
-            this.originalPrevHeadYaw = livingEntity.yHeadRotO;
-            this.originalPrevHeadPitch = livingEntity.xRotO;
-            this.originalHeadPitch = livingEntity.getXRot();
-            this.originalBodyYaw = livingEntity.yBodyRot;
-            this.originalPrevBodyYaw = livingEntity.yBodyRotO;
-            livingEntity.setXRot(playerAccessor.getLastPitch());
-            livingEntity.xRotO = Managers.PLAYER.lastPitch;
-            livingEntity.yHeadRot = playerAccessor.getLastYaw();
-            livingEntity.yBodyRot = interpolatedBodyYaw;
-            livingEntity.yHeadRotO = Managers.PLAYER.lastYaw;
-            livingEntity.yBodyRotO = interpolatedBodyYaw;
-         }
-
-         if (livingEntity != Module.mc.player
-            && ModuleManager.freeCam.isEnabled()
-            && ModuleManager.freeCam.track.getValue()
-            && ModuleManager.freeCam.trackEntity != null
-            && ModuleManager.freeCam.trackEntity == livingEntity) {
-            ci.cancel();
-         } else {
-            this.lastEntity = livingEntity;
+         if (livingEntity == Module.mc.player && this.shouldApplyRenderRotations(livingEntity)) {
+            IClientPlayerEntity playerAccessor = (IClientPlayerEntity)Module.mc.player;
+            float interpolatedBodyYaw = Render2DEngine.interpolateFloat(Managers.PLAYER.prevBodyYaw, Managers.PLAYER.bodyYaw, partialTicks);
+            state.bodyRot = interpolatedBodyYaw;
+            state.yRot = Mth.wrapDegrees(playerAccessor.getLastYaw() - state.bodyRot);
+            state.xRot = playerAccessor.getLastPitch();
          }
       }
    }
 
-   @Unique
-   public void postRender(T livingEntity) {
+   @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At("HEAD"), cancellable = true)
+   public void onSubmitPre(S state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState camera, CallbackInfo ci) {
+      if (state instanceof AvatarRenderState avatarState && ModuleManager.customModel != null) {
+         ModuleManager.customModel.beginPlayerRender(avatarState);
+      }
+      if (ModuleManager.freeCam.isEnabled()
+         && ModuleManager.freeCam.track.getValue()
+         && ModuleManager.freeCam.trackEntity != null
+         && state instanceof AvatarRenderState avatarState
+         && ModuleManager.freeCam.trackEntity.getId() == avatarState.id) {
+         ci.cancel();
+      }
+   }
+
+   @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At("RETURN"))
+   public void onSubmitPost(S state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState camera, CallbackInfo ci) {
+      if (state instanceof AvatarRenderState avatarState && ModuleManager.customModel != null) {
+         ModuleManager.customModel.endPlayerRender(avatarState);
+      }
       if (!Module.fullNullCheck()) {
-         if (this.shouldApplyRenderRotations(livingEntity)) {
-            livingEntity.xRotO = this.originalPrevHeadPitch;
-            livingEntity.setXRot(this.originalHeadPitch);
-            livingEntity.yHeadRot = this.originalHeadYaw;
-            livingEntity.yHeadRotO = this.originalPrevHeadYaw;
-            livingEntity.yBodyRot = this.originalBodyYaw;
-            livingEntity.yBodyRotO = this.originalPrevBodyYaw;
+         if (state instanceof AvatarRenderState avatarState && Module.mc.player != null && avatarState.id == Module.mc.player.getId() && ModuleManager.hat.isEnabled()) {
+            if (this.model instanceof PlayerModel playerModel) {
+               poseStack.pushPose();
+               playerModel.head.translateAndRotate(poseStack);
+               float yOffset = Hat.getYOffset(Module.mc.player);
+               poseStack.translate(0.0F, yOffset, 0.0F);
+               poseStack.mulPose(Axis.ZN.rotationDegrees(180.0F));
+               poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
+               ModuleManager.hat.renderHat(poseStack);
+               poseStack.popPose();
+            }
+         }
+      }
+   }
+
+   @Inject(method = "getModelTint", at = @At("HEAD"), cancellable = true)
+   private void getModelTintHook(S state, CallbackInfoReturnable<Integer> cir) {
+      if (!Module.fullNullCheck() && ModuleManager.noRender.isEnabled() && ModuleManager.noRender.antiPlayerCollision.getValue()) {
+         if (state instanceof AvatarRenderState avatarState && Module.mc.player != null && avatarState.id != Module.mc.player.getId()) {
+            float alpha = MathUtility.clamp((float)(avatarState.distanceToCameraSq / 3.0) + 0.2F, 0.0F, 1.0F);
+            cir.setReturnValue(Render2DEngine.applyOpacity(-1, alpha));
          }
       }
    }
@@ -118,55 +120,5 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, M extend
       float yawDelta = Math.abs(Mth.wrapDegrees(playerAccessor.getLastYaw() - Managers.PLAYER.yaw));
       float pitchDelta = Math.abs(playerAccessor.getLastPitch() - Managers.PLAYER.pitch);
       return yawDelta > 0.5F || pitchDelta > 0.5F;
-   }
-
-   @Inject(
-      method = "render",
-      at = @At(
-         value = "INVOKE",
-         target = "Lnet/minecraft/client/model/EntityModel;renderToBuffer(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;III)V",
-         shift = Shift.AFTER
-      )
-   )
-   public void onRenderModelAfter(
-      T livingEntity, float f, float g, PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int i, CallbackInfo ci
-   ) {
-      if (!Module.fullNullCheck()) {
-         if (livingEntity == Module.mc.player && ModuleManager.hat.isEnabled() && this.model instanceof PlayerModel<?> playerModel) {
-            matrixStack.pushPose();
-            playerModel.head.translateAndRotate(matrixStack);
-            float yOffset = Hat.getYOffset(livingEntity);
-            matrixStack.translate(0.0F, yOffset, 0.0F);
-            matrixStack.mulPose(Axis.ZN.rotationDegrees(180.0F));
-            matrixStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
-            ModuleManager.hat.renderHat(matrixStack);
-            matrixStack.popPose();
-         }
-      }
-   }
-
-   @Inject(method = "render", at = @At("TAIL"))
-   public void onRenderPost(T livingEntity, float f, float g, PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int i, CallbackInfo ci) {
-      if (!Module.fullNullCheck()) {
-         this.postRender(livingEntity);
-      }
-   }
-
-   @ModifyArgs(
-      method = "render",
-      at = @At(
-         value = "INVOKE",
-         target = "Lnet/minecraft/client/render/entity/model/EntityModel;render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;III)V"
-      )
-   )
-   private void renderHook(Args args) {
-      if (!Module.fullNullCheck()) {
-         if (ModuleManager.noRender.isEnabled() && ModuleManager.noRender.antiPlayerCollision.getValue()) {
-            if (this.lastEntity != Module.mc.player && this.lastEntity instanceof Player pl && !pl.isInvisible()) {
-               float alpha = MathUtility.clamp((float)(Module.mc.player.distanceToSqr(this.lastEntity.position()) / 3.0) + 0.2F, 0.0F, 1.0F);
-               args.set(4, Render2DEngine.applyOpacity(654311423, alpha));
-            }
-         }
-      }
    }
 }

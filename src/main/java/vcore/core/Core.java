@@ -1,9 +1,10 @@
 package vcore.core;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.systems.RenderSystem;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import net.minecraft.client.player.AbstractClientPlayer;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -22,7 +23,7 @@ import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.StatusOnly;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec2;
@@ -49,7 +50,7 @@ public final class Core {
    public static boolean lockSprint;
    public static boolean serverSprint;
    public static boolean hold_mouse0;
-   public static final Map<String, ResourceLocation> HEADS = new ConcurrentHashMap<>();
+   public static final Map<String, Identifier> HEADS = new ConcurrentHashMap<>();
    public final Set<Packet<?>> silentPackets = Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
    public final Set<Packet<?>> silentPostPackets = Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
    private final Timer lastPacket = new Timer();
@@ -140,13 +141,14 @@ public final class Core {
          float pointerCenterOffset = pointerHeight * 2.0F / 3.0F - 2.0F;
          float px = (float)(Math.sin(Math.toRadians(yaw)) * radius) + xOffset;
          float py = (float)(yOffset - Math.cos(Math.toRadians(yaw)) * radius) + pointerCenterOffset;
-         e.pose().translate(px, py, 0.0F);
-         e.pose().mulPose(Axis.ZP.rotationDegrees(yaw));
-         Render2DEngine.drawTracerPointer(e.pose(), 0.0F, -pointerCenterOffset, pointerHeight, 0.5F, 3.63F, true, true, HudEditor.getColor(1).getRGB());
-         e.pose().mulPose(Axis.ZP.rotationDegrees(-yaw));
-         e.pose().translate(-px, -py, 0.0F);
+         PoseStack pose = new PoseStack();
+         pose.translate(px, py, 0.0F);
+         pose.mulPose(Axis.ZP.rotationDegrees(yaw));
+         Render2DEngine.drawTracerPointer(pose, 0.0F, -pointerCenterOffset, pointerHeight, 0.5F, 3.63F, true, true, HudEditor.getColor(1).getRGB());
+         pose.mulPose(Axis.ZP.rotationDegrees(-yaw));
+         pose.translate(-px, -py, 0.0F);
          RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-         FontRenderers.modules.drawCenteredString(e.pose(), "gps (" + dst + "m)", xOffset, yOffset + 20.0F, -1);
+         FontRenderers.modules.drawCenteredString(pose, "gps (" + dst + "m)", xOffset, yOffset + 20.0F, -1);
          if (dst < 10.0F) {
             Vcore.gps_position = null;
          }
@@ -196,9 +198,9 @@ public final class Core {
    }
 
    public void bobView(PoseStack matrices, float tickDelta) {
-      if (Module.mc.getCameraEntity() instanceof Player playerEntity) {
-         float var6 = -(playerEntity.walkDist + (playerEntity.walkDist - playerEntity.walkDistO) * tickDelta);
-         float h = Mth.lerp(tickDelta, playerEntity.oBob, playerEntity.bob);
+      if (Module.mc.getCameraEntity() instanceof AbstractClientPlayer playerEntity) {
+         float var6 = playerEntity.avatarState().getBackwardsInterpolatedWalkDistance(tickDelta);
+         float h = playerEntity.avatarState().getInterpolatedBob(tickDelta);
          matrices.translate(Mth.sin(var6 * (float) Math.PI) * h * 0.1F, -Math.abs(Mth.cos(var6 * (float) Math.PI) * h) * 0.3, 0.0);
          matrices.mulPose(Axis.ZP.rotationDegrees(Mth.sin(var6 * (float) Math.PI) * h * 3.0F));
          matrices.mulPose(Axis.XP.rotationDegrees(Math.abs(Mth.cos(var6 * (float) Math.PI - 0.2F) * h) * 0.3F));

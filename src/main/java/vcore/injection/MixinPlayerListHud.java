@@ -16,11 +16,11 @@ import vcore.features.modules.Module;
 
 @Mixin(PlayerTabOverlay.class)
 public class MixinPlayerListHud {
-   private static final Comparator<Object> ENTRY_ORDERING = Comparator.<Object>comparingInt(
-         entry -> ((PlayerInfo)entry).getGameMode() == GameType.SPECTATOR ? 1 : 0
+   private static final Comparator<PlayerInfo> ENTRY_ORDERING = Comparator.<PlayerInfo>comparingInt(
+         entry -> entry.getGameMode() == GameType.SPECTATOR ? 1 : 0
       )
-      .thenComparing(entry -> (String)Optionull.mapOrDefault(((PlayerInfo)entry).getTeam(), PlayerTeam::getName, ""))
-      .thenComparing(entry -> ((PlayerInfo)entry).getProfile().getName(), String::compareToIgnoreCase);
+      .thenComparing(entry -> (String)Optionull.mapOrDefault(entry.getTeam(), PlayerTeam::getName, ""))
+      .thenComparing(entry -> entry.getProfile().name(), String::compareToIgnoreCase);
 
    @Inject(method = "getPlayerInfos", at = @At("HEAD"), cancellable = true)
    private void collectPlayerEntriesHook(CallbackInfoReturnable<List<PlayerInfo>> cir) {

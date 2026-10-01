@@ -1,10 +1,11 @@
 package vcore.injection;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.Util;
+import net.minecraft.core.ClientAsset;
+import net.minecraft.util.Util;
 import net.minecraft.client.multiplayer.PlayerInfo;
-import net.minecraft.client.resources.PlayerSkin;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.PlayerSkin;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,13 +22,13 @@ public class MixinPlayerListEntry {
    @Unique
    private boolean loadedCapeTexture;
    @Unique
-   private ResourceLocation customCapeTexture;
+   private Identifier customCapeTexture;
    @Unique
    private String playerName;
 
-   @Inject(method = "<init>(Lcom/mojang/authlib/GameProfile;Z)V", at = @At("TAIL"))
+   @Inject(method = "<init>", at = @At("TAIL"))
    private void initHook(GameProfile profile, boolean secureChatEnforced, CallbackInfo ci) {
-      this.playerName = profile.getName();
+      this.playerName = profile.name();
       this.getTexture(profile);
    }
 
@@ -38,11 +39,14 @@ public class MixinPlayerListEntry {
       } else {
          this.ensureFriendCape();
          if (this.customCapeTexture != null) {
-            PlayerSkin prev = (PlayerSkin)cir.getReturnValue();
-            PlayerSkin newTextures = new PlayerSkin(
-               prev.texture(), prev.textureUrl(), this.customCapeTexture, this.customCapeTexture, prev.model(), prev.secure()
-            );
-            cir.setReturnValue(newTextures);
+            PlayerSkin prev = cir.getReturnValue();
+            if (prev != null) {
+               ClientAsset.ResourceTexture cape = new ClientAsset.ResourceTexture(this.customCapeTexture, this.customCapeTexture);
+               PlayerSkin newTextures = new PlayerSkin(
+                  prev.body(), cape, cape, prev.model(), prev.secure()
+               );
+               cir.setReturnValue(newTextures);
+            }
          }
       }
    }
@@ -52,7 +56,7 @@ public class MixinPlayerListEntry {
       if (!this.loadedCapeTexture) {
          this.loadedCapeTexture = true;
          Util.backgroundExecutor().execute(() -> {
-            String name = profile.getName();
+            String name = profile.name();
             if (this.isStarcapeTarget(name)) {
                this.customCapeTexture = TextureStorage.starCape;
             }

@@ -5,6 +5,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.InsideBlockEffectApplier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.WebBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -20,7 +21,7 @@ import vcore.utility.player.InteractionUtility;
 @Mixin(WebBlock.class)
 public class MixinCobwebBlock {
    @Inject(method = "entityInside", at = @At("HEAD"), cancellable = true)
-   public void onEntityCollisionHook(BlockState state, Level world, BlockPos pos, Entity entity, CallbackInfo ci) {
+   public void onEntityCollisionHook(BlockState state, Level world, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise, CallbackInfo ci) {
       if (ModuleManager.antiWeb.isEnabled() && entity == IManager.mc.player) {
          if (AntiWeb.mode.getValue() == AntiWeb.Mode.Ignore) {
             ci.cancel();

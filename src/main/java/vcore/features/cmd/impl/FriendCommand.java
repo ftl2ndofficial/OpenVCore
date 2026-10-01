@@ -23,8 +23,8 @@ public class FriendCommand extends Command {
       }));
       builder.then(literal("add").then(arg("player", PlayerArgumentType.create()).executes(context -> {
          PlayerInfo player = (PlayerInfo)context.getArgument("player", PlayerInfo.class);
-         Managers.FRIEND.addFriend(player.getProfile().getName());
-         sendMessage(player.getProfile().getName() + " has been friended");
+         Managers.FRIEND.addFriend(player.getProfile().name());
+         sendMessage(player.getProfile().name() + " has been friended");
          return 1;
       })));
       builder.then(literal("remove").then(arg("player", FriendArgumentType.create()).executes(context -> {
@@ -35,7 +35,7 @@ public class FriendCommand extends Command {
       })));
       builder.then(literal("is").then(arg("player", PlayerArgumentType.create()).executes(context -> {
          PlayerInfo player = (PlayerInfo)context.getArgument("player", PlayerInfo.class);
-         sendMessage(player.getProfile().getName() + (Managers.FRIEND.isFriend(player.getProfile().getName()) ? " is friended." : " isn't friended."));
+         sendMessage(player.getProfile().name() + (Managers.FRIEND.isFriend(player.getProfile().name()) ? " is friended." : " isn't friended."));
          return 1;
       })));
       builder.executes(context -> {

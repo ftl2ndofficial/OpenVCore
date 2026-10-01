@@ -69,7 +69,7 @@ public class FixHP extends Module {
 
    private static float getScoreboardHealth(Player ent) {
       try {
-         Scoreboard scoreboard = ent.getScoreboard();
+         Scoreboard scoreboard = ent.level().getScoreboard();
          Objective objective = scoreboard.getDisplayObjective(DisplaySlot.BELOW_NAME);
          if (objective == null) {
             return ent.getHealth();

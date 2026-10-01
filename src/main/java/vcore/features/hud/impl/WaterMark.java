@@ -1,8 +1,6 @@
 package vcore.features.hud.impl;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.List;
 import java.util.function.Supplier;
@@ -15,6 +13,9 @@ import vcore.gui.font.FontRenderers;
 import vcore.setting.impl.PositionSetting;
 import vcore.utility.math.FrameRateCounter;
 import vcore.utility.render.Render2DEngine;
+import vcore.utility.render.RenderSystem;
+import vcore.utility.render.RenderSystem.DestFactor;
+import vcore.utility.render.RenderSystem.SourceFactor;
 import vcore.utility.render.TextureStorage;
 
 public class WaterMark extends HudElement {
@@ -31,12 +32,10 @@ public class WaterMark extends HudElement {
 
    @Override
    public void render(GuiGraphics context) {
-      this.setPositionPixels(5.0F, 5.0F);
       super.render(context);
-      String username = ModuleManager.nameProtect.isEnabled() ? NameProtect.getCustomName() : mc.getUser().getName();
-      int fps = FrameRateCounter.INSTANCE.getFps();
-      String fpsText = fps + " FPS";
+      String username = ModuleManager.nameProtect.isEnabled() ? NameProtect.getCustomName() : (mc.player != null ? mc.player.getScoreboardName() : "");
       float usernameWidth = FontRenderers.sf_bold.getStringWidth(username);
+      String fpsText = "FPS " + FrameRateCounter.INSTANCE.getFps();
       float fpsTextWidth = FontRenderers.sf_bold.getStringWidth(fpsText);
       float titleWidth = FontRenderers.sf_bold.getStringWidth("Release");
       float leftWidth = 15.0F + titleWidth + 3.0F;
@@ -45,15 +44,16 @@ public class WaterMark extends HudElement {
       float fpsIconX = accountTextX + usernameWidth + 4.5F;
       float fpsTextX = fpsIconX + 12.0F;
       float rightWidth = Math.max(fpsTextX + fpsTextWidth - rightX + 6.0F, 45.0F);
-      Render2DEngine.drawHudBase(context.pose(), this.getPosX(), this.getPosY(), leftWidth, 15.0F, 3.0F);
-      Render2DEngine.drawHudBase(context.pose(), rightX, this.getPosY(), rightWidth, 15.0F, 3.0F);
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawHudBase(matrices, this.getPosX(), this.getPosY(), leftWidth, 15.0F, 3.0F);
+      Render2DEngine.drawHudBase(matrices, rightX, this.getPosY(), rightWidth, 15.0F, 3.0F);
       Render2DEngine.setupRender();
-      Render2DEngine.drawRect(context.pose(), this.getPosX() + 13.0F, this.getPosY() + 1.5F, 0.5F, 11.0F, new Color(1157627903, true));
+      Render2DEngine.drawRect(matrices, this.getPosX() + 13.0F, this.getPosY() + 1.5F, 0.5F, 11.0F, new Color(1157627903, true));
       FontRenderers.sf_bold.drawGradientString(context.pose(), "Release", this.getPosX() + 15.0F, this.getPosY() + 5.0F, 20);
       RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
       RenderSystem.setShaderTexture(0, TextureStorage.miniLogo);
       Render2DEngine.renderGradientTexture(
-         context.pose(),
+         matrices,
          this.getPosX() + 1.0F,
          this.getPosY() + 2.0F,
          11.0,
@@ -71,7 +71,7 @@ public class WaterMark extends HudElement {
       );
       RenderSystem.setShaderTexture(0, TextureStorage.playerIcon);
       Render2DEngine.renderGradientTexture(
-         context.pose(),
+         matrices,
          rightX + 3.0F,
          this.getPosY() + 3.0F,
          8.0,
@@ -89,7 +89,7 @@ public class WaterMark extends HudElement {
       );
       RenderSystem.setShaderTexture(0, TextureStorage.fpsIcon);
       Render2DEngine.renderGradientTexture(
-         context.pose(),
+         matrices,
          fpsIconX,
          this.getPosY() + 2.0F,
          10.0,

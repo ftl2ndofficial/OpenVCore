@@ -36,7 +36,7 @@ public class AutoWalk extends Module {
    @EventHandler
    public void onKey(EventKeyboardInput e) {
       if (this.mode.getValue() == AutoWalk.Mode.Simple) {
-         mc.player.input.forwardImpulse = 1.0F;
+         vcore.utility.player.InputUtility.setForward(mc.player.input, 1.0F);
       }
    }
 

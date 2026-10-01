@@ -40,28 +40,27 @@ public class BooleanParentElement extends AbstractElement {
    @Override
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       super.render(context, mouseX, mouseY, delta);
-      PoseStack matrixStack = context.pose();
+      PoseStack matrixStack = Render2DEngine.toPoseStack(context.pose());
       float tx = this.x + this.width - 11.0F;
       float ty = this.y + 7.5F;
       this.drawGroupGuide(context, this.height);
       this.arrowAnimation = AnimationUtility.fast(this.arrowAnimation, this.getParentSetting().getValue().isExtended() ? 0.0F : 1.0F, 15.0F);
-      matrixStack.pushPose();
-      matrixStack.translate(tx, ty, 0.0F);
-      matrixStack.mulPose(Axis.ZP.rotationDegrees(-180.0F * this.arrowAnimation));
-      matrixStack.translate(-tx, -ty, 0.0F);
-      matrixStack.translate(this.x + this.width - 14.0F, this.y + 4.5F, 0.0F);
-      context.blit(TextureStorage.guiArrow, 0, 0, 0.0F, 0.0F, 6, 6, 6, 6);
-      matrixStack.translate(-(this.x + this.width - 14.0F), -(this.y + 4.5F), 0.0F);
-      matrixStack.popPose();
+      context.pose().pushMatrix();
+      context.pose().translate(tx, ty);
+      context.pose().rotate((float) Math.toRadians(-180.0F * this.arrowAnimation));
+      context.pose().translate(-tx, -ty);
+      context.pose().translate(this.x + this.width - 14.0F, this.y + 4.5F);
+      context.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TextureStorage.guiArrow, 0, 0, 0.0F, 0.0F, 6, 6, 6, 6);
+      context.pose().popMatrix();
       FontRenderers.sf_medium_mini
          .drawString(matrixStack, this.setting.getName(), this.getSettingNameX(), this.y + this.height / 2.0F - 1.0F, new Color(-1).getRGB());
       this.animation = AnimationUtility.fast(this.animation, this.getParentSetting().getValue().isEnabled() ? 1.0F : 0.0F, 15.0F);
       float checkboxX = this.x + this.width - 10.0F - 22.0F;
       float checkboxY = this.y + this.height / 2.0F - 5.0F;
-      SettingControlRenderer.drawCheckbox(context.pose(), checkboxX, checkboxY, this.animation);
+      SettingControlRenderer.drawCheckbox(matrixStack, checkboxX, checkboxY, this.animation);
       if (Render2DEngine.isHovered(mouseX, mouseY, checkboxX, checkboxY, 10.0, 10.0)) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(IManager.mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221188));
+            GLFW.glfwSetCursor(IManager.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221188));
          }
 
          ClickGUI.anyHovered = true;

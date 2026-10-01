@@ -4,7 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.util.Mth;
@@ -166,7 +167,7 @@ public class Animations extends Module {
       ItemStack item,
       float equipProgress,
       PoseStack matrices,
-      MultiBufferSource vertexConsumers,
+      SubmitNodeCollector submitNodeCollector,
       int light
    ) {
       if (!player.isScoping()) {
@@ -223,7 +224,7 @@ public class Animations extends Module {
                bl3 ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
                !bl3,
                matrices,
-               vertexConsumers,
+               submitNodeCollector,
                light
             );
          } else if (this.shouldAnimate(item)) {
@@ -318,7 +319,7 @@ public class Animations extends Module {
                bl2 ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
                !bl2,
                matrices,
-               vertexConsumers,
+               submitNodeCollector,
                light
             );
          } else {
@@ -329,7 +330,7 @@ public class Animations extends Module {
                isRight ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
                !isRight,
                matrices,
-               vertexConsumers,
+               submitNodeCollector,
                light
             );
          }
@@ -379,23 +380,13 @@ public class Animations extends Module {
       ItemDisplayContext renderMode,
       boolean leftHanded,
       PoseStack matrices,
-      MultiBufferSource vertexConsumers,
+      SubmitNodeCollector submitNodeCollector,
       int light
    ) {
       if (!stack.isEmpty()) {
-         mc.getItemRenderer()
-            .renderStatic(
-               entity,
-               stack,
-               renderMode,
-               leftHanded,
-               matrices,
-               vertexConsumers,
-               entity.level(),
-               light,
-               OverlayTexture.NO_OVERLAY,
-               entity.getId() + renderMode.ordinal()
-            );
+         ItemStackRenderState itemstackrenderstate = new ItemStackRenderState();
+         mc.getItemModelResolver().updateForTopItem(itemstackrenderstate, stack, renderMode, entity.level(), entity, entity.getId() + renderMode.ordinal());
+         itemstackrenderstate.submit(matrices, submitNodeCollector, light, OverlayTexture.NO_OVERLAY, 0);
       }
    }
 

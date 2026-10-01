@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Manifest;
 import net.fabricmc.loader.api.metadata.Person;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
 import vcore.Vcore;
 import vcore.core.manager.client.ConfigManager;
@@ -32,20 +32,22 @@ public final class VcoreUtility {
    public static String solveName(String notSolved) {
       AtomicReference<String> mb = new AtomicReference<>("FATAL ERROR");
       Objects.requireNonNull(Module.mc.getConnection()).getListedOnlinePlayers().forEach(player -> {
-         if (notSolved.contains(player.getProfile().getName())) {
-            mb.set(player.getProfile().getName());
+         if (notSolved.contains(player.getProfile().name())) {
+            mb.set(player.getProfile().name());
          }
       });
       return mb.get();
    }
 
-   public static ResourceLocation getCustomImg(String name) throws IOException {
-      return Module.mc
+   public static Identifier getCustomImg(String name) throws IOException {
+      Identifier id = Identifier.fromNamespaceAndPath("vcore", ("vc-" + name + "-" + (int)MathUtility.random(0.0F, 1000.0F)).toLowerCase());
+      Module.mc
          .getTextureManager()
          .register(
-            "vc-" + name + "-" + (int)MathUtility.random(0.0F, 1000.0F),
-            new DynamicTexture(NativeImage.read(new FileInputStream(ConfigManager.IMAGES_FOLDER + "/" + name + ".png")))
+            id,
+            new DynamicTexture(id::toString, NativeImage.read(new FileInputStream(ConfigManager.IMAGES_FOLDER + "/" + name + ".png")))
          );
+      return id;
    }
 
    public static String readManifestField(String fieldName) {

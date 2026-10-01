@@ -7,15 +7,14 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.monster.Slime;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.ShovelItem;
-import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RespawnAnchorBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -266,7 +265,7 @@ public final class AutoCrystal extends Module {
          Entity entity = hit.getEntity();
          if (entity instanceof EndCrystal || entity instanceof Slime) {
             if (!ModuleManager.crystalOptimizer.isAttackInhibited(entity)) {
-               int previousSlot = mc.player.getInventory().selected;
+               int previousSlot = mc.player.getInventory().getSelectedSlot();
                if ((entity instanceof EndCrystal || entity instanceof Slime) && this.antiWeakness.getValue() && this.cantBreakCrystal()) {
                   SearchInvResult weapon = InventoryUtility.getAntiWeaknessItem();
                   if (!weapon.found()) {
@@ -355,7 +354,7 @@ public final class AutoCrystal extends Module {
    }
 
    private boolean isMouseDown(int button) {
-      return GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), button) == 1;
+      return GLFW.glfwGetMouseButton(mc.getWindow().handle(), button) == 1;
    }
 
    private boolean isHolding(@NotNull Item item) {
@@ -384,20 +383,20 @@ public final class AutoCrystal extends Module {
 
    private boolean cantBreakCrystal() {
       MobEffectInstance weakness = mc.player.getEffect(MobEffects.WEAKNESS);
-      MobEffectInstance strength = mc.player.getEffect(MobEffects.DAMAGE_BOOST);
+      MobEffectInstance strength = mc.player.getEffect(MobEffects.STRENGTH);
       return weakness != null && (strength == null || strength.getAmplifier() <= weakness.getAmplifier()) && !this.isTool(mc.player.getMainHandItem());
    }
 
    private boolean isTool(@NotNull ItemStack stack) {
-      return stack.getItem() instanceof SwordItem
-         || stack.getItem() instanceof PickaxeItem
+      return stack.is(ItemTags.SWORDS)
+         || stack.is(ItemTags.PICKAXES)
          || stack.getItem() instanceof AxeItem
          || stack.getItem() instanceof ShovelItem;
    }
 
    private boolean isValidBaseStartItem(@NotNull ItemStack stack) {
       Item item = stack.getItem();
-      if (item instanceof SwordItem) {
+      if (stack.is(ItemTags.SWORDS)) {
          return true;
       } else {
          return this.baseWorkWithTotem.getValue() && item == Items.TOTEM_OF_UNDYING ? true : this.baseWorkWithCrystal.getValue() && item == Items.END_CRYSTAL;
@@ -439,7 +438,7 @@ public final class AutoCrystal extends Module {
       AABB crystalBox = new AABB(
          crystalPos.getX(), crystalPos.getY(), crystalPos.getZ(), crystalPos.getX() + 1.0, crystalPos.getY() + 2.0, crystalPos.getZ() + 1.0
       );
-      return mc.level.getEntities(null, crystalBox, Entity::isAlive).stream().noneMatch(this::blocksCrystalPlacement);
+      return mc.level.getEntities((Entity) null, crystalBox, Entity::isAlive).stream().noneMatch(this::blocksCrystalPlacement);
    }
 
    private boolean blocksCrystalPlacement(@NotNull Entity entity) {

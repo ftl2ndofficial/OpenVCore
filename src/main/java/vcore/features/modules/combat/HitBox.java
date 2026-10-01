@@ -1,6 +1,6 @@
 package vcore.features.modules.combat;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -14,10 +14,11 @@ import java.util.Map;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MaceItem;
-import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.phys.AABB;
 import vcore.core.manager.client.ModuleManager;
 import vcore.core.manager.client.ServerManager;
@@ -54,11 +55,11 @@ public final class HitBox extends Module {
    public String getDisplayInfo() {
       String info = "H: " + ServerManager.round2(XZExpand.getValue().floatValue()) + " V: " + ServerManager.round2(YExpand.getValue().floatValue());
       if (OnlyWeapon.getValue()) {
-         info = info + " •Weapon";
+         info = info + " â€¢Weapon";
       }
 
       if (RenderHitbox.getValue()) {
-         info = info + " •Render";
+         info = info + " â€¢Render";
       }
 
       return info;
@@ -85,8 +86,9 @@ public final class HitBox extends Module {
          return false;
       }
 
-      Item handItem = mc.player.getMainHandItem().getItem();
-      return handItem instanceof SwordItem || handItem instanceof AxeItem || handItem instanceof MaceItem;
+      ItemStack handStack = mc.player.getMainHandItem();
+      Item handItem = handStack.getItem();
+      return handStack.is(ItemTags.SWORDS) || handItem instanceof AxeItem || handItem instanceof MaceItem;
    }
 
    public static AABB getBaseBoundingBox(Entity entity) {
@@ -143,7 +145,6 @@ public final class HitBox extends Module {
          Render3DEngine.setupRender();
          RenderSystem.enableDepthTest();
          RenderSystem.disableCull();
-         RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
          RenderSystem.lineWidth(1.0F);
          BufferBuilder buffer = Tesselator.getInstance().begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
 

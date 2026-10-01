@@ -127,7 +127,7 @@ public class UnHook extends Module {
 
    private void restoreVanillaWindowAppearance() {
       try {
-         mc.getWindow().setIcon(mc.getVanillaPackResources(), SharedConstants.getCurrentVersion().isStable() ? IconSet.RELEASE : IconSet.SNAPSHOT);
+         mc.getWindow().setIcon(mc.getVanillaPackResources(), SharedConstants.getCurrentVersion().stable() ? IconSet.RELEASE : IconSet.SNAPSHOT);
       } catch (Exception var2) {
       }
 

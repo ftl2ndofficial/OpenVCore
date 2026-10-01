@@ -1,8 +1,8 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import org.lwjgl.opengl.GL11;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.function.Supplier;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -126,44 +126,43 @@ public class TargerESP extends Module {
       this.imageAnim.setForward(target != null);
       if (this.imageTarget != null) {
          if (!this.imageTarget.isRemoved() && !this.imageAnim.finished(false)) {
-            Camera camera = mc.gameRenderer.getMainCamera();
-            float tickDelta = Render3DEngine.getTickDelta();
-            Vec3 pos = new Vec3(
-               Render2DEngine.interpolate(this.imageTarget.xo, this.imageTarget.getX(), tickDelta),
-               Render2DEngine.interpolate(this.imageTarget.yo, this.imageTarget.getY(), tickDelta),
-               Render2DEngine.interpolate(this.imageTarget.zo, this.imageTarget.getZ(), tickDelta)
-            );
-            Vec3 imagePos = pos.add(0.0, this.imageTarget.getBbHeight() / 1.75F, 0.0);
-            float anim = Mth.clamp(this.imageAnim.get(), 0.0F, 1.0F);
-            this.imageHurtProgress = this.smoothImageHurtProgress(this.getHurtFactor(this.imageTarget));
-            Color drawColor = blend(HudEditor.getColor(255), new Color(200, 70, 70), this.imageHurtProgress);
-            int alpha = Mth.clamp(Math.round(255.0F * anim), 0, 255);
-            float rotate = (float)((Math.sin(System.currentTimeMillis() / 900.0) + 1.0) * 360.0);
-            float size = (1.7F - 0.9F * anim + (0.35F - 0.35F * this.imageHurtProgress)) * this.getImageDistanceScale(camera.getPosition(), imagePos);
-            stack.pushPose();
-            stack.translate(imagePos.x - camera.getPosition().x, imagePos.y - camera.getPosition().y, imagePos.z - camera.getPosition().z);
-            stack.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-            stack.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-            stack.mulPose(Axis.ZP.rotationDegrees(rotate));
-            stack.scale(size, size, 1.0F);
-            RenderSystem.enableBlend();
-            RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
-            RenderSystem.disableCull();
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-            RenderSystem.setShaderTexture(0, TextureStorage.targetImage);
-            BufferBuilder buffer = Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-            drawQuad(buffer, stack.last().pose(), 0.5F, withAlpha(drawColor, alpha));
-            Render2DEngine.endBuilding(buffer);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.enableCull();
-            RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
-            RenderSystem.disableBlend();
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            stack.popPose();
+             Camera camera = mc.gameRenderer.getMainCamera();
+             float tickDelta = Render3DEngine.getTickDelta();
+             Vec3 pos = new Vec3(
+                Render2DEngine.interpolate(this.imageTarget.xo, this.imageTarget.getX(), tickDelta),
+                Render2DEngine.interpolate(this.imageTarget.yo, this.imageTarget.getY(), tickDelta),
+                Render2DEngine.interpolate(this.imageTarget.zo, this.imageTarget.getZ(), tickDelta)
+             );
+             Vec3 imagePos = pos.add(0.0, this.imageTarget.getBbHeight() / 1.75F, 0.0);
+             float anim = Mth.clamp(this.imageAnim.get(), 0.0F, 1.0F);
+             this.imageHurtProgress = this.smoothImageHurtProgress(this.getHurtFactor(this.imageTarget));
+             Color drawColor = blend(HudEditor.getColor(255), new Color(200, 70, 70), this.imageHurtProgress);
+             int alpha = Mth.clamp(Math.round(255.0F * anim), 0, 255);
+             float rotate = (float)((Math.sin(System.currentTimeMillis() / 900.0) + 1.0) * 360.0);
+             float size = (1.7F - 0.9F * anim + (0.35F - 0.35F * this.imageHurtProgress)) * this.getImageDistanceScale(camera.position(), imagePos);
+             stack.pushPose();
+             stack.translate(imagePos.x - camera.position().x, imagePos.y - camera.position().y, imagePos.z - camera.position().z);
+             stack.mulPose(Axis.YP.rotationDegrees(-camera.yRot()));
+             stack.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
+             stack.mulPose(Axis.ZP.rotationDegrees(rotate));
+             stack.scale(size, size, 1.0F);
+             RenderSystem.enableBlend();
+             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+             RenderSystem.disableCull();
+             RenderSystem.disableDepthTest();
+             RenderSystem.depthMask(false);
+             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+             RenderSystem.setShaderTexture(0, TextureStorage.targetImage);
+             BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+             drawQuad(buffer, stack.last().pose(), 0.5F, withAlpha(drawColor, alpha));
+             Render2DEngine.endBuilding(buffer);
+             RenderSystem.depthMask(true);
+             RenderSystem.enableDepthTest();
+             RenderSystem.enableCull();
+             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+             RenderSystem.disableBlend();
+             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+             stack.popPose();
          } else {
             this.imageTarget = null;
          }
@@ -183,9 +182,9 @@ public class TargerESP extends Module {
             this.circleHurtProgress = AnimationUtility.fast(this.circleHurtProgress, this.getHurtFactor(this.circleTarget), 14.0F);
             Camera camera = mc.gameRenderer.getMainCamera();
             float tickDelta = Render3DEngine.getTickDelta();
-            double x = Render2DEngine.interpolate(this.circleTarget.xo, this.circleTarget.getX(), tickDelta) - camera.getPosition().x;
-            double y = Render2DEngine.interpolate(this.circleTarget.yo, this.circleTarget.getY(), tickDelta) - camera.getPosition().y;
-            double z = Render2DEngine.interpolate(this.circleTarget.zo, this.circleTarget.getZ(), tickDelta) - camera.getPosition().z;
+            double x = Render2DEngine.interpolate(this.circleTarget.xo, this.circleTarget.getX(), tickDelta) - camera.position().x;
+            double y = Render2DEngine.interpolate(this.circleTarget.yo, this.circleTarget.getY(), tickDelta) - camera.position().y;
+            double z = Render2DEngine.interpolate(this.circleTarget.zo, this.circleTarget.getZ(), tickDelta) - camera.position().z;
             float height = this.circleTarget.getBbHeight();
             double width = Math.max(0.05, this.circleTarget.getBbWidth() - 0.2F * this.circleHurtProgress);
             double duration = 1800.0;
@@ -198,12 +197,11 @@ public class TargerESP extends Module {
             stack.pushPose();
             stack.translate(x, y, z);
             RenderSystem.enableBlend();
-            RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
             RenderSystem.disableCull();
             RenderSystem.depthMask(false);
-            RenderSystem.setShader(GameRenderer::getPositionColorShader);
             Matrix4f matrix = stack.last().pose();
-            BufferBuilder strip = Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+            BufferBuilder strip = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
 
             for (int i = 0; i <= 360; i += 5) {
                double rad = Math.toRadians(i);
@@ -216,7 +214,7 @@ public class TargerESP extends Module {
             }
 
             Render2DEngine.endBuilding(strip);
-            BufferBuilder line = Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+            BufferBuilder line = Tesselator.getInstance().begin(VertexFormat.Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
 
             for (int i = 0; i <= 360; i += 5) {
                double rad = Math.toRadians(i);
@@ -230,7 +228,7 @@ public class TargerESP extends Module {
             Render2DEngine.endBuilding(line);
             RenderSystem.depthMask(true);
             RenderSystem.enableCull();
-            RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             RenderSystem.disableBlend();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             stack.popPose();
@@ -288,7 +286,7 @@ public class TargerESP extends Module {
                Render2DEngine.interpolate(this.spiritsTarget.yo, this.spiritsTarget.getY(), tickDelta),
                Render2DEngine.interpolate(this.spiritsTarget.zo, this.spiritsTarget.getZ(), tickDelta)
             );
-            Vec3 cameraPos = camera.getPosition();
+            Vec3 cameraPos = camera.position();
             double x = pos.x - cameraPos.x;
             double y = pos.y - cameraPos.y;
             double z = pos.z - cameraPos.z;
@@ -300,13 +298,12 @@ public class TargerESP extends Module {
             double verticalSwing = 0.3F * heightScale;
             double ringYOffsetStep = 0.2F * heightScale;
             RenderSystem.enableBlend();
-            RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
             RenderSystem.disableCull();
             RenderSystem.disableDepthTest();
             RenderSystem.depthMask(false);
-            RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
             RenderSystem.setShaderTexture(0, TextureStorage.glow);
-            BufferBuilder buffer = Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
             int step = 3;
             int particlesPerRing = 12;
             int ringCount = 3 * step;
@@ -323,8 +320,8 @@ public class TargerESP extends Module {
                   stack.pushPose();
                   stack.translate(particleX, particleY, particleZ);
                   stack.scale(scale, scale, scale);
-                  stack.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-                  stack.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+                  stack.mulPose(Axis.YP.rotationDegrees(-camera.yRot()));
+                  stack.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
                   drawLargeGlowQuad(buffer, stack.last().pose(), baseColor);
                   stack.popPose();
                }
@@ -335,7 +332,7 @@ public class TargerESP extends Module {
             RenderSystem.depthMask(true);
             RenderSystem.enableDepthTest();
             RenderSystem.enableCull();
-            RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             RenderSystem.disableBlend();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
          } else {
@@ -502,14 +499,14 @@ public class TargerESP extends Module {
    public static class TargetEspRenderer {
       private final Supplier<Integer> particleLimit;
       private final Supplier<Float> particleSize;
-      private final Supplier<ResourceLocation> textureSupplier;
+      private final Supplier<Identifier> textureSupplier;
       private final InfinityAnimation moving = new InfinityAnimation();
       private final Animation targetEspAnim = new Animation().setEasing(Easing.TARGETESP_EASE_OUT_BACK).setSpeed(300).setSize(1.0F).setForward(false);
       private final List<GhostRenderer3D> particles = new ArrayList<>();
       private LivingEntity currentTarget;
       private Vec3 smoothedTargetPos;
 
-      public TargetEspRenderer(Supplier<Integer> particleLimit, Supplier<Float> particleSize, Supplier<ResourceLocation> textureSupplier) {
+      public TargetEspRenderer(Supplier<Integer> particleLimit, Supplier<Float> particleSize, Supplier<Identifier> textureSupplier) {
          this.particleLimit = particleLimit;
          this.particleSize = particleSize;
          this.textureSupplier = textureSupplier;
@@ -525,13 +522,12 @@ public class TargerESP extends Module {
             float movementValue = this.moving.get();
             float animationFactor = this.targetEspAnim.get();
             RenderSystem.enableBlend();
-            RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
             RenderSystem.disableCull();
             RenderSystem.disableDepthTest();
             RenderSystem.depthMask(false);
-            RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
             RenderSystem.setShaderTexture(0, this.textureSupplier.get());
-            BufferBuilder buffer = Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
             Camera camera = Module.mc.gameRenderer.getMainCamera();
 
             for (int index = 0; index < this.particles.size(); index++) {

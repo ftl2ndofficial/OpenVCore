@@ -148,7 +148,7 @@ public class XRay extends Module {
       int startX = chunkPos.getMinBlockX();
       int startZ = chunkPos.getMinBlockZ();
 
-      for (int y = mc.level.getMinBuildHeight(); y < mc.level.getMaxBuildHeight(); y++) {
+      for (int y = mc.level.getMinY(); y <= mc.level.getMaxY(); y++) {
          for (int x = startX; x <= chunkPos.getMaxBlockX(); x++) {
             for (int z = startZ; z <= chunkPos.getMaxBlockZ(); z++) {
                BlockPos pos = new BlockPos(x, y, z);

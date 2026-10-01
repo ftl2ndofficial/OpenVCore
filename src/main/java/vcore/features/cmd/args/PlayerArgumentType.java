@@ -28,7 +28,7 @@ public class PlayerArgumentType implements ArgumentType<PlayerInfo> {
          .getConnection()
          .getOnlinePlayers()
          .stream()
-         .filter(p -> name.equals(p.getProfile().getName()))
+         .filter(p -> name.equals(p.getProfile().name()))
          .findFirst()
          .orElse(null);
       if (player == null) {
@@ -39,7 +39,7 @@ public class PlayerArgumentType implements ArgumentType<PlayerInfo> {
    }
 
    public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-      return SharedSuggestionProvider.suggest(IManager.mc.getConnection().getOnlinePlayers().stream().map(p -> p.getProfile().getName()), builder);
+      return SharedSuggestionProvider.suggest(IManager.mc.getConnection().getOnlinePlayers().stream().map(p -> p.getProfile().name()), builder);
    }
 
    public Collection<String> getExamples() {

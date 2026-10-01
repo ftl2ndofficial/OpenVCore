@@ -5,5 +5,7 @@ import org.joml.Vector2f;
 public interface Uniform2f {
    void set(float var1, float var2);
 
-   void set(Vector2f var1);
+   default void set(Vector2f var1) {
+      this.set(var1.x, var1.y);
+   }
 }

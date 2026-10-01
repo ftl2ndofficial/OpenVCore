@@ -80,7 +80,8 @@ public final class ElytraTarget extends Module {
                         mc.player.getZ(),
                         ((IClientPlayerEntity)mc.player).getLastYaw(),
                         ((IClientPlayerEntity)mc.player).getLastPitch(),
-                        false
+                        false,
+                        mc.player.horizontalCollision
                      )
                   );
                }
@@ -228,7 +229,7 @@ public final class ElytraTarget extends Module {
 
    private void useFirework() {
       if (mc.player != null && mc.gameMode != null) {
-         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
+         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET.getDefaultInstance())) {
             if (ClientSettings.fireWorkMode.is(ClientSettings.FireWorkMode.OffHand)) {
                this.useFireworkOffhand();
             } else {
@@ -244,7 +245,7 @@ public final class ElytraTarget extends Module {
       } else {
          SearchInvResult fireWorkResult = InventoryUtility.findItemInInventory(Items.FIREWORK_ROCKET);
          if (fireWorkResult.found()) {
-            int currentSlot = mc.player.getInventory().selected;
+            int currentSlot = mc.player.getInventory().getSelectedSlot();
             int hotbarSlot = currentSlot % 8 + 1;
             int itemSlot = fireWorkResult.slot();
             if (mc.player.isUsingItem() && mc.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {

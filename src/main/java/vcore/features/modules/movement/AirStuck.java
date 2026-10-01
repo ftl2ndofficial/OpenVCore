@@ -35,8 +35,7 @@ public class AirStuck extends Module {
          if (player != null) {
             player.setDeltaMovement(0.0, 0.0, 0.0);
             if (player.input != null) {
-               player.input.forwardImpulse = 0.0F;
-               player.input.leftImpulse = 0.0F;
+               vcore.utility.player.InputUtility.clearMovement(player.input);
             }
 
             player.setPosRaw(player.getX(), this.freezePos.y, player.getZ());

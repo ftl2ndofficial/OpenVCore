@@ -42,7 +42,7 @@ public class Category extends AbstractCategory {
       super.render(context, mouseX, mouseY, delta);
       this.hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, 25.0);
       this.setWidth(125.0F);
-      Render2DEngine.drawGuiBase(context.pose(), this.getX(), this.getY(), this.width, this.isOpen() ? 280.0F : 25.0F, 12.0F, HudEditor.getBlurOpacity());
+      Render2DEngine.drawGuiBase(Render2DEngine.toPoseStack(context.pose()), this.getX(), this.getY(), this.width, this.isOpen() ? 280.0F : 25.0F, 12.0F, HudEditor.getBlurOpacity());
       FontRenderers.categories.drawCenteredString(context.pose(), this.getName(), this.getX() + this.width / 2.0F, this.getY() + 7.0F, -1);
       if (this.isOpen()) {
          float maxScroll = (float)Math.max(0.0, this.getButtonsHeight() - 250.0);
@@ -55,8 +55,8 @@ public class Category extends AbstractCategory {
          }
 
          this.scrollOffset = AnimationUtility.fast(this.scrollOffset, this.scrollTarget, 10.0F);
-         context.pose().pushPose();
-         Render2DEngine.addWindow(context.pose(), this.getX(), this.getY() + 25.0F, this.getX() + this.width, this.getY() + 280.0F - 5.0F, 1.0);
+         context.pose().pushMatrix();
+         Render2DEngine.addWindow(Render2DEngine.toPoseStack(context.pose()), this.getX(), this.getY() + 25.0F, this.getX() + this.width, this.getY() + 280.0F - 5.0F, 1.0);
          float baseY = this.getY() + 25.0F - this.scrollOffset;
 
          for (AbstractButton button : this.buttons) {
@@ -74,7 +74,7 @@ public class Category extends AbstractCategory {
          }
 
          Render2DEngine.popWindow();
-         context.pose().popPose();
+         context.pose().popMatrix();
       }
 
       this.updatePosition();

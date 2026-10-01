@@ -69,14 +69,14 @@ public class VClipCommand extends Command {
    private void clip(double b) {
       if (ClientSettings.clipMode.getValue() == ClientSettings.ClipMode.Matrix) {
          for (int i = 0; i < 10; i++) {
-            mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), false));
+            mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY(), mc.player.getZ(), false, mc.player.horizontalCollision));
          }
 
          for (int i = 0; i < 10; i++) {
-            mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY() + b, mc.player.getZ(), false));
+            mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY() + b, mc.player.getZ(), false, mc.player.horizontalCollision));
          }
       } else {
-         mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY() + b, mc.player.getZ(), false));
+         mc.player.connection.send(new Pos(mc.player.getX(), mc.player.getY() + b, mc.player.getZ(), false, mc.player.horizontalCollision));
       }
 
       mc.player.setPos(mc.player.getX(), mc.player.getY() + b, mc.player.getZ());

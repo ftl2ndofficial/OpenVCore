@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.gui.components.CommandSuggestions;
 import net.minecraft.client.gui.components.CommandSuggestions.SuggestionsList;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.multiplayer.ClientSuggestionProvider;
 import net.minecraft.commands.SharedSuggestionProvider;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -26,7 +27,7 @@ public abstract class MixinChatInputSuggestor {
    @Shadow
    boolean keepSuggestions;
    @Shadow
-   private ParseResults<SharedSuggestionProvider> currentParse;
+   private ParseResults<ClientSuggestionProvider> currentParse;
    @Shadow
    private CompletableFuture<Suggestions> pendingSuggestions;
    @Shadow
@@ -41,17 +42,18 @@ public abstract class MixinChatInputSuggestor {
       cancellable = true,
       locals = LocalCapture.CAPTURE_FAILHARD
    )
+   @SuppressWarnings("unchecked")
    public void refreshHook(CallbackInfo ci, String string, StringReader reader) {
       if (!Module.fullNullCheck()) {
          if (reader.canRead(Managers.COMMAND.getPrefix().length()) && reader.getString().startsWith(Managers.COMMAND.getPrefix(), reader.getCursor())) {
             reader.setCursor(reader.getCursor() + 1);
             if (this.currentParse == null) {
-               this.currentParse = Managers.COMMAND.getDispatcher().parse(reader, Managers.COMMAND.getSource());
+               this.currentParse = (ParseResults<ClientSuggestionProvider>) (ParseResults<?>) Managers.COMMAND.getDispatcher().parse(reader, Managers.COMMAND.getSource());
             }
 
             int cursor = this.input.getCursorPosition();
             if (cursor >= 1 && (this.suggestions == null || !this.keepSuggestions)) {
-               this.pendingSuggestions = Managers.COMMAND.getDispatcher().getCompletionSuggestions(this.currentParse, cursor);
+               this.pendingSuggestions = (CompletableFuture<Suggestions>) (CompletableFuture<?>) Managers.COMMAND.getDispatcher().getCompletionSuggestions((ParseResults) this.currentParse, cursor);
                this.pendingSuggestions.thenRun(() -> {
                   if (this.pendingSuggestions.isDone()) {
                      this.updateUsageInfo();

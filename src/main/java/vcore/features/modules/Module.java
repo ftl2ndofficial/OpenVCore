@@ -309,7 +309,7 @@ public abstract class Module {
       if (!fullNullCheck() && ClientSettings.clientMessages.getValue() && !ModuleManager.unHook.isEnabled()) {
          if (mc.isSameThread()) {
             mc.player
-               .sendSystemMessage(
+               .displayClientMessage(
                   Component.nullToEmpty(
                      CommandManager.getClientMessage()
                         + " "
@@ -320,12 +320,13 @@ public abstract class Module {
                         + ChatFormatting.GRAY
                         + "] "
                         + message
-                  )
+                  ),
+                  false
                );
          } else {
             mc.executeIfPossible(
                () -> mc.player
-                  .sendSystemMessage(
+                  .displayClientMessage(
                      Component.nullToEmpty(
                         CommandManager.getClientMessage()
                            + " "
@@ -336,7 +337,8 @@ public abstract class Module {
                            + ChatFormatting.GRAY
                            + "] "
                            + message
-                     )
+                     ),
+                     false
                   )
             );
          }
@@ -359,7 +361,7 @@ public abstract class Module {
       if (!fullNullCheck() && ClientSettings.debug.getValue()) {
          if (mc.isSameThread()) {
             mc.player
-               .sendSystemMessage(
+               .displayClientMessage(
                   Component.nullToEmpty(
                      CommandManager.getClientMessage()
                         + " "
@@ -370,12 +372,13 @@ public abstract class Module {
                         + ChatFormatting.GRAY
                         + "] [\ud83d\udd27] "
                         + message
-                  )
+                  ),
+                  false
                );
          } else {
             mc.executeIfPossible(
                () -> mc.player
-                  .sendSystemMessage(
+                  .displayClientMessage(
                      Component.nullToEmpty(
                         CommandManager.getClientMessage()
                            + " "
@@ -386,7 +389,8 @@ public abstract class Module {
                            + ChatFormatting.GRAY
                            + "] [\ud83d\udd27] "
                            + message
-                     )
+                     ),
+                     false
                   )
             );
          }
@@ -399,7 +403,7 @@ public abstract class Module {
             Managers.MODULE.activeMouseKeys.clear();
             return true;
          } else {
-            return button < 10 ? false : InputConstants.isKeyDown(mc.getWindow().getWindow(), button);
+            return button < 10 ? false : InputConstants.isKeyDown(mc.getWindow(), button);
          }
       } else {
          return false;
@@ -414,8 +418,8 @@ public abstract class Module {
       if (bind != null && bind.getValue() != null && bind.getValue().getKey() != -1 && !ModuleManager.unHook.isEnabled()) {
          Bind value = bind.getValue();
          return value.isMouse()
-            ? GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), value.getKey()) == 1
-            : InputConstants.isKeyDown(mc.getWindow().getWindow(), value.getKey());
+            ? GLFW.glfwGetMouseButton(mc.getWindow().handle(), value.getKey()) == 1
+            : InputConstants.isKeyDown(mc.getWindow(), value.getKey());
       } else {
          return false;
       }

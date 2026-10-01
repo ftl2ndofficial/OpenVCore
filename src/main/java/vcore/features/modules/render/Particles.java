@@ -1,13 +1,14 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import org.lwjgl.opengl.GL11;
 import com.mojang.math.Axis;
 import java.awt.Color;
 import java.util.ArrayList;
@@ -16,10 +17,10 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.ThrownEnderpearl;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -220,7 +221,7 @@ public class Particles extends Module {
                topPos.getZ() + MathUtility.random(0.0, 1.0)
             );
 
-            while (!mc.level.isEmptyBlock(BlockPos.containing(spawnPos)) && spawnPos.y < mc.level.getMaxBuildHeight()) {
+            while (!mc.level.isEmptyBlock(BlockPos.containing(spawnPos)) && spawnPos.y < mc.level.getMaxY()) {
                spawnPos = spawnPos.add(0.0, 1.0, 0.0);
             }
 
@@ -285,27 +286,26 @@ public class Particles extends Module {
       return false;
    }
 
-   private static BufferBuilder startQuads(ResourceLocation texture) {
+   private static BufferBuilder startQuads(Identifier texture) {
       RenderSystem.enableBlend();
       applyLightningBlend();
       RenderSystem.enableDepthTest();
       RenderSystem.depthMask(false);
       RenderSystem.disableCull();
-      RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
       RenderSystem.setShaderTexture(0, texture);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       return Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
    }
 
    private static void applyLightningBlend() {
-      RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
+      RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
    }
 
    private static void endQuads(BufferBuilder bufferBuilder) {
       Render2DEngine.endBuilding(bufferBuilder);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       RenderSystem.depthMask(true);
-      RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
+      RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
       RenderSystem.enableCull();
       RenderSystem.enableDepthTest();
       RenderSystem.disableBlend();
@@ -446,12 +446,12 @@ public class Particles extends Module {
             }
 
             Color renderColor = Particles.applyAlpha(baseColor, alphaProgress);
-            Vec3 cameraPos = camera.getPosition();
+            Vec3 cameraPos = camera.position();
             float rotation = texture == Particles.ParticleTexture.Heart ? this.rotationAngle + 180.0F : this.rotationAngle;
             stack.pushPose();
             stack.translate(this.position.x - cameraPos.x, this.position.y - cameraPos.y, this.position.z - cameraPos.z);
-            stack.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-            stack.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+            stack.mulPose(Axis.YP.rotationDegrees(-camera.yRot()));
+            stack.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
             stack.mulPose(Axis.ZP.rotationDegrees(rotation));
             Matrix4f matrix = stack.last().pose();
             float revealScale = 0.55F + 0.45F * Particles.smoothStep(spawnProgress);
@@ -522,9 +522,9 @@ public class Particles extends Module {
       Genshin(TextureStorage.particleGenshin),
       Rhombus(TextureStorage.particleRhombus);
 
-      private final ResourceLocation identifier;
+      private final Identifier identifier;
 
-      ParticleTexture(ResourceLocation identifier) {
+      ParticleTexture(Identifier identifier) {
          this.identifier = identifier;
       }
    }

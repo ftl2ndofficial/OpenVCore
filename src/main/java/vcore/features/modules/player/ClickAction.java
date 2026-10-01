@@ -4,6 +4,8 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
@@ -148,7 +150,7 @@ public class ClickAction extends Module {
    }
 
    private void handlePearlAction() {
-      if (!fullNullCheck() && !mc.player.getCooldowns().isOnCooldown(Items.ENDER_PEARL)) {
+      if (!fullNullCheck() && !mc.player.getCooldowns().isOnCooldown(Items.ENDER_PEARL.getDefaultInstance())) {
          SearchInvResult hotbarPearl = InventoryUtility.findItemInHotBar(Items.ENDER_PEARL);
          SearchInvResult invPearl = hotbarPearl.found() ? SearchInvResult.notFound() : InventoryUtility.findItemInInventory(Items.ENDER_PEARL);
          if (!hotbarPearl.found() && !invPearl.found()) {
@@ -157,7 +159,7 @@ public class ClickAction extends Module {
             if (hotbarPearl.found()) {
                this.throwPearlFromHotbar(hotbarPearl.slot(), true);
             } else {
-               this.throwPearlWithSwap(invPearl.slot(), mc.player.getInventory().selected, false);
+               this.throwPearlWithSwap(invPearl.slot(), mc.player.getInventory().getSelectedSlot(), false);
             }
          } else if (hotbarPearl.found()) {
             this.throwPearlFromHotbar(hotbarPearl.slot(), false);
@@ -231,11 +233,11 @@ public class ClickAction extends Module {
          mc.player.swing(InteractionHand.MAIN_HAND);
          InventoryUtility.returnSlot();
       } else {
-         int previousSlot = mc.player.getInventory().selected;
-         mc.player.getInventory().selected = hotbarSlot;
+         int previousSlot = mc.player.getInventory().getSelectedSlot();
+         mc.player.getInventory().setSelectedSlot(hotbarSlot);
          mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
          mc.player.swing(InteractionHand.MAIN_HAND);
-         mc.player.getInventory().selected = previousSlot;
+         mc.player.getInventory().setSelectedSlot(previousSlot);
       }
    }
 
@@ -275,7 +277,7 @@ public class ClickAction extends Module {
          this.stopXpUse();
       } else {
          if (!this.isThrowingXp) {
-            this.xpLastSlot = mc.player.getInventory().selected;
+            this.xpLastSlot = mc.player.getInventory().getSelectedSlot();
             this.isThrowingXp = true;
             this.lastXpUseTime = 0L;
          }
@@ -295,8 +297,8 @@ public class ClickAction extends Module {
                   return;
                }
 
-               if (xpSlot != mc.player.getInventory().selected) {
-                  mc.player.getInventory().selected = xpSlot;
+               if (xpSlot != mc.player.getInventory().getSelectedSlot()) {
+                  mc.player.getInventory().setSelectedSlot(xpSlot);
                }
 
                InteractionUtility.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, throwYaw, throwPitch));
@@ -311,7 +313,8 @@ public class ClickAction extends Module {
    private boolean needXpRepair() {
       int stopOn = this.xpStopOn.getValue();
 
-      for (ItemStack stack : mc.player.getArmorSlots()) {
+      for (EquipmentSlot slot : EquipmentSlotGroup.ARMOR) {
+         ItemStack stack = mc.player.getItemBySlot(slot);
          float percent = PlayerUtility.calculatePercentage(stack);
          if (percent < stopOn) {
             return true;
@@ -322,8 +325,8 @@ public class ClickAction extends Module {
    }
 
    private void stopXpUse() {
-      if (mc.player != null && this.isThrowingXp && this.xpLastSlot != -1 && this.xpLastSlot != mc.player.getInventory().selected) {
-         mc.player.getInventory().selected = this.xpLastSlot;
+      if (mc.player != null && this.isThrowingXp && this.xpLastSlot != -1 && this.xpLastSlot != mc.player.getInventory().getSelectedSlot()) {
+         mc.player.getInventory().setSelectedSlot(this.xpLastSlot);
       }
 
       this.isThrowingXp = false;
@@ -351,7 +354,7 @@ public class ClickAction extends Module {
    }
 
    private int pickSwapHotbarSlot() {
-      int selected = mc.player.getInventory().selected;
+      int selected = mc.player.getInventory().getSelectedSlot();
       return (selected + 1) % 9;
    }
 

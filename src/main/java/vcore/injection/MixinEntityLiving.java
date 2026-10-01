@@ -17,20 +17,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import vcore.Vcore;
 import vcore.core.manager.client.ModuleManager;
+import vcore.events.impl.EventPlayerJump;
 import vcore.events.impl.EventTravel;
 import vcore.features.modules.Module;
 import vcore.features.modules.combat.Aura;
 import vcore.features.modules.movement.WaterSpeed;
 import vcore.utility.interfaces.IEntityLiving;
+import net.minecraft.world.entity.InterpolationHandler;
 
 @Mixin(LivingEntity.class)
 public class MixinEntityLiving implements IEntityLiving {
-   @Shadow
-   protected double lerpX;
-   @Shadow
-   protected double lerpY;
-   @Shadow
-   protected double lerpZ;
    @Unique
    double prevServerX;
    @Unique
@@ -54,14 +50,35 @@ public class MixinEntityLiving implements IEntityLiving {
       }
    }
 
-   @Inject(method = "lerpTo", at = @At("HEAD"))
-   private void updateTrackedPositionAndAnglesHook(double x, double y, double z, float yaw, float pitch, int interpolationSteps, CallbackInfo ci) {
+   @Inject(method = "baseTick", at = @At("HEAD"))
+   private void onBaseTick(CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
-         this.prevServerX = this.lerpX;
-         this.prevServerY = this.lerpY;
-         this.prevServerZ = this.lerpZ;
-         this.positonHistory.add(new Aura.Position(this.lerpX, this.lerpY, this.lerpZ));
-         this.positonHistory.removeIf(Aura.Position::shouldRemove);
+         LivingEntity self = (LivingEntity)(Object)this;
+         InterpolationHandler interp = self.getInterpolation();
+         if (interp != null && interp.hasActiveInterpolation()) {
+            Vec3 target = interp.position();
+            if (target.x != this.prevServerX || target.y != this.prevServerY || target.z != this.prevServerZ) {
+               this.prevServerX = target.x;
+               this.prevServerY = target.y;
+               this.prevServerZ = target.z;
+               this.positonHistory.add(new Aura.Position(target.x, target.y, target.z));
+               this.positonHistory.removeIf(Aura.Position::shouldRemove);
+            }
+         }
+      }
+   }
+
+   @Inject(method = "jumpFromGround", at = @At("HEAD"))
+   private void onJumpPre(CallbackInfo ci) {
+      if ((LivingEntity)(Object)this == Module.mc.player) {
+         Vcore.EVENT_BUS.post(new EventPlayerJump(true));
+      }
+   }
+
+   @Inject(method = "jumpFromGround", at = @At("RETURN"))
+   private void onJumpPost(CallbackInfo ci) {
+      if ((LivingEntity)(Object)this == Module.mc.player) {
+         Vcore.EVENT_BUS.post(new EventPlayerJump(false));
       }
    }
 

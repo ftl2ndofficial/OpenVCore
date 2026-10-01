@@ -7,7 +7,7 @@ import net.fabricmc.fabric.api.particle.v1.FabricParticleTypes;
 import net.minecraft.core.Registry;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 @Environment(EnvType.CLIENT)
 public final class PopEffectParticles {
@@ -18,8 +18,8 @@ public final class PopEffectParticles {
    }
 
    public static void register() {
-      Registry.register(BuiltInRegistries.PARTICLE_TYPE, ResourceLocation.fromNamespaceAndPath("vcore", "revive"), REVIVE);
-      Registry.register(BuiltInRegistries.PARTICLE_TYPE, ResourceLocation.fromNamespaceAndPath("vcore", "revive_spark"), REVIVE_SPARK);
+      Registry.register(BuiltInRegistries.PARTICLE_TYPE, Identifier.fromNamespaceAndPath("vcore", "revive"), REVIVE);
+      Registry.register(BuiltInRegistries.PARTICLE_TYPE, Identifier.fromNamespaceAndPath("vcore", "revive_spark"), REVIVE_SPARK);
       ParticleFactoryRegistry.getInstance().register(REVIVE, PopEffectReviveParticle.Factory::new);
       ParticleFactoryRegistry.getInstance().register(REVIVE_SPARK, PopEffectReviveSparkParticle.Factory::new);
    }

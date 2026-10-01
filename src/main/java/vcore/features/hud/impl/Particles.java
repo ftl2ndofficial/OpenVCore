@@ -1,11 +1,11 @@
 package vcore.features.hud.impl;
 
-import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
-import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import vcore.utility.render.Render2DEngine;
+import vcore.utility.render.RenderSystem;
+import vcore.utility.render.RenderSystem.DestFactor;
+import vcore.utility.render.RenderSystem.SourceFactor;
 import vcore.utility.render.TextureStorage;
 
 public class Particles {

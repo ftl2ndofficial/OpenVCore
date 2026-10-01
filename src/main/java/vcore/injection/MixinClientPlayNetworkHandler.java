@@ -26,7 +26,7 @@ public class MixinClientPlayNetworkHandler {
    @Inject(method = "handleEntityEvent", at = @At("HEAD"))
    private void hookPopEffectTotemStatus(@NotNull ClientboundEntityEventPacket packet, CallbackInfo ci) {
       Minecraft client = Minecraft.getInstance();
-      PacketUtils.ensureRunningOnSameThread(packet, (ClientPacketListener)(Object)this, client);
+      PacketUtils.ensureRunningOnSameThread(packet, (ClientPacketListener)(Object)this, client.packetProcessor());
       if (client.level != null && packet.getEventId() == 35) {
          Entity entity = packet.getEntity(client.level);
          if (entity != null) {

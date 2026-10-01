@@ -1,11 +1,10 @@
 package vcore.injection;
 
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,8 +15,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import vcore.Vcore;
 import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventAttack;
-import vcore.events.impl.EventEatFood;
-import vcore.events.impl.EventPlayerJump;
 import vcore.events.impl.EventPlayerTravel;
 import vcore.features.modules.Module;
 import vcore.features.modules.movement.AutoSprint;
@@ -25,8 +22,16 @@ import vcore.features.modules.movement.Speed;
 
 @Mixin(value = Player.class, priority = 800)
 public class MixinPlayerEntity {
-   @Inject(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;setSprinting(Z)V", shift = Shift.AFTER))
-   public void attackAHook(CallbackInfo callbackInfo) {
+   @Inject(
+      method = "causeExtraKnockback",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;setSprinting(Z)V", shift = Shift.AFTER)
+   )
+   public void attackAHook(
+      Entity entity,
+      float knockbackAmount,
+      Vec3 oldMovement,
+      CallbackInfo callbackInfo
+   ) {
       if (ModuleManager.autoSprint.isEnabled() && AutoSprint.sprint.getValue()) {
          float multiplier = 0.6F + 0.4F * AutoSprint.motion.getValue();
          Module.mc
@@ -78,20 +83,7 @@ public class MixinPlayerEntity {
       }
    }
 
-   @Inject(method = "jumpFromGround", at = @At("HEAD"))
-   private void onJumpPre(CallbackInfo ci) {
-      Vcore.EVENT_BUS.post(new EventPlayerJump(true));
-   }
 
-   @Inject(method = "jumpFromGround", at = @At("RETURN"))
-   private void onJumpPost(CallbackInfo ci) {
-      Vcore.EVENT_BUS.post(new EventPlayerJump(false));
-   }
-
-   @Inject(method = "eat(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/food/FoodProperties;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
-   public void eatFoodHook(Level world, ItemStack stack, FoodProperties foodComponent, CallbackInfoReturnable<ItemStack> cir) {
-      Vcore.EVENT_BUS.post(new EventEatFood((ItemStack)cir.getReturnValue()));
-   }
 
    @Inject(method = "blockInteractionRange", at = @At("HEAD"), cancellable = true)
    public void getBlockInteractionRangeHook(CallbackInfoReturnable<Double> cir) {

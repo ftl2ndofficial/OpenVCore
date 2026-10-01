@@ -21,7 +21,7 @@ public class AntiCrash extends Module {
    @EventHandler
    public void onPacketReceive(PacketEvent.@NotNull Receive receive) {
       if (!(
-         receive.getPacket() instanceof ClientboundExplodePacket exp && (exp.getX() > 1.0E9 || exp.getY() > 1.0E9 || exp.getZ() > 1.0E9 || exp.getPower() > 1.0E9)
+         receive.getPacket() instanceof ClientboundExplodePacket exp && (exp.center().x > 1.0E9 || exp.center().y > 1.0E9 || exp.center().z > 1.0E9 || exp.radius() > 1.0E9)
       )) {
          if (!(
             receive.getPacket() instanceof ClientboundLevelParticlesPacket p
@@ -36,7 +36,7 @@ public class AntiCrash extends Module {
                )
          )) {
             if (receive.getPacket() instanceof ClientboundPlayerPositionPacket pos
-               && (pos.getX() > 1.0E9 || pos.getY() > 1.0E9 || pos.getZ() > 1.0E9 || pos.getYRot() > 1.0E9 || pos.getXRot() > 1.0E9)) {
+               && (pos.change().position().x > 1.0E9 || pos.change().position().y > 1.0E9 || pos.change().position().z > 1.0E9 || pos.change().yRot() > 1.0E9 || pos.change().xRot() > 1.0E9)) {
                if (this.debug.getValue() && this.debugTimer.passedMs(1000L)) {
                   this.sendMessage("PlayerPositionLookS2CPacket canceled");
                   this.debugTimer.reset();

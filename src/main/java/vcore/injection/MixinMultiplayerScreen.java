@@ -38,18 +38,15 @@ public abstract class MixinMultiplayerScreen extends Screen {
       }
    }
 
-   @Inject(method = "render", at = @At("HEAD"))
-   private void removeRandomAltWhenUnhooked(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+   @Override
+   public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
       if (UnHook.isActive() && this.randomAltButton != null) {
          this.removeWidget(this.randomAltButton);
          this.randomAltButton = null;
       }
-   }
-
-   @Inject(method = "render", at = @At("TAIL"))
-   private void renderAccountText(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+      super.render(context, mouseX, mouseY, delta);
       if (!UnHook.isActive() && this.minecraft != null) {
-         context.drawString(this.font, "Account: " + this.minecraft.getUser().getName(), 5, 14, -1);
+         context.drawString(this.font, "Account: " + this.minecraft.getUser().getName(), 5, 14, -1, false);
       }
    }
 }

@@ -55,7 +55,7 @@ public class MixinOtherClientPlayerEntity extends AbstractClientPlayer implement
             }
          } else {
             Vec3 from = new Vec3(((IEntityLiving)(Object)this).getPrevServerX(), ((IEntityLiving)(Object)this).getPrevServerY(), ((IEntityLiving)(Object)this).getPrevServerZ());
-            Vec3 to = new Vec3(this.lerpX, this.lerpY, this.lerpZ);
+            Vec3 to = this.getInterpolation() != null ? this.getInterpolation().position() : this.position();
             if (mode == Aura.Resolver.Advantage) {
                if (Module.mc.player.distanceToSqr(from) > Module.mc.player.distanceToSqr(to)) {
                   this.setPos(to.x, to.y, to.z);

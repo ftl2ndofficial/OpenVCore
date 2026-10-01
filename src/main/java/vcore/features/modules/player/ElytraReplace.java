@@ -2,7 +2,6 @@ package vcore.features.modules.player;
 
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ElytraItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import vcore.core.Managers;
@@ -23,11 +22,11 @@ public class ElytraReplace extends Module {
    public void onUpdate() {
       ItemStack is = mc.player.getItemBySlot(EquipmentSlot.CHEST);
       if (is.is(Items.ELYTRA) && 100.0F - (float)is.getDamageValue() / is.getMaxDamage() * 100.0F <= this.durability.getValue().intValue()) {
-         SearchInvResult result = InventoryUtility.findInInventory(
-            stack -> stack.getItem() instanceof ElytraItem
-               ? 100.0F - (float)stack.getDamageValue() / stack.getMaxDamage() * 100.0F > this.durability.getValue().intValue()
-               : false
-         );
+          SearchInvResult result = InventoryUtility.findInInventory(
+             stack -> stack.is(Items.ELYTRA)
+                ? 100.0F - (float)stack.getDamageValue() / stack.getMaxDamage() * 100.0F > this.durability.getValue().intValue()
+                : false
+          );
          if (result.found()) {
             clickSlot(result.slot());
             clickSlot(6);

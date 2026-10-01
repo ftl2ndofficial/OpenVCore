@@ -5,18 +5,19 @@ import java.util.List;
 import java.util.Objects;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.damagesource.CombatRules;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.ShovelItem;
-import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
@@ -53,15 +54,17 @@ public final class InventoryUtility {
 
       int slot = -1;
       float f = 1.0F;
+      Holder<net.minecraft.world.item.enchantment.Enchantment> sharpness = Module.mc.level != null
+         ? Module.mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).get(Enchantments.SHARPNESS).orElse(null)
+         : null;
 
       for (int b1 = 9; b1 < 45; b1++) {
          ItemStack itemStack = Module.mc.player.getInventory().getItem(b1 >= 36 ? b1 - 36 : b1);
          if (itemStack != null && itemStack.getItem() instanceof AxeItem axe) {
             float f1 = ((Integer)axe.components().get(DataComponents.MAX_DAMAGE)).intValue();
-            f1 += EnchantmentHelper.getItemEnchantmentLevel(
-               (Holder)Module.mc.level.registryAccess().registryOrThrow(Enchantments.SHARPNESS.registryKey()).getHolder(Enchantments.SHARPNESS).get(),
-               itemStack
-            );
+            if (sharpness != null) {
+               f1 += EnchantmentHelper.getItemEnchantmentLevel(sharpness, itemStack);
+            }
             if (f1 > f) {
                f = f1;
                slot = b1;
@@ -83,15 +86,17 @@ public final class InventoryUtility {
 
       int slot = -1;
       float f = 1.0F;
+      Holder<net.minecraft.world.item.enchantment.Enchantment> sharpness = Module.mc.level != null
+         ? Module.mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).get(Enchantments.SHARPNESS).orElse(null)
+         : null;
 
       for (int b1 = 0; b1 < 9; b1++) {
          ItemStack itemStack = Module.mc.player.getInventory().getItem(b1);
-         if (itemStack != null && itemStack.getItem() instanceof SwordItem sword) {
-            float f1 = ((Integer)sword.components().get(DataComponents.MAX_DAMAGE)).intValue();
-            f1 += EnchantmentHelper.getItemEnchantmentLevel(
-               (Holder)Module.mc.level.registryAccess().registryOrThrow(Enchantments.SHARPNESS.registryKey()).getHolder(Enchantments.SHARPNESS).get(),
-               itemStack
-            );
+         if (itemStack != null && itemStack.is(ItemTags.SWORDS)) {
+            float f1 = (float)itemStack.getMaxDamage();
+            if (sharpness != null) {
+               f1 += EnchantmentHelper.getItemEnchantmentLevel(sharpness, itemStack);
+            }
             if (f1 > f) {
                f = f1;
                slot = b1;
@@ -103,10 +108,9 @@ public final class InventoryUtility {
    }
 
    public static int getElytra() {
-      for (ItemStack stack : Module.mc.player.getInventory().armor) {
-         if (stack.getItem() == Items.ELYTRA && stack.getDamageValue() < 430) {
-            return -2;
-         }
+      ItemStack chestStack = Module.mc.player.getItemBySlot(EquipmentSlot.CHEST);
+      if (chestStack.getItem() == Items.ELYTRA && chestStack.getDamageValue() < 430) {
+         return -2;
       }
 
       int slot = -1;
@@ -189,7 +193,7 @@ public final class InventoryUtility {
    }
 
    public static void saveSlot() {
-      cachedSlot = Module.mc.player.getInventory().selected;
+      cachedSlot = Module.mc.player.getInventory().getSelectedSlot();
    }
 
    public static void returnSlot() {
@@ -203,8 +207,8 @@ public final class InventoryUtility {
    public static void saveAndSwitchTo(int slot) {
       saveSlot();
       if (Module.mc.player != null && Module.mc.getConnection() != null) {
-         if (Module.mc.player.getInventory().selected != slot || Managers.PLAYER.serverSideSlot != slot) {
-            Module.mc.player.getInventory().selected = slot;
+         if (Module.mc.player.getInventory().getSelectedSlot() != slot || Managers.PLAYER.serverSideSlot != slot) {
+            Module.mc.player.getInventory().setSelectedSlot(slot);
             ((IInteractionManager)Module.mc.gameMode).syncSlot();
          }
       }
@@ -212,8 +216,8 @@ public final class InventoryUtility {
 
    public static void switchTo(int slot) {
       if (Module.mc.player != null && Module.mc.getConnection() != null) {
-         if (Module.mc.player.getInventory().selected != slot || Managers.PLAYER.serverSideSlot != slot) {
-            Module.mc.player.getInventory().selected = slot;
+         if (Module.mc.player.getInventory().getSelectedSlot() != slot || Managers.PLAYER.serverSideSlot != slot) {
+            Module.mc.player.getInventory().setSelectedSlot(slot);
             ((IInteractionManager)Module.mc.gameMode).syncSlot();
          }
       }
@@ -230,15 +234,16 @@ public final class InventoryUtility {
          return SearchInvResult.notFound();
       }
 
-      Item mainHand = Module.mc.player.getMainHandItem().getItem();
-      return !(mainHand instanceof SwordItem) && !(mainHand instanceof PickaxeItem) && !(mainHand instanceof AxeItem) && !(mainHand instanceof ShovelItem)
+      ItemStack mainStack = Module.mc.player.getMainHandItem();
+      Item mainHand = mainStack.getItem();
+      return !mainStack.is(ItemTags.SWORDS) && !mainStack.is(ItemTags.PICKAXES) && !(mainHand instanceof AxeItem) && !(mainHand instanceof ShovelItem)
          ? findInHotBar(
-            itemStack -> itemStack.getItem() instanceof SwordItem
-               || itemStack.getItem() instanceof PickaxeItem
+            itemStack -> itemStack.is(ItemTags.SWORDS)
+               || itemStack.is(ItemTags.PICKAXES)
                || itemStack.getItem() instanceof AxeItem
                || itemStack.getItem() instanceof ShovelItem
          )
-         : new SearchInvResult(Module.mc.player.getInventory().selected, true, Module.mc.player.getMainHandItem());
+         : new SearchInvResult(Module.mc.player.getInventory().getSelectedSlot(), true, Module.mc.player.getMainHandItem());
    }
 
    public static float getHitDamage(@NotNull ItemStack weapon, Player ent) {
@@ -247,7 +252,7 @@ public final class InventoryUtility {
       }
 
       float baseDamage = 1.0F;
-      if (weapon.getItem() instanceof SwordItem swordItem) {
+      if (weapon.is(ItemTags.SWORDS)) {
          baseDamage = 7.0F;
       }
 
@@ -259,8 +264,8 @@ public final class InventoryUtility {
          baseDamage += baseDamage / 2.0F;
       }
 
-      if (Module.mc.player.hasEffect(MobEffects.DAMAGE_BOOST)) {
-         int strength = Objects.requireNonNull(Module.mc.player.getEffect(MobEffects.DAMAGE_BOOST)).getAmplifier() + 1;
+      if (Module.mc.player.hasEffect(MobEffects.STRENGTH)) {
+         int strength = Objects.requireNonNull(Module.mc.player.getEffect(MobEffects.STRENGTH)).getAmplifier() + 1;
          baseDamage += 3 * strength;
       }
 

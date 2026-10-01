@@ -1,8 +1,10 @@
 package vcore.features.modules.movement;
 
+import java.util.Optional;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.network.protocol.common.ClientboundPingPacket;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
@@ -55,73 +57,76 @@ public class Velocity extends Module {
                if (this.ccCooldown > 0) {
                   this.ccCooldown--;
                } else {
-                  if (e.getPacket() instanceof ClientboundSetEntityMotionPacket pac
-                     && pac.getId() == mc.player.getId()
-                     && (!this.onlyAura.getValue() || ModuleManager.aura.isEnabled())) {
-                     switch ((Velocity.modeEn)this.mode.getValue()) {
-                        case Matrix:
-                           if (!this.flag) {
-                              e.cancel();
-                              this.flag = true;
-                           } else {
-                              this.flag = false;
-                              ((ISPacketEntityVelocity)pac).setMotionX((int)(pac.getXa() * -0.1));
-                              ((ISPacketEntityVelocity)pac).setMotionZ((int)(pac.getZa() * -0.1));
-                           }
-                           break;
-                        case Cancel:
-                           e.cancel();
-                           break;
-                        case Sunrise:
-                           e.cancel();
-                           this.sendPacket(new Pos(mc.player.getX(), -999.0, mc.player.getZ(), true));
-                           break;
-                        case Custom:
-                           ((ISPacketEntityVelocity)pac).setMotionX((int)((float)pac.getXa() * this.horizontal.getValue() / 100.0F));
-                           ((ISPacketEntityVelocity)pac).setMotionY((int)((float)pac.getYa() * this.vertical.getValue() / 100.0F));
-                           ((ISPacketEntityVelocity)pac).setMotionZ((int)((float)pac.getZa() * this.horizontal.getValue() / 100.0F));
-                           break;
-                        case Redirect:
-                           double vX = Math.abs(pac.getXa());
-                           double vZ = Math.abs(pac.getZa());
-                           double[] motion = MovementUtility.forward(vX + vZ);
-                           ((ISPacketEntityVelocity)pac).setMotionX((int)motion[0]);
-                           ((ISPacketEntityVelocity)pac).setMotionY(0);
-                           ((ISPacketEntityVelocity)pac).setMotionZ((int)motion[1]);
-                           break;
-                        case OldGrim:
-                           e.cancel();
-                           this.grimTicks = 6;
-                           break;
-                        case Jump:
-                           ((ISPacketEntityVelocity)pac).setMotionX((int)((float)pac.getXa() * this.horizontal.getValue() / 100.0F));
-                           ((ISPacketEntityVelocity)pac).setMotionZ((int)((float)pac.getZa() * this.horizontal.getValue() / 100.0F));
-                           break;
-                        case GrimNew:
-                           e.cancel();
-                           this.flag = true;
-                     }
-                  }
+                   if (e.getPacket() instanceof ClientboundSetEntityMotionPacket pac
+                      && pac.getId() == mc.player.getId()
+                      && (!this.onlyAura.getValue() || ModuleManager.aura.isEnabled())) {
+                      switch ((Velocity.modeEn)this.mode.getValue()) {
+                         case Matrix:
+                            if (!this.flag) {
+                               e.cancel();
+                               this.flag = true;
+                            } else {
+                               this.flag = false;
+                               ((ISPacketEntityVelocity)(Object)pac).setMovement(new Vec3(pac.getMovement().x * -0.1, pac.getMovement().y, pac.getMovement().z * -0.1));
+                            }
+                            break;
+                         case Cancel:
+                            e.cancel();
+                            break;
+                         case Sunrise:
+                            e.cancel();
+                            this.sendPacket(new Pos(mc.player.getX(), -999.0, mc.player.getZ(), true, mc.player.horizontalCollision));
+                            break;
+                         case Custom:
+                            ((ISPacketEntityVelocity)(Object)pac).setMovement(new Vec3(
+                               pac.getMovement().x * this.horizontal.getValue() / 100.0,
+                               pac.getMovement().y * this.vertical.getValue() / 100.0,
+                               pac.getMovement().z * this.horizontal.getValue() / 100.0
+                            ));
+                            break;
+                         case Redirect:
+                            double vX = Math.abs(pac.getMovement().x);
+                            double vZ = Math.abs(pac.getMovement().z);
+                            double[] motion = MovementUtility.forward(vX + vZ);
+                            ((ISPacketEntityVelocity)(Object)pac).setMovement(new Vec3(motion[0], 0.0, motion[1]));
+                            break;
+                         case OldGrim:
+                            e.cancel();
+                            this.grimTicks = 6;
+                            break;
+                         case Jump:
+                            ((ISPacketEntityVelocity)(Object)pac).setMovement(new Vec3(
+                               pac.getMovement().x * this.horizontal.getValue() / 100.0,
+                               pac.getMovement().y,
+                               pac.getMovement().z * this.horizontal.getValue() / 100.0
+                            ));
+                            break;
+                         case GrimNew:
+                            e.cancel();
+                            this.flag = true;
+                      }
+                   }
 
-                  if (e.getPacket() instanceof ClientboundExplodePacket explosion && this.explosions.getValue()) {
-                     switch ((Velocity.modeEn)this.mode.getValue()) {
-                        case Cancel:
-                           ((IExplosionS2CPacket)explosion).setMotionX(0.0F);
-                           ((IExplosionS2CPacket)explosion).setMotionY(0.0F);
-                           ((IExplosionS2CPacket)explosion).setMotionZ(0.0F);
-                           break;
-                        case Custom:
-                           ((IExplosionS2CPacket)explosion).setMotionX(((IExplosionS2CPacket)explosion).getMotionX() * this.horizontal.getValue() / 100.0F);
-                           ((IExplosionS2CPacket)explosion).setMotionZ(((IExplosionS2CPacket)explosion).getMotionZ() * this.horizontal.getValue() / 100.0F);
-                           ((IExplosionS2CPacket)explosion).setMotionY(((IExplosionS2CPacket)explosion).getMotionY() * this.vertical.getValue() / 100.0F);
-                           break;
-                        case GrimNew:
-                           ((IExplosionS2CPacket)explosion).setMotionX(0.0F);
-                           ((IExplosionS2CPacket)explosion).setMotionY(0.0F);
-                           ((IExplosionS2CPacket)explosion).setMotionZ(0.0F);
-                           this.flag = true;
-                     }
-                  }
+                   if (e.getPacket() instanceof ClientboundExplodePacket explosion && this.explosions.getValue()) {
+                      switch ((Velocity.modeEn)this.mode.getValue()) {
+                         case Cancel:
+                            ((IExplosionS2CPacket)(Object)explosion).setPlayerKnockback(Optional.empty());
+                            break;
+                         case Custom:
+                            explosion.playerKnockback().ifPresent(kb -> {
+                               Vec3 newKb = new Vec3(
+                                  kb.x * this.horizontal.getValue() / 100.0,
+                                  kb.y * this.vertical.getValue() / 100.0,
+                                  kb.z * this.horizontal.getValue() / 100.0
+                                );
+                               ((IExplosionS2CPacket)(Object)explosion).setPlayerKnockback(Optional.of(newKb));
+                            });
+                            break;
+                         case GrimNew:
+                            ((IExplosionS2CPacket)(Object)explosion).setPlayerKnockback(Optional.empty());
+                            this.flag = true;
+                      }
+                   }
 
                   if (this.mode.getValue() == Velocity.modeEn.OldGrim && e.getPacket() instanceof ClientboundPingPacket && this.grimTicks > 0) {
                      e.cancel();
@@ -186,7 +191,7 @@ public class Velocity extends Module {
                         break;
                      case Both:
                         mc.player.jumpFromGround();
-                        mc.player.setDeltaMovement(mc.player.getDeltaMovement().x(), this.motion.getValue().floatValue(), mc.player.getDeltaMovement().z());
+                        mc.player.setDeltaMovement(mc.player.getDeltaMovement().x, this.motion.getValue().floatValue(), mc.player.getDeltaMovement().z);
                   }
                }
                break;
@@ -200,7 +205,8 @@ public class Velocity extends Module {
                            mc.player.getZ(),
                            ((IClientPlayerEntity)mc.player).getLastYaw(),
                            ((IClientPlayerEntity)mc.player).getLastPitch(),
-                           mc.player.onGround()
+                           mc.player.onGround(),
+                           mc.player.horizontalCollision
                         )
                      );
                      this.sendPacket(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, BlockPos.containing(mc.player.position()), Direction.DOWN));

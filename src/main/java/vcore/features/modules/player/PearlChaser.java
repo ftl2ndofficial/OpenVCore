@@ -11,8 +11,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.Arrow;
-import net.minecraft.world.entity.projectile.ThrownEnderpearl;
+import net.minecraft.world.entity.projectile.arrow.Arrow;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.ClipContext.Block;
@@ -92,14 +92,14 @@ public class PearlChaser extends Module {
             }
 
             if (this.targetBlock != null) {
-               if (!(mc.player.distanceToSqr(this.targetBlock.getCenter()) < 49.0)) {
+               if (!(mc.player.distanceToSqr(Vec3.atCenterOf(this.targetBlock)) < 49.0)) {
                   float rotationPitch = (float)(-Math.toDegrees(this.calcTrajectory(this.targetBlock)));
                   float rotationYaw = (float)Math.toDegrees(
                         Math.atan2(this.targetBlock.getZ() + 0.5F - mc.player.getZ(), this.targetBlock.getX() + 0.5F - mc.player.getX())
                      )
                      - 90.0F;
                   BlockPos tracedBP = this.checkTrajectory(rotationYaw, rotationPitch);
-                  if (tracedBP != null && !(this.targetBlock.distToCenterSqr(tracedBP.getCenter()) > 36.0)) {
+                  if (tracedBP != null && !(this.targetBlock.distToCenterSqr(Vec3.atCenterOf(tracedBP)) > 36.0)) {
                      if (this.pauseAura.getValue() && ModuleManager.aura.isEnabled()) {
                         ModuleManager.aura.pause();
                      }
@@ -115,8 +115,7 @@ public class PearlChaser extends Module {
                               mc.options.keyDown.setDown(false);
                               mc.options.keyLeft.setDown(false);
                               mc.options.keyRight.setDown(false);
-                              mc.player.input.forwardImpulse = 0.0F;
-                              mc.player.input.leftImpulse = 0.0F;
+                              vcore.utility.player.InputUtility.setMoveVector(mc.player.input, 0.0F, 0.0F);
                            } else {
                               this.sendMessage(
                                  "Chasing pearl on X:"
@@ -136,13 +135,13 @@ public class PearlChaser extends Module {
                               float pitch = mc.player.getXRot();
                               this.postSyncAction = () -> {
                                  int epSlot = this.findEPSlot();
-                                 int originalSlot = mc.player.getInventory().selected;
+                                 int originalSlot = mc.player.getInventory().getSelectedSlot();
                                  if (epSlot != -1) {
-                                    mc.player.getInventory().selected = epSlot;
+                                    mc.player.getInventory().setSelectedSlot(epSlot);
                                     this.sendPacket(new ServerboundSetCarriedItemPacket(epSlot));
                                     this.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, yaw, pitch));
                                     this.sendPacket(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
-                                    mc.player.getInventory().selected = originalSlot;
+                                    mc.player.getInventory().setSelectedSlot(originalSlot);
                                     this.sendPacket(new ServerboundSetCarriedItemPacket(originalSlot));
                                  }
                               };
@@ -169,7 +168,7 @@ public class PearlChaser extends Module {
    private int findEPSlot() {
       int epSlot = -1;
       if (mc.player.getMainHandItem().getItem() == Items.ENDER_PEARL) {
-         epSlot = mc.player.getInventory().selected;
+         epSlot = mc.player.getInventory().getSelectedSlot();
       }
 
       if (epSlot == -1) {

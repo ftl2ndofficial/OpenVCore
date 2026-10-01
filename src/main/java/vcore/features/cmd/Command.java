@@ -45,7 +45,7 @@ public abstract class Command {
 
    public static void sendMessage(String message) {
       if (mc.player != null) {
-         mc.player.sendSystemMessage(Component.nullToEmpty(vcore.core.manager.client.CommandManager.getClientMessage() + " " + message));
+         mc.player.displayClientMessage(Component.nullToEmpty(vcore.core.manager.client.CommandManager.getClientMessage() + " " + message), false);
       }
    }
 

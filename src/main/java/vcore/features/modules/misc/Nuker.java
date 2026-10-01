@@ -314,7 +314,7 @@ public class Nuker extends Module {
          double wallRangeSq = (double)wallRangeVal * wallRangeVal;
          Vec3 closest = this.getClosestPointOnBlock(pos, eyesPos);
          if (closest != null && eyesPos.distanceToSqr(closest) <= wallRangeSq) {
-            Direction dir = Direction.getNearest(
+            Direction dir = Direction.getApproximateNearest(
                (float)(eyesPos.x - (pos.getX() + 0.5)), (float)(eyesPos.y - (pos.getY() + 0.5)), (float)(eyesPos.z - (pos.getZ() + 0.5))
             );
             Vec3 hitPoint = new Vec3(

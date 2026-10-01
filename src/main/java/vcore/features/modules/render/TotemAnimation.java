@@ -3,7 +3,8 @@ package vcore.features.modules.render;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -36,7 +37,7 @@ public class TotemAnimation extends Module {
       }
    }
 
-   public void renderFloatingItem(float tickDelta) {
+   public void renderFloatingItem(PoseStack matrixStack, float tickDelta, SubmitNodeCollector submitNodeCollector) {
       if (this.floatingItem != null && this.floatingItemTimeLeft > 0 && !this.mode.is(TotemAnimation.Mode.Off)) {
          int scaledWidth = mc.getWindow().getGuiScaledWidth();
          int scaledHeight = mc.getWindow().getGuiScaledHeight();
@@ -50,11 +51,6 @@ public class TotemAnimation extends Module {
             - 13.8F * progressSquared
             + 4.0F * animationProgress;
          float oscillationRadians = oscillationFactor * (float) Math.PI;
-         RenderSystem.enableDepthTest();
-         RenderSystem.disableCull();
-         RenderSystem.enableBlend();
-         RenderSystem.defaultBlendFunc();
-         PoseStack matrixStack = new PoseStack();
          matrixStack.pushPose();
          float adjustedProgress = elapsedTime + tickDelta;
          float scale = 50.0F + 175.0F * Mth.sin(oscillationRadians);
@@ -62,55 +58,49 @@ public class TotemAnimation extends Module {
             case FadeOut:
                float x2 = (float)(Math.sin(adjustedProgress * 112.0F / 180.0F) * 100.0);
                float y2 = (float)(Math.cos(adjustedProgress * 112.0F / 180.0F) * 50.0);
-               matrixStack.translate(scaledWidth / 2 + x2, scaledHeight / 2 + y2, -50.0F);
+               matrixStack.translate(scaledWidth / 2.0F + x2, scaledHeight / 2.0F + y2, -50.0F);
                matrixStack.scale(scale, -scale, scale);
                break;
             case Size:
-               matrixStack.translate(scaledWidth / 2, scaledHeight / 2, -50.0F);
+               matrixStack.translate(scaledWidth / 2.0F, scaledHeight / 2.0F, -50.0F);
                matrixStack.scale(scale, -scale, scale);
                break;
             case Otkisuli:
-               matrixStack.translate(scaledWidth / 2, scaledHeight / 2, -50.0F);
+               matrixStack.translate(scaledWidth / 2.0F, scaledHeight / 2.0F, -50.0F);
                matrixStack.mulPose(Axis.XP.rotationDegrees(adjustedProgress * 2.0F));
                matrixStack.mulPose(Axis.ZP.rotationDegrees(adjustedProgress * 2.0F));
                matrixStack.scale(200.0F - adjustedProgress * 1.5F, -200.0F + adjustedProgress * 1.5F, 200.0F - adjustedProgress * 1.5F);
                break;
             case Insert:
-               matrixStack.translate(scaledWidth / 2, scaledHeight / 2, -50.0F);
+               matrixStack.translate(scaledWidth / 2.0F, scaledHeight / 2.0F, -50.0F);
                matrixStack.mulPose(Axis.XP.rotationDegrees(adjustedProgress * 3.0F));
                matrixStack.scale(200.0F - adjustedProgress * 1.5F, -200.0F + adjustedProgress * 1.5F, 200.0F - adjustedProgress * 1.5F);
                break;
             case Fall: {
                float downFactor = (float)(Math.pow(adjustedProgress, 3.0) * 0.2F);
-               matrixStack.translate(scaledWidth / 2, scaledHeight / 2 + downFactor, -50.0F);
+               matrixStack.translate(scaledWidth / 2.0F, scaledHeight / 2.0F + downFactor, -50.0F);
                matrixStack.mulPose(Axis.ZP.rotationDegrees(adjustedProgress * 5.0F));
                matrixStack.scale(200.0F - adjustedProgress * 1.5F, -200.0F + adjustedProgress * 1.5F, 200.0F - adjustedProgress * 1.5F);
                break;
             }
             case Rocket: {
                float downFactor = (float)(Math.pow(adjustedProgress, 3.0) * 0.2F) - 20.0F;
-               matrixStack.translate(scaledWidth / 2, scaledHeight / 2 - downFactor, -50.0F);
+               matrixStack.translate(scaledWidth / 2.0F, scaledHeight / 2.0F - downFactor, -50.0F);
                matrixStack.mulPose(Axis.YP.rotationDegrees(adjustedProgress * this.floatingItemTimeLeft * 2.0F));
                matrixStack.scale(200.0F - adjustedProgress * 1.5F, -200.0F + adjustedProgress * 1.5F, 200.0F - adjustedProgress * 1.5F);
                break;
             }
             case Roll:
                float rightFactor = (float)(Math.pow(adjustedProgress, 2.0) * 4.5);
-               matrixStack.translate(scaledWidth / 2 + rightFactor, scaledHeight / 2, -50.0F);
+               matrixStack.translate(scaledWidth / 2.0F + rightFactor, scaledHeight / 2.0F, -50.0F);
                matrixStack.mulPose(Axis.ZP.rotationDegrees(adjustedProgress * 40.0F));
                matrixStack.scale(200.0F - adjustedProgress * 1.5F, -200.0F + adjustedProgress * 1.5F, 200.0F - adjustedProgress * 1.5F);
          }
 
-         BufferSource immediate = mc.renderBuffers().bufferSource();
-         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F - animationProgress);
-         mc.getItemRenderer()
-            .renderStatic(this.floatingItem, ItemDisplayContext.FIXED, 15728880, OverlayTexture.NO_OVERLAY, matrixStack, immediate, mc.level, 0);
+         ItemStackRenderState itemState = new ItemStackRenderState();
+         mc.getItemModelResolver().updateForTopItem(itemState, this.floatingItem, ItemDisplayContext.FIXED, mc.level, null, 0);
+         itemState.submit(matrixStack, submitNodeCollector, 15728880, OverlayTexture.NO_OVERLAY, 0);
          matrixStack.popPose();
-         immediate.endBatch();
-         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-         RenderSystem.disableBlend();
-         RenderSystem.enableCull();
-         RenderSystem.disableDepthTest();
       }
    }
 

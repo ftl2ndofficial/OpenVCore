@@ -74,7 +74,7 @@ public class ElytraSwap extends Module {
 
    public void useFireWork() {
       if (mc.player != null && mc.gameMode != null) {
-         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
+         if (!mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET.getDefaultInstance())) {
             if (ClientSettings.fireWorkMode.is(ClientSettings.FireWorkMode.OffHand)) {
                if (!this.useFireworkOffhand()) {
                   this.sendMessage("You've got no fireworks!");
@@ -100,7 +100,7 @@ public class ElytraSwap extends Module {
          if (!fireWorkResult.found()) {
             this.sendMessage("You've got no fireworks!");
          } else {
-            int currentSlot = mc.player.getInventory().selected;
+            int currentSlot = mc.player.getInventory().getSelectedSlot();
             int hotbarSlot = currentSlot % 8 + 1;
             int itemSlot = fireWorkResult.slot();
             if (mc.player.isUsingItem() && mc.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
@@ -120,7 +120,7 @@ public class ElytraSwap extends Module {
 
    private boolean useFireworkMainHandOnly(boolean notifyMissing) {
       if (mc.player != null && mc.gameMode != null) {
-         if (mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET)) {
+         if (mc.player.getCooldowns().isOnCooldown(Items.FIREWORK_ROCKET.getDefaultInstance())) {
             return false;
          }
 
@@ -133,7 +133,7 @@ public class ElytraSwap extends Module {
 
             return false;
          } else {
-            int currentSlot = mc.player.getInventory().selected;
+            int currentSlot = mc.player.getInventory().getSelectedSlot();
             if (hotbarFirework.found()) {
                this.useFireworkFromHotbar(hotbarFirework.slot(), currentSlot);
                return true;

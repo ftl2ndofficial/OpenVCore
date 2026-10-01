@@ -40,7 +40,7 @@ public class InventoryHud extends HudElement {
             }
          }
 
-         context.pose().pushPose();
+         context.pose().pushMatrix();
 
          for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
@@ -49,17 +49,17 @@ public class InventoryHud extends HudElement {
                if (!stack.isEmpty()) {
                   float itemX = x + col * (cellSize + gap);
                   float itemY = y + row * (cellSize + gap);
-                  context.pose().pushPose();
-                  context.pose().translate(itemX, itemY, 0.0F);
-                  context.pose().scale(s, s, 1.0F);
+                  context.pose().pushMatrix();
+                  context.pose().translate(itemX, itemY);
+                  context.pose().scale(s, s);
                   context.renderItem(stack, 0, 0);
                   context.renderItemDecorations(mc.font, stack, 0, 0);
-                  context.pose().popPose();
+                  context.pose().popMatrix();
                }
             }
          }
 
-         context.pose().popPose();
+         context.pose().popMatrix();
          this.setBounds((int)x, (int)y, totalW, totalH);
       }
    }

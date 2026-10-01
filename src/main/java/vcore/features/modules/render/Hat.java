@@ -1,6 +1,6 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -39,7 +39,6 @@ public class Hat extends Module {
          RenderSystem.disableCull();
          RenderSystem.enableDepthTest();
          RenderSystem.depthMask(true);
-         RenderSystem.setShader(GameRenderer::getPositionColorShader);
          Tesselator tessellator = Tesselator.getInstance();
          BufferBuilder buffer = tessellator.begin(Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
          float radius = 0.6F;

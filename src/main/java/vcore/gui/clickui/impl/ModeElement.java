@@ -58,16 +58,15 @@ public class ModeElement extends AbstractElement {
       ModeElement.ModeChipLayout chipLayout = this.buildChipLayout();
       float tx = this.x + this.width - 11.0F;
       float ty = this.y + 7.5F;
-      PoseStack matrixStack = context.pose();
+      PoseStack matrixStack = Render2DEngine.toPoseStack(context.pose());
       float thetaRotation = -180.0F * this.animation;
-      matrixStack.pushPose();
-      matrixStack.translate(tx, ty, 0.0F);
-      matrixStack.mulPose(Axis.ZP.rotationDegrees(thetaRotation));
-      matrixStack.translate(-tx, -ty, 0.0F);
-      matrixStack.translate(this.x + this.width - 14.0F, this.y + 4.5F, 0.0F);
-      context.blit(TextureStorage.guiArrow, 0, 0, 0.0F, 0.0F, 6, 6, 6, 6);
-      matrixStack.translate(-(this.x + this.width - 14.0F), -this.y - 4.5F, 0.0F);
-      matrixStack.popPose();
+      context.pose().pushMatrix();
+      context.pose().translate(tx, ty);
+      context.pose().rotate((float) Math.toRadians(thetaRotation));
+      context.pose().translate(-tx, -ty);
+      context.pose().translate(this.x + this.width - 14.0F, this.y + 4.5F);
+      context.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TextureStorage.guiArrow, 0, 0, 0.0F, 0.0F, 6, 6, 6, 6);
+      context.pose().popMatrix();
       if (this.setting.group != null && !this.open) {
          this.drawGroupGuide(context, this.height);
       }
@@ -208,7 +207,7 @@ public class ModeElement extends AbstractElement {
    }
 
    private void drawChipOutline(GuiGraphics context, ModeElement.ModeChip chip, Color outlineColor) {
-      Render2DEngine.drawCheckbox(context.pose(), chip.x, chip.y, chip.width, chip.height, 2.0F, 0.4F, 0.0F, outlineColor);
+      Render2DEngine.drawCheckbox(Render2DEngine.toPoseStack(context.pose()), chip.x, chip.y, chip.width, chip.height, 2.0F, 0.4F, 0.0F, outlineColor);
    }
 
    private Color getChipOutlineColor() {

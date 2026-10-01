@@ -321,7 +321,7 @@ public class ModuleManager implements IManager {
          HudElement.anyHovered = false;
          this.modules.stream().filter(Module::isEnabled).forEach(module -> module.onRender2D(context));
          if (!HudElement.anyHovered && !ClickGUI.anyHovered && GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(mc.getWindow().getWindow(), GLFW.glfwCreateStandardCursor(221185));
+            GLFW.glfwSetCursor(mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221185));
          }
 
          Vcore.core.onRender2D(context);

@@ -1,6 +1,7 @@
 package vcore.injection;
 
 import net.minecraft.client.KeyboardHandler;
+import net.minecraft.client.input.KeyEvent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,10 +16,12 @@ import vcore.gui.clickui.ClickGUI;
 @Mixin(KeyboardHandler.class)
 public class MixinKeyboard {
    @Inject(method = "keyPress", at = @At("HEAD"), cancellable = true)
-   private void onKey(long windowPointer, int key, int scanCode, int action, int modifiers, CallbackInfo ci) {
+   private void onKey(long windowPointer, int action, KeyEvent event, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          boolean whitelist = Module.mc.screen == null || Module.mc.screen instanceof ClickGUI;
          if (whitelist) {
+            int key = event.key();
+            int scanCode = event.scancode();
             if (action == 0) {
                Managers.MODULE.onKeyReleased(key);
             }
@@ -40,9 +43,9 @@ public class MixinKeyboard {
                   }
                   break;
                case 1:
-                  EventKeyPress event = new EventKeyPress(key, scanCode);
-                  Vcore.EVENT_BUS.post(event);
-                  if (event.isCancelled()) {
+                  EventKeyPress eventk = new EventKeyPress(key, scanCode);
+                  Vcore.EVENT_BUS.post(eventk);
+                  if (eventk.isCancelled()) {
                      ci.cancel();
                   }
             }
