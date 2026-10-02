@@ -13,6 +13,11 @@ public class ChunkAnimation extends Module {
    }
 
    @Override
+   public void onEnable() {
+      ChunkAnimations.INSTANCE.clear();
+   }
+
+   @Override
    public void onDisable() {
       ChunkAnimations.INSTANCE.clear();
    }

@@ -15,7 +15,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -62,8 +61,6 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
    private Runnable postRender;
    @Unique
    private long openTime;
-   @Unique
-   private boolean inventoryAnimActive;
    @Shadow
    @Nullable
    protected Slot hoveredSlot;
@@ -90,27 +87,6 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
    }
 
    @Inject(method = "render", at = @At("HEAD"))
-   private void drawScreenBackgroundHook(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-      if (this.isInventoryScreen() && this.isSurvivalMode()) {
-         float progress = this.getOpenProgress();
-         if (progress < 1.0F) {
-            float anim = this.getBackOutScale(progress);
-            int centerX = context.guiWidth() / 2;
-            int centerY = context.guiHeight() / 2;
-            context.pose().pushMatrix();
-            context.pose().translate(centerX, centerY);
-            context.pose().scale(anim, anim);
-            context.pose().translate(-centerX, -centerY);
-            this.inventoryAnimActive = true;
-         } else {
-            this.inventoryAnimActive = false;
-         }
-      } else {
-         this.inventoryAnimActive = false;
-      }
-   }
-
-   @Inject(method = "render", at = @At("HEAD"))
    private void drawScreenHook(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
          for (int i1 = 0; i1 < Module.mc.player.containerMenu.slots.size(); i1++) {
@@ -125,14 +101,6 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
                this.delayTimer.reset();
             }
          }
-      }
-   }
-
-   @Inject(method = "render", at = @At("TAIL"))
-   private void drawScreenHookTail(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-      if (this.inventoryAnimActive) {
-         context.pose().popMatrix();
-         this.inventoryAnimActive = false;
       }
    }
 
@@ -274,11 +242,6 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
       if (shulkerAnimPushed) {
          context.pose().popMatrix();
       }
-   }
-
-   @Unique
-   private boolean isInventoryScreen() {
-      return (Object)this instanceof InventoryScreen;
    }
 
    @Unique

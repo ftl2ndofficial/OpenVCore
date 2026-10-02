@@ -23,6 +23,7 @@ public class ChunkAnimations {
    private final Minecraft mc = Minecraft.getInstance();
    private final WeakHashMap<RenderSection, BlockPos> chunkOrigins = new WeakHashMap<>();
    private final HashMap<Long, ChunkAnimations.AnimationData> timeStamps = new HashMap<>();
+   private final it.unimi.dsi.fastutil.longs.LongOpenHashSet settledSections = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 
    public Vec3 getOffset(RenderSection chunk) {
       return chunk == null ? Vec3.ZERO : this.getOffset(chunk.getRenderOrigin());
@@ -38,7 +39,12 @@ public class ChunkAnimations {
          long key = origin.asLong();
          ChunkAnimations.AnimationData animationData = this.timeStamps.get(key);
          if (animationData == null) {
-            return Vec3.ZERO;
+            if (!this.settledSections.contains(key)) {
+               animationData = new ChunkAnimations.AnimationData(System.currentTimeMillis(), null);
+               this.timeStamps.put(key, animationData);
+            } else {
+               return Vec3.ZERO;
+            }
          }
 
          int animationDuration = chunkAnimation.time.getValue();
@@ -46,21 +52,17 @@ public class ChunkAnimations {
          long time = animationData.timeStamp;
          if (time == -1L) {
             animationData.timeStamp = time = System.currentTimeMillis();
-            if (this.mode == 4) {
-               animationData.chunkFacing = this.mc.player != null
-                  ? this.getChunkFacing(this.getZeroedPlayerPos(this.mc.player).subtract(this.getZeroedCenteredChunkPos(origin)))
-                  : Direction.NORTH;
-            }
          }
 
          long timeDif = System.currentTimeMillis() - time;
          if (timeDif < animationDuration) {
-            double startOffset = 64.0;
+            double startOffset = 48.0;
             double progress = this.getFunctionValue((float)timeDif, 0.0F, (float)startOffset, (float)animationDuration);
             double dy = -startOffset + progress;
             return new Vec3(0.0, dy, 0.0);
          } else {
             this.timeStamps.remove(key);
+            this.settledSections.add(key);
          }
 
          return Vec3.ZERO;
@@ -135,6 +137,7 @@ public class ChunkAnimations {
    public void clear() {
       this.chunkOrigins.clear();
       this.timeStamps.clear();
+      this.settledSections.clear();
    }
 
    private static class AnimationData {

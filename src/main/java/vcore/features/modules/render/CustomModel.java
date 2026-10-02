@@ -156,7 +156,9 @@ public class CustomModel extends Module {
             matrices.pushPose();
             this.rabbitModel.root.translateAndRotate(matrices);
             this.rabbitModel.head.translateAndRotate(matrices);
-            matrices.translate(0.0F, -0.80F, 0.0F);
+            matrices.translate(0.0F, -0.68F, -0.16F);
+            matrices.mulPose(Axis.XP.rotationDegrees(-12.0F));
+            matrices.scale(0.8F, 0.8F, 0.8F);
             matrices.mulPose(Axis.ZN.rotationDegrees(180.0F));
             matrices.mulPose(Axis.YP.rotationDegrees(-180.0F));
             ModuleManager.hat.renderHat(matrices, collector);
@@ -168,7 +170,8 @@ public class CustomModel extends Module {
             matrices.translate(0.0F, 0.85F, 0.0F);
             this.freddyModel.root.translateAndRotate(matrices);
             this.freddyModel.head.translateAndRotate(matrices);
-            matrices.translate(0.0F, -0.80F, 0.0F);
+            matrices.translate(0.0F, -0.88F, 0.0F);
+            matrices.scale(0.85F, 0.85F, 0.85F);
             matrices.mulPose(Axis.ZN.rotationDegrees(180.0F));
             matrices.mulPose(Axis.YP.rotationDegrees(-180.0F));
             ModuleManager.hat.renderHat(matrices, collector);

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -103,40 +104,36 @@ public class TargetHud extends HudElement {
       PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
       Render2DEngine.drawHudBase2(matrices, this.getPosX(), this.getPosY(), 137.0F, 47.5F, 9.0F, 5.0F, HudEditor.getBlurOpacity(), animationFactor);
       this.setBounds(this.getPosX(), this.getPosY(), 137.0F, 47.5F);
-      Identifier skin = this.target instanceof AbstractClientPlayer player
-         ? player.getSkin().body().texturePath()
-         : DefaultPlayerSkin.getDefaultTexture();
-      RenderSystem.setShaderTexture(0, skin);
-
       matrices.pushPose();
       matrices.translate(this.getPosX() + 3.5F + 20.0F, this.getPosY() + 3.5F + 20.0F, 0.0F);
       matrices.scale(1.0F - hurtPercent / 15.0F, 1.0F - hurtPercent / 15.0F, 1.0F);
       matrices.translate(-(this.getPosX() + 3.5F + 20.0F), -(this.getPosY() + 3.5F + 20.0F), 0.0F);
-      RenderSystem.enableBlend();
-      RenderSystem.colorMask(false, false, false, true);
-      RenderSystem.clearColor(0.0F, 0.0F, 0.0F, 0.0F);
-      RenderSystem.clear(16384, false);
-      RenderSystem.colorMask(true, true, true, true);
-      Render2DEngine.renderRoundedQuadInternal(
-         matrices.last().pose(),
-         animationFactor,
-         animationFactor,
-         animationFactor,
-         animationFactor,
+
+      // Rounded avatar background box
+      Render2DEngine.drawRound(
+         matrices,
          this.getPosX() + 3.5F,
          this.getPosY() + 3.5F,
-         this.getPosX() + 3.5F + 40.0F,
-         this.getPosY() + 3.5F + 40.0F,
-         7.0,
-         10.0
+         40.0F,
+         40.0F,
+         7.0F,
+         new Color(25, 25, 25, (int)(220 * animationFactor))
       );
-      RenderSystem.blendFunc(772, 773);
-      float hurtTint = MathUtility.clamp(animationFactor - hurtPercent / 2.0F, 0.0F, 1.0F);
-      RenderSystem.setShaderColor(animationFactor, hurtTint, hurtTint, animationFactor);
-      Render2DEngine.renderTexture(matrices, this.getPosX() + 3.5F, this.getPosY() + 3.5F, 40.0, 40.0, 8.0F, 8.0F, 8.0, 8.0, 64.0, 64.0);
-      Render2DEngine.renderTexture(matrices, this.getPosX() + 3.5F, this.getPosY() + 3.5F, 40.0, 40.0, 40.0F, 8.0F, 8.0, 8.0, 64.0, 64.0);
-      RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      RenderSystem.defaultBlendFunc();
+
+      // Draw avatar using vanilla PlayerFaceRenderer
+      int faceX = (int)(this.getPosX() + 5.5F);
+      int faceY = (int)(this.getPosY() + 5.5F);
+      int faceSize = 36;
+      if (this.target instanceof AbstractClientPlayer player) {
+         PlayerFaceRenderer.draw(context, player.getSkin(), faceX, faceY, faceSize);
+      } else {
+         PlayerFaceRenderer.draw(context, DefaultPlayerSkin.getDefaultTexture(), faceX, faceY, faceSize, true, false, -1);
+      }
+
+      if (hurtPercent > 0.05F) {
+         int hurtAlpha = (int)(MathUtility.clamp(hurtPercent * 160.0F, 0.0F, 180.0F) * animationFactor);
+         Render2DEngine.drawRound(matrices, this.getPosX() + 5.5F, this.getPosY() + 5.5F, (float)faceSize, (float)faceSize, 6.0F, new Color(255, 50, 50, hurtAlpha));
+      }
       matrices.popPose();
       Render2DEngine.drawRect(matrices, this.getPosX() + 48.0F, this.getPosY() + 32.0F, 85.0F, 11.0F, 4.0F, 0.15F * animationFactor);
       Render2DEngine.drawRect(

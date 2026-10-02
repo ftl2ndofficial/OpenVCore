@@ -18,4 +18,13 @@ public class MixinChunkBuilderBuiltChunk {
       int z = SectionPos.sectionToBlockCoord(SectionPos.z(sectionNode));
       ChunkAnimations.INSTANCE.setPosition((RenderSection)(Object)this, new BlockPos(x, y, z));
    }
+
+   @Inject(method = "setSectionMesh", at = @At("TAIL"))
+   private void onSetSectionMesh(net.minecraft.client.renderer.chunk.SectionMesh mesh, CallbackInfo ci) {
+      RenderSection section = (RenderSection)(Object)this;
+      BlockPos origin = section.getRenderOrigin();
+      if (origin != null) {
+         ChunkAnimations.INSTANCE.setPosition(section, origin);
+      }
+   }
 }
