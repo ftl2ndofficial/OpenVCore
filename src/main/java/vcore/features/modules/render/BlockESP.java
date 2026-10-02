@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import net.minecraft.util.Util;
@@ -29,7 +30,7 @@ import vcore.utility.render.Render3DEngine;
 
 public class BlockESP extends Module {
    public final Setting<ItemSelectSetting> selectedBlocks = new Setting<>("SelectedBlocks", new ItemSelectSetting(new ArrayList<>()));
-   public static ArrayList<BlockESP.BlockVec> blocks = new ArrayList<>();
+   public static List<BlockESP.BlockVec> blocks = new CopyOnWriteArrayList<>();
    private final Setting<Integer> range = new Setting<>("Range", 100, 1, 128);
    private final Setting<BooleanSettingGroup> limit = new Setting<>("Limit", new BooleanSettingGroup(true));
    private final Setting<Integer> limitCount = new Setting<>("LimitCount", 50, 1, 2048).addToGroup(this.limit);

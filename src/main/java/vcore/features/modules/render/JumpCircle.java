@@ -38,7 +38,7 @@ public class JumpCircle extends Module {
    private final Setting<Boolean> onlySelf = new Setting<>("OnlySelf", true);
    private static final float GLOW_BOOST_ALPHA = 0.65F;
    private final List<UUID> cache = new CopyOnWriteArrayList<>();
-   private final List<JumpCircle.Circle> circles = new ArrayList<>();
+   private final List<JumpCircle.Circle> circles = new CopyOnWriteArrayList<>();
    private Identifier custom;
    private int lastWorldId = -1;
 
@@ -110,7 +110,8 @@ public class JumpCircle extends Module {
       }
 
       Vec3 camPos = Render3DEngine.getCameraPos();
-      Collections.reverse(this.circles);
+      List<JumpCircle.Circle> renderCircles = new ArrayList<>(this.circles);
+      Collections.reverse(renderCircles);
       try {
          RenderSystem.disableDepthTest();
          RenderSystem.enableBlend();
@@ -128,7 +129,7 @@ public class JumpCircle extends Module {
 
          BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
-         for (JumpCircle.Circle c : this.circles) {
+         for (JumpCircle.Circle c : renderCircles) {
             float colorAnim = (float)c.timer.getPassedTimeMs() / 6000.0F;
             float sizeAnim = this.circleScale.getValue()
                - (float)Math.pow(1.0F - (float)c.timer.getPassedTimeMs() * (this.easeOut.getValue() ? 2.0F : 1.0F) / 5000.0F, 4.0);

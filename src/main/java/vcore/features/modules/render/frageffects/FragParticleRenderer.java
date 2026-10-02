@@ -10,6 +10,7 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CopyOnWriteArrayList;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import vcore.features.modules.Module;
@@ -18,7 +19,7 @@ import vcore.utility.render.Render3DEngine;
 import vcore.utility.render.RenderSystem;
 
 public final class FragParticleRenderer {
-   private final List<FragParticleRenderer.FragParticle> particles = new ArrayList<>();
+   private final List<FragParticleRenderer.FragParticle> particles = new CopyOnWriteArrayList<>();
    private final Random random = new Random();
 
    private FragParticleRenderer() {

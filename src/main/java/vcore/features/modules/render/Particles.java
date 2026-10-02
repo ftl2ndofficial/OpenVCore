@@ -13,6 +13,7 @@ import com.mojang.math.Axis;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.GameRenderer;
@@ -84,9 +85,9 @@ public class Particles extends Module {
          "Color", new ColorSetting(new Color(255, 255, 255, 255).getRGB()), v -> !this.worldSyncColor.getValue()
       )
       .addToGroup(this.worldSetting);
-   private final List<Particles.Particle> hitParticles = new ArrayList<>();
-   private final List<Particles.Particle> pearlParticles = new ArrayList<>();
-   private final List<Particles.Particle> worldParticles = new ArrayList<>();
+   private final List<Particles.Particle> hitParticles = new CopyOnWriteArrayList<>();
+   private final List<Particles.Particle> pearlParticles = new CopyOnWriteArrayList<>();
+   private final List<Particles.Particle> worldParticles = new CopyOnWriteArrayList<>();
    private long lastRenderTime = System.nanoTime();
 
    public Particles() {
@@ -131,21 +132,23 @@ public class Particles extends Module {
                }
             }
 
+            List<Particles.Particle> newParticles = new ArrayList<>(35);
+            int baseSize = this.hitParticles.size();
             for (int i = 0; i < 35; i++) {
                Vec3 position = new Vec3(target.getX(), target.getY() + MathUtility.random(0.0, target.getBbHeight()), target.getZ())
                   .add(0.0, getParticleRadius(this.hitScale.getValue()), 0.0);
-               this.hitParticles
-                  .add(
-                     new Particles.Particle(
-                        this.hitMode.getValue().texture,
-                        position,
-                        new Vec3(MathUtility.random(-6.0, 6.0), MathUtility.random(-6.0, 6.0), MathUtility.random(-6.0, 6.0)),
-                        true,
-                        this.hitParticles.size(),
-                        getParticleRadius(this.hitScale.getValue())
-                     )
-                  );
+               newParticles.add(
+                  new Particles.Particle(
+                     this.hitMode.getValue().texture,
+                     position,
+                     new Vec3(MathUtility.random(-6.0, 6.0), MathUtility.random(-6.0, 6.0), MathUtility.random(-6.0, 6.0)),
+                     true,
+                     baseSize + i,
+                     getParticleRadius(this.hitScale.getValue())
+                  )
+               );
             }
+            this.hitParticles.addAll(newParticles);
          }
       }
    }
@@ -181,26 +184,30 @@ public class Particles extends Module {
       if (!this.pearl.getValue()) {
          this.pearlParticles.clear();
       } else if (this.pearlParticles.size() < 650) {
+         List<Particles.Particle> newPearl = new ArrayList<>();
+         int baseSize = this.pearlParticles.size();
          for (Entity entity : mc.level.entitiesForRendering()) {
             if (entity instanceof ThrownEnderpearl && !entity.onGround() && !(entity.getDeltaMovement().lengthSqr() <= 1.0E-4)) {
                Vec3 position = entity.position();
                float particleSize = getParticleRadius(this.pearlScale.getValue());
 
-               for (int i = 0; i < 4 && this.pearlParticles.size() < 650; i++) {
-                  this.pearlParticles
-                     .add(
-                        new Particles.Particle(
-                           this.pearlMode.getValue().texture,
-                           position.add(MathUtility.random(-0.2, 0.2), MathUtility.random(-0.2, 0.2), MathUtility.random(-0.2, 0.2))
-                              .add(0.0, particleSize, 0.0),
-                           new Vec3(MathUtility.random(-1.0, 1.0), MathUtility.random(-0.3, 0.3), MathUtility.random(-1.0, 1.0)),
-                           true,
-                           this.pearlParticles.size(),
-                           particleSize
-                        )
-                     );
+               for (int i = 0; i < 4 && (baseSize + newPearl.size()) < 650; i++) {
+                  newPearl.add(
+                     new Particles.Particle(
+                        this.pearlMode.getValue().texture,
+                        position.add(MathUtility.random(-0.2, 0.2), MathUtility.random(-0.2, 0.2), MathUtility.random(-0.2, 0.2))
+                           .add(0.0, particleSize, 0.0),
+                        new Vec3(MathUtility.random(-1.0, 1.0), MathUtility.random(-0.3, 0.3), MathUtility.random(-1.0, 1.0)),
+                        true,
+                        baseSize + newPearl.size(),
+                        particleSize
+                     )
+                  );
                }
             }
+         }
+         if (!newPearl.isEmpty()) {
+            this.pearlParticles.addAll(newPearl);
          }
       }
    }
@@ -211,8 +218,10 @@ public class Particles extends Module {
       } else if (this.worldParticles.size() < 450) {
          int radius = 12;
          float particleSize = getParticleRadius(this.worldScale.getValue());
+         List<Particles.Particle> newWorld = new ArrayList<>();
+         int baseSize = this.worldParticles.size();
 
-         for (int i = 0; i < 7 && this.worldParticles.size() < 450; i++) {
+         for (int i = 0; i < 7 && (baseSize + newWorld.size()) < 450; i++) {
             Vec3 base = mc.player.position().add(MathUtility.random(-radius, radius), 0.0, MathUtility.random(-radius, radius));
             BlockPos topPos = mc.level.getHeightmapPos(Types.MOTION_BLOCKING, BlockPos.containing(base));
             Vec3 spawnPos = new Vec3(
@@ -225,21 +234,23 @@ public class Particles extends Module {
                spawnPos = spawnPos.add(0.0, 1.0, 0.0);
             }
 
-            this.worldParticles
-               .add(
-                  new Particles.Particle(
-                     this.worldMode.getValue().texture,
-                     spawnPos.add(0.0, particleSize, 0.0),
-                     new Vec3(
-                        mc.player.getDeltaMovement().x + MathUtility.random(-2.0, 2.0),
-                        MathUtility.random(-0.2, 0.2),
-                        mc.player.getDeltaMovement().z + MathUtility.random(-2.0, 2.0)
-                     ),
-                     true,
-                     this.worldParticles.size(),
-                     particleSize
-                  )
-               );
+            newWorld.add(
+               new Particles.Particle(
+                  this.worldMode.getValue().texture,
+                  spawnPos.add(0.0, particleSize, 0.0),
+                  new Vec3(
+                     mc.player.getDeltaMovement().x + MathUtility.random(-2.0, 2.0),
+                     MathUtility.random(-0.2, 0.2),
+                     mc.player.getDeltaMovement().z + MathUtility.random(-2.0, 2.0)
+                  ),
+                  true,
+                  baseSize + newWorld.size(),
+                  particleSize
+               )
+            );
+         }
+         if (!newWorld.isEmpty()) {
+            this.worldParticles.addAll(newWorld);
          }
       }
    }

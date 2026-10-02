@@ -14,6 +14,7 @@ import com.mojang.math.Axis;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import net.minecraft.client.Camera;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -31,7 +32,7 @@ public class Svetych extends Module {
    private final Setting<Float> maxAlpha = new Setting<>("Max Alpha", 1.0F, 0.1F, 1.0F);
    private static final float CUBE_SIZE = 0.26F;
    private static final long SPAWN_DELAY_MS = 200L;
-   private final List<Svetych.Particle> particles = new ArrayList<>();
+   private final List<Svetych.Particle> particles = new CopyOnWriteArrayList<>();
    private final Timer spawnTimer = new Timer();
 
    public Svetych() {
