@@ -12,6 +12,7 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
@@ -41,6 +42,8 @@ public class Prediction extends Module {
    private final Setting<Boolean> renderCrossbow = new Setting<>("Crossbow", true);
    private final Setting<Boolean> renderPearls = new Setting<>("Pearl", true);
    private final Setting<Boolean> renderItems = new Setting<>("Item", false);
+   private final Setting<Boolean> renderLine = new Setting<>("Line", true);
+   private final Setting<Boolean> renderLanding = new Setting<>("Landing", true);
    private final Setting<Boolean> showTags = new Setting<>("Tag", true);
 
    private List<Prediction.PredictionResult> cachedResults = Collections.emptyList();
@@ -67,12 +70,17 @@ public class Prediction extends Module {
 
    @Override
    public void onRender2D(GuiGraphics context) {
-      if (fullNullCheck() || mc.screen instanceof ClickGUI) {
+      if (fullNullCheck() || mc.screen instanceof ClickGUI || mc.options.hideGui) {
          return;
       }
-      if (this.showTags.getValue() && !mc.options.hideGui) {
+      if (this.showTags.getValue()) {
          for (Prediction.PredictionResult result : this.getPredictions()) {
-            this.drawTag(context, result);
+            // ONLY show the floating HUD tag when the projectile has actually been shot / thrown in-flight!
+            // When holding the weapon / pearl in hand (preview mode), no tag is shown to prevent HUD clutter.
+            // Once the projectile impacts/lands, the entity is destroyed and this HUD tag automatically disappears.
+            if (result.isThrown()) {
+               this.drawTag(context, result);
+            }
          }
       }
    }
@@ -133,9 +141,9 @@ public class Prediction extends Module {
       // Ender Pearl
       if (this.renderPearls.getValue()) {
          if (mainHand.is(Items.ENDER_PEARL)) {
-            return this.simulatePlayerPearl(mainHand);
+            return this.simulatePlayerPearl();
          } else if (offHand.is(Items.ENDER_PEARL)) {
-            return this.simulatePlayerPearl(offHand);
+            return this.simulatePlayerPearl();
          }
       }
 
@@ -163,7 +171,7 @@ public class Prediction extends Module {
       return this.simulatePlayerLaunch(new ItemStack(Items.CROSSBOW), speed, 0.05, 0.99, 0.60);
    }
 
-   private Prediction.PredictionResult simulatePlayerPearl(ItemStack stack) {
+   private Prediction.PredictionResult simulatePlayerPearl() {
       double speed = 1.5F;
       return this.simulatePlayerLaunch(new ItemStack(Items.ENDER_PEARL), speed, 0.03, 0.99, 0.80);
    }
@@ -196,12 +204,16 @@ public class Prediction extends Module {
       motion = motion.add(playerMotion.x, mc.player.onGround() ? 0.0 : playerMotion.y, playerMotion.z);
 
       Vec3 startPos = eyePos.subtract(0.0, 0.1, 0.0);
-      return this.simulateTrajectory(startPos, motion, gravity, drag, waterDrag, icon, mc.player);
+      Prediction.LandingData landingData = this.simulateLanding(startPos, motion, gravity, drag, waterDrag, mc.player);
+      if (landingData == null) {
+         return null;
+      }
+      return new Prediction.PredictionResult(startPos, landingData.landingPos(), false, true, landingData.timeSeconds(), icon);
    }
 
    private List<Prediction.PredictionResult> computeWorldEntityPredictions() {
       List<Prediction.PredictionResult> results = new ArrayList<>();
-      if (mc.level == null) {
+      if (mc.level == null || mc.player == null) {
          return results;
       }
 
@@ -211,21 +223,23 @@ public class Prediction extends Module {
 
       for (Entity entity : mc.level.entitiesForRendering()) {
          if (entity instanceof ThrownEnderpearl pearl && pearls && !pearl.onGround()) {
-            Prediction.PredictionResult result = this.simulateEntity(pearl, new ItemStack(Items.ENDER_PEARL), 0.03, 0.99, 0.80);
+            boolean fromPlayer = pearl.getOwner() == mc.player || (pearl.getOwner() == null && this.isNearestPlayer(pearl));
+            Prediction.PredictionResult result = this.simulateEntity(pearl, new ItemStack(Items.ENDER_PEARL), 0.03, 0.99, 0.80, fromPlayer);
             if (result != null) {
                results.add(result);
             }
          } else if (entity instanceof AbstractArrow arrow && arrows && !arrow.onGround() && arrow.getDeltaMovement().lengthSqr() > 1.0E-4) {
+            boolean fromPlayer = arrow.getOwner() == mc.player;
             ItemStack weaponItem = arrow.getWeaponItem();
             ItemStack icon = (weaponItem != null && !weaponItem.isEmpty()) ? weaponItem : new ItemStack(Items.ARROW);
-            Prediction.PredictionResult result = this.simulateEntity(arrow, icon, 0.05, 0.99, 0.60);
+            Prediction.PredictionResult result = this.simulateEntity(arrow, icon, 0.05, 0.99, 0.60, fromPlayer);
             if (result != null) {
                results.add(result);
             }
          } else if (entity instanceof ItemEntity item && items && this.shouldSimulateItem(item)) {
             ItemStack itemStack = item.getItem();
             ItemStack icon = (itemStack != null && !itemStack.isEmpty()) ? itemStack.copy() : ItemStack.EMPTY;
-            Prediction.PredictionResult result = this.simulateEntity(item, icon, 0.04, 0.98, 0.80);
+            Prediction.PredictionResult result = this.simulateEntity(item, icon, 0.04, 0.98, 0.80, false);
             if (result != null) {
                results.add(result);
             }
@@ -235,23 +249,40 @@ public class Prediction extends Module {
       return results;
    }
 
+   private boolean isNearestPlayer(Entity entity) {
+      if (mc.player == null || mc.level == null) {
+         return false;
+      }
+      double myDist = mc.player.distanceToSqr(entity);
+      for (Player player : mc.level.players()) {
+         if (player != mc.player && player.distanceToSqr(entity) < myDist) {
+            return false;
+         }
+      }
+      return true;
+   }
+
    private boolean shouldSimulateItem(ItemEntity item) {
       return !item.onGround() && item.getDeltaMovement().lengthSqr() > 1.0E-4;
    }
 
    private Prediction.PredictionResult simulateEntity(
-      Entity entity, ItemStack icon, double gravity, double drag, double waterDrag
+      Entity entity, ItemStack icon, double gravity, double drag, double waterDrag, boolean fromPlayer
    ) {
       if (mc.level == null) {
          return null;
       }
       Vec3 position = entity.position();
       Vec3 motion = entity.getDeltaMovement();
-      return this.simulateTrajectory(position, motion, gravity, drag, waterDrag, icon, entity);
+      Prediction.LandingData landingData = this.simulateLanding(position, motion, gravity, drag, waterDrag, entity);
+      if (landingData == null) {
+         return null;
+      }
+      return new Prediction.PredictionResult(position, landingData.landingPos(), true, fromPlayer, landingData.timeSeconds(), icon);
    }
 
-   private Prediction.PredictionResult simulateTrajectory(
-      Vec3 startPos, Vec3 initialMotion, double gravity, double drag, double waterDrag, ItemStack icon, Entity ignoreEntity
+   private Prediction.LandingData simulateLanding(
+      Vec3 startPos, Vec3 initialMotion, double gravity, double drag, double waterDrag, Entity ignoreEntity
    ) {
       if (mc.level == null) {
          return null;
@@ -259,13 +290,9 @@ public class Prediction extends Module {
 
       Vec3 position = startPos;
       Vec3 motion = initialMotion;
-      List<Vec3> points = new ArrayList<>();
-      Vec3 landing = position;
-      Vec3 display = position;
       double time = 0.0;
 
       for (int i = 0; i < 600; i++) {
-         points.add(position);
          Vec3 next = position.add(motion);
 
          HitResult hit = this.findCollision(position, next, ignoreEntity);
@@ -286,26 +313,17 @@ public class Prediction extends Module {
          time += 0.05;
 
          if (hit != null && hit.getType() != Type.MISS) {
-            Vec3 hitPos = hit.getLocation();
-            points.add(hitPos);
-            landing = hitPos;
-            display = hitPos;
-            break;
+            return new Prediction.LandingData(hit.getLocation(), time);
          }
 
          if (next.y <= mc.level.getMinY()) {
-            points.add(next);
-            landing = next;
-            display = next;
-            break;
+            return new Prediction.LandingData(next, time);
          }
 
          position = next;
-         landing = next;
-         display = next;
       }
 
-      return points.size() < 2 ? null : new Prediction.PredictionResult(Collections.unmodifiableList(points), landing, display, time, icon);
+      return new Prediction.LandingData(position, time);
    }
 
    private HitResult findCollision(Vec3 start, Vec3 end, Entity ignoreEntity) {
@@ -338,15 +356,33 @@ public class Prediction extends Module {
    }
 
    private void renderPath(PoseStack stack, Prediction.PredictionResult result) {
-      List<Vec3> path = result.path();
-      // Render full 3D trajectory curve
-      for (int i = 0; i < path.size() - 1; i++) {
-         Vec3 start = path.get(i);
-         Vec3 end = path.get(i + 1);
-         this.drawSegment(start, end, i);
+      if (mc.player == null) {
+         return;
       }
-      // Render landing spot indicator
-      this.renderLandingSpot(stack, result);
+
+      // 1. Draw single 3D trajectory line
+      if (this.renderLine.getValue()) {
+         Color lineColor = Render2DEngine.injectAlpha(HudEditor.getColor(0), 220);
+
+         if (result.isThrown()) {
+            // Projectile is in-flight: draw 1 direct line from the projectile in the air down to its landing spot!
+            if (result.startPos() != null) {
+               Render3DEngine.drawLine(result.startPos(), result.landingPos(), lineColor);
+            }
+         } else {
+            // Aiming preview: draw 1 line from player's POV to predicted landing spot
+            Vec3 pov = mc.player.getEyePosition(Render3DEngine.getTickDelta());
+            Vec3 toLanding = result.landingPos().subtract(pov);
+            double dist = toLanding.length();
+            Vec3 playerStart = dist > 0.5 ? pov.add(toLanding.scale(0.3 / dist)) : pov;
+            Render3DEngine.drawLine(playerStart, result.landingPos(), lineColor);
+         }
+      }
+
+      // 2. Render colored landing spot indicator on floor (clean box only, no crosshair rays)
+      if (this.renderLanding.getValue()) {
+         this.renderLandingSpot(stack, result);
+      }
    }
 
    private void renderLandingSpot(PoseStack stack, Prediction.PredictionResult result) {
@@ -361,25 +397,28 @@ public class Prediction extends Module {
          landing.x + size, landing.y + 0.15, landing.z + size
       );
 
-      // 1. Draw 3D filled bounding box & outline at impact point
+      // Draw 3D filled bounding box & outline at impact point
       Render3DEngine.drawFilledBox(stack, landingBox, fillColor);
       Render3DEngine.drawBoxOutline(landingBox, outlineColor, 1.5F);
-
-      // 2. Draw 3D Crosshair / Target lines on impact point
-      double arm = 0.35;
-      Render3DEngine.drawLine(new Vec3(landing.x - arm, landing.y, landing.z), new Vec3(landing.x + arm, landing.y, landing.z), outlineColor);
-      Render3DEngine.drawLine(new Vec3(landing.x, landing.y, landing.z - arm), new Vec3(landing.x, landing.y, landing.z + arm), outlineColor);
-      Render3DEngine.drawLine(new Vec3(landing.x, landing.y - 0.1, landing.z), new Vec3(landing.x, landing.y + 0.3, landing.z), outlineColor);
    }
 
    private void drawTag(GuiGraphics context, Prediction.PredictionResult result) {
-      Vec3 screen = Render3DEngine.worldSpaceToScreenSpace(result.displayPos());
+      // First try landing spot on the ground (floating 0.4 blocks above landing box)
+      Vec3 targetPos = result.landingPos().add(0.0, 0.4, 0.0);
+      Vec3 screen = Render3DEngine.worldSpaceToScreenSpace(targetPos);
+
+      // If landing spot is off-screen (e.g. player looking up into the sky), display above flying projectile!
+      if (!this.isOnScreen(screen) && result.startPos() != null) {
+         targetPos = result.startPos().add(0.0, 0.5, 0.0);
+         screen = Render3DEngine.worldSpaceToScreenSpace(targetPos);
+      }
+
       if (this.isOnScreen(screen)) {
          Prediction.TagLayout layout = this.createTagLayout(result, screen);
          PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
          matrices.pushPose();
          this.applyTagScale(matrices, layout);
-         Render2DEngine.drawRound(matrices, layout.x(), layout.y(), layout.width(), layout.height(), 3.0F, new Color(0, 0, 0, 150));
+         Render2DEngine.drawRound(matrices, layout.x(), layout.y(), layout.width(), layout.height(), 3.0F, new Color(0, 0, 0, 160));
          if (!result.icon().isEmpty()) {
             context.pose().pushMatrix();
             float centerX = layout.x() + layout.width() / 2.0F;
@@ -410,11 +449,6 @@ public class Prediction extends Module {
       matrices.translate(-centerX, -centerY, 0.0F);
    }
 
-   private void drawSegment(Vec3 start, Vec3 end, int index) {
-      Color color = Render2DEngine.injectAlpha(HudEditor.getColor(index * 2), 200);
-      Render3DEngine.drawLine(start, end, color);
-   }
-
    private boolean isOnScreen(Vec3 screenPos) {
       return Double.isFinite(screenPos.x) && Double.isFinite(screenPos.y) && screenPos.z > 0.0 && screenPos.z < 1.0;
    }
@@ -442,7 +476,17 @@ public class Prediction extends Module {
       return new Prediction.TagLayout(text, x, y, width, height, iconX, iconY, iconScale, iconSize, textX, textY);
    }
 
-   private record PredictionResult(List<Vec3> path, Vec3 landingPos, Vec3 displayPos, double timeSeconds, ItemStack icon) {
+   private record PredictionResult(
+      Vec3 startPos,
+      Vec3 landingPos,
+      boolean isThrown,
+      boolean fromPlayer,
+      double timeSeconds,
+      ItemStack icon
+   ) {
+   }
+
+   private record LandingData(Vec3 landingPos, double timeSeconds) {
    }
 
    private record TagLayout(

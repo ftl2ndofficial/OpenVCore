@@ -101,7 +101,7 @@ public class Render3DEngine {
          GRADIENT_OUTLINE_QUEUE.forEach(action -> lineWidths.add(action.lineWidth()));
 
          for (float lineWidth : lineWidths) {
-            BufferBuilder buffer = tessellator.begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+            BufferBuilder buffer = tessellator.begin(Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
             RenderSystem.lineWidth(lineWidth);
             OUTLINE_QUEUE.forEach(action -> {
                if (Float.compare(action.lineWidth(), lineWidth) == 0) {
@@ -174,7 +174,7 @@ public class Render3DEngine {
          RenderSystem.disableCull();
          RenderSystem.lineWidth(2.5F);
          RenderSystem.disableDepthTest();
-         BufferBuilder buffer = tessellator.begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+         BufferBuilder buffer = tessellator.begin(Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
          LINE_QUEUE.forEach(
             action -> {
                PoseStack matrices = matrixFrom(action.start.x(), action.start.y(), action.start.z());
