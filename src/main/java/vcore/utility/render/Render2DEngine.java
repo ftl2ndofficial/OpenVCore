@@ -19,6 +19,7 @@ import java.util.Stack;
 import javax.imageio.ImageIO;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -431,6 +432,162 @@ public class Render2DEngine {
 
    public static void drawRound(PoseStack matrices, float x, float y, float width, float height, float radius, Color color) {
       renderRoundedQuad(matrices, color, x, y, width + x, height + y, radius, 4.0);
+   }
+
+   public static void renderRoundedTexture(
+      PoseStack matrices,
+      Identifier texture,
+      float x,
+      float y,
+      float width,
+      float height,
+      float radius,
+      float u0,
+      float v0,
+      float u1,
+      float v1,
+      float alpha
+   ) {
+      if (texture == null) return;
+      RenderSystem.setShaderTexture(0, texture);
+      setupRender();
+      Matrix4f matrix = matrices.last().pose();
+      BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_TEX_COLOR);
+
+      float finalAlpha = applyGlobalAlpha(alpha);
+      int a = (int)(MathUtility.clamp(finalAlpha, 0.0F, 1.0F) * 255.0F);
+      float centerX = x + width * 0.5F;
+      float centerY = y + height * 0.5F;
+      float centerU = (u0 + u1) * 0.5F;
+      float centerV = (v0 + v1) * 0.5F;
+
+      bufferBuilder.addVertex(matrix, centerX, centerY, 0.0F).setUv(centerU, centerV).setColor(255, 255, 255, a);
+
+      float maxRad = Math.min(width * 0.5F, height * 0.5F);
+      float rad = Math.min(radius, Math.max(0.0F, maxRad));
+
+      float toX = x + width;
+      float toY = y + height;
+      float fromX = x;
+      float fromY = y;
+
+      float[][] map = new float[][]{
+         {toX - rad, toY - rad},
+         {toX - rad, fromY + rad},
+         {fromX + rad, fromY + rad},
+         {fromX + rad, toY - rad}
+      };
+
+      float firstX = 0.0F;
+      float firstY = 0.0F;
+      float firstU = 0.0F;
+      float firstV = 0.0F;
+      boolean firstRecorded = false;
+      double step = Math.max(1.0, 90.0 / 8.0);
+
+      for (int i = 0; i < 4; i++) {
+         float[] current = map[i];
+
+         for (double r = i * 90.0; r < 90.0 + i * 90.0 - 0.001; r += step) {
+            float rad1 = (float)Math.toRadians(r);
+            float sin = (float)(Math.sin(rad1) * rad);
+            float cos = (float)(Math.cos(rad1) * rad);
+            float vx = current[0] + sin;
+            float vy = current[1] + cos;
+            float u = u0 + ((vx - fromX) / width) * (u1 - u0);
+            float v = v0 + ((vy - fromY) / height) * (v1 - v0);
+
+            if (!firstRecorded) {
+               firstX = vx;
+               firstY = vy;
+               firstU = u;
+               firstV = v;
+               firstRecorded = true;
+            }
+
+            bufferBuilder.addVertex(matrix, vx, vy, 0.0F).setUv(u, v).setColor(255, 255, 255, a);
+         }
+
+         float endRad = (float)Math.toRadians(90.0 + i * 90.0);
+         float endVx = current[0] + (float)(Math.sin(endRad) * rad);
+         float endVy = current[1] + (float)(Math.cos(endRad) * rad);
+         float endU = u0 + ((endVx - fromX) / width) * (u1 - u0);
+         float endV = v0 + ((endVy - fromY) / height) * (v1 - v0);
+         bufferBuilder.addVertex(matrix, endVx, endVy, 0.0F).setUv(endU, endV).setColor(255, 255, 255, a);
+      }
+
+      if (firstRecorded) {
+         bufferBuilder.addVertex(matrix, firstX, firstY, 0.0F).setUv(firstU, firstV).setColor(255, 255, 255, a);
+      }
+
+      BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
+      endRender();
+   }
+
+   public static void drawRoundOutline(
+      PoseStack matrices, float x, float y, float width, float height, float radius, Color color
+   ) {
+      if (color.getAlpha() <= 0) return;
+      setupRender();
+      Color c = applyGlobalAlphaToColor(color);
+      Matrix4f matrix = matrices.last().pose();
+      BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+
+      float maxRad = Math.min(width * 0.5F, height * 0.5F);
+      float rad = Math.min(radius, Math.max(0.0F, maxRad));
+
+      float toX = x + width;
+      float toY = y + height;
+      float fromX = x;
+      float fromY = y;
+
+      float[][] map = new float[][]{
+         {toX - rad, toY - rad},
+         {toX - rad, fromY + rad},
+         {fromX + rad, fromY + rad},
+         {fromX + rad, toY - rad}
+      };
+
+      float firstX = 0.0F;
+      float firstY = 0.0F;
+      boolean firstRecorded = false;
+      double step = Math.max(1.0, 90.0 / 8.0);
+      int cr = c.getRed();
+      int cg = c.getGreen();
+      int cb = c.getBlue();
+      int ca = c.getAlpha();
+
+      for (int i = 0; i < 4; i++) {
+         float[] current = map[i];
+
+         for (double r = i * 90.0; r < 90.0 + i * 90.0 - 0.001; r += step) {
+            float rad1 = (float)Math.toRadians(r);
+            float sin = (float)(Math.sin(rad1) * rad);
+            float cos = (float)(Math.cos(rad1) * rad);
+            float vx = current[0] + sin;
+            float vy = current[1] + cos;
+
+            if (!firstRecorded) {
+               firstX = vx;
+               firstY = vy;
+               firstRecorded = true;
+            }
+
+            bufferBuilder.addVertex(matrix, vx, vy, 0.0F).setColor(cr, cg, cb, ca);
+         }
+
+         float endRad = (float)Math.toRadians(90.0 + i * 90.0);
+         float endVx = current[0] + (float)(Math.sin(endRad) * rad);
+         float endVy = current[1] + (float)(Math.cos(endRad) * rad);
+         bufferBuilder.addVertex(matrix, endVx, endVy, 0.0F).setColor(cr, cg, cb, ca);
+      }
+
+      if (firstRecorded) {
+         bufferBuilder.addVertex(matrix, firstX, firstY, 0.0F).setColor(cr, cg, cb, ca);
+      }
+
+      BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
+      endRender();
    }
 
    public static void drawClickGuiRound(PoseStack matrices, float x, float y, float width, float height, float radius, Color color) {

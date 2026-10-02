@@ -104,36 +104,103 @@ public class TargetHud extends HudElement {
       PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
       Render2DEngine.drawHudBase2(matrices, this.getPosX(), this.getPosY(), 137.0F, 47.5F, 9.0F, 5.0F, HudEditor.getBlurOpacity(), animationFactor);
       this.setBounds(this.getPosX(), this.getPosY(), 137.0F, 47.5F);
+      float avatarSize = 39.0F;
+      float avatarX = this.getPosX() + 4.25F;
+      float avatarY = this.getPosY() + (47.5F - avatarSize) / 2.0F;
+      float avatarRadius = 6.5F;
+
       matrices.pushPose();
-      matrices.translate(this.getPosX() + 3.5F + 20.0F, this.getPosY() + 3.5F + 20.0F, 0.0F);
+      matrices.translate(avatarX + avatarSize / 2.0F, avatarY + avatarSize / 2.0F, 0.0F);
       matrices.scale(1.0F - hurtPercent / 15.0F, 1.0F - hurtPercent / 15.0F, 1.0F);
-      matrices.translate(-(this.getPosX() + 3.5F + 20.0F), -(this.getPosY() + 3.5F + 20.0F), 0.0F);
+      matrices.translate(-(avatarX + avatarSize / 2.0F), -(avatarY + avatarSize / 2.0F), 0.0F);
 
       // Rounded avatar background box
       Render2DEngine.drawRound(
          matrices,
-         this.getPosX() + 3.5F,
-         this.getPosY() + 3.5F,
-         40.0F,
-         40.0F,
-         7.0F,
-         new Color(25, 25, 25, (int)(220 * animationFactor))
+         avatarX,
+         avatarY,
+         avatarSize,
+         avatarSize,
+         avatarRadius,
+         new Color(20, 20, 20, (int)(220 * animationFactor))
       );
 
-      // Draw avatar using vanilla PlayerFaceRenderer
-      int faceX = (int)(this.getPosX() + 5.5F);
-      int faceY = (int)(this.getPosY() + 5.5F);
-      int faceSize = 36;
+      // Determine skin texture
+      Identifier skin;
+      boolean isPlayerSkin = true;
       if (this.target instanceof AbstractClientPlayer player) {
-         PlayerFaceRenderer.draw(context, player.getSkin(), faceX, faceY, faceSize);
+         skin = player.getSkin().body().texturePath();
+      } else if (this.target instanceof Player player) {
+         skin = DefaultPlayerSkin.get(player.getUUID()).body().texturePath();
       } else {
-         PlayerFaceRenderer.draw(context, DefaultPlayerSkin.getDefaultTexture(), faceX, faceY, faceSize, true, false, -1);
+         skin = DefaultPlayerSkin.getDefaultTexture();
       }
 
+      if (isPlayerSkin) {
+         // Head base layer
+         Render2DEngine.renderRoundedTexture(
+            matrices,
+            skin,
+            avatarX,
+            avatarY,
+            avatarSize,
+            avatarSize,
+            avatarRadius,
+            8.0F / 64.0F,
+            8.0F / 64.0F,
+            16.0F / 64.0F,
+            16.0F / 64.0F,
+            animationFactor
+         );
+         // Hat/outer layer
+         Render2DEngine.renderRoundedTexture(
+            matrices,
+            skin,
+            avatarX,
+            avatarY,
+            avatarSize,
+            avatarSize,
+            avatarRadius,
+            40.0F / 64.0F,
+            8.0F / 64.0F,
+            48.0F / 64.0F,
+            16.0F / 64.0F,
+            animationFactor
+         );
+      } else {
+         Render2DEngine.renderRoundedTexture(
+            matrices,
+            skin,
+            avatarX,
+            avatarY,
+            avatarSize,
+            avatarSize,
+            avatarRadius,
+            0.0F,
+            0.0F,
+            1.0F,
+            1.0F,
+            animationFactor
+         );
+      }
+
+      // Hurt overlay
       if (hurtPercent > 0.05F) {
          int hurtAlpha = (int)(MathUtility.clamp(hurtPercent * 160.0F, 0.0F, 180.0F) * animationFactor);
-         Render2DEngine.drawRound(matrices, this.getPosX() + 5.5F, this.getPosY() + 5.5F, (float)faceSize, (float)faceSize, 6.0F, new Color(255, 50, 50, hurtAlpha));
+         Render2DEngine.drawRound(matrices, avatarX, avatarY, avatarSize, avatarSize, avatarRadius, new Color(255, 50, 50, hurtAlpha));
       }
+
+      // Rounded border outline around avatar
+      Render2DEngine.drawRoundOutline(
+         matrices,
+         avatarX,
+         avatarY,
+         avatarSize,
+         avatarSize,
+         avatarRadius,
+         new Color(255, 255, 255, (int)(45 * animationFactor))
+      );
+
       matrices.popPose();
       Render2DEngine.drawRect(matrices, this.getPosX() + 48.0F, this.getPosY() + 32.0F, 85.0F, 11.0F, 4.0F, 0.15F * animationFactor);
       Render2DEngine.drawRect(
