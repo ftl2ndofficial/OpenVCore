@@ -7,20 +7,29 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.projectile.arrow.Arrow;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.ClipContext.Block;
 import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.HitResult.Type;
 import net.minecraft.world.phys.Vec3;
+import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
+import vcore.features.modules.combat.Aura;
 import vcore.gui.clickui.ClickGUI;
 import vcore.gui.font.FontRenderers;
 import vcore.setting.Setting;
@@ -28,14 +37,14 @@ import vcore.utility.render.Render2DEngine;
 import vcore.utility.render.Render3DEngine;
 
 public class Prediction extends Module {
-   private static final float TAG_SCALE = 0.85F;
+   private final Setting<Boolean> renderBow = new Setting<>("Bow", true);
+   private final Setting<Boolean> renderCrossbow = new Setting<>("Crossbow", true);
    private final Setting<Boolean> renderPearls = new Setting<>("Pearl", true);
    private final Setting<Boolean> renderItems = new Setting<>("Item", false);
    private final Setting<Boolean> showTags = new Setting<>("Tag", true);
-   private long cacheWorldTime = Long.MIN_VALUE;
-   private boolean cachePearlSetting = this.renderPearls.getValue();
-   private boolean cacheItemSetting = this.renderItems.getValue();
+
    private List<Prediction.PredictionResult> cachedResults = Collections.emptyList();
+   private long lastComputeNano = 0L;
 
    public Prediction() {
       super("Prediction", "Draws impact previews for projectiles and items.", Module.Category.RENDER);
@@ -44,14 +53,14 @@ public class Prediction extends Module {
    @Override
    public void onDisable() {
       this.cachedResults = Collections.emptyList();
-      this.cacheWorldTime = Long.MIN_VALUE;
+      this.lastComputeNano = 0L;
    }
 
    @Override
    public void onRender3D(PoseStack stack) {
       if (!fullNullCheck()) {
          for (Prediction.PredictionResult result : this.getPredictions()) {
-            this.renderPath(result);
+            this.renderPath(stack, result);
          }
       }
    }
@@ -69,40 +78,151 @@ public class Prediction extends Module {
    }
 
    private List<Prediction.PredictionResult> getPredictions() {
-      if (!fullNullCheck() && mc.level != null) {
-         long worldTime = mc.level.getGameTime();
-         boolean pearlsEnabled = this.renderPearls.getValue();
-         boolean itemsEnabled = this.renderItems.getValue();
-         if (this.cachedResults.isEmpty()
-            || worldTime != this.cacheWorldTime
-            || pearlsEnabled != this.cachePearlSetting
-            || itemsEnabled != this.cacheItemSetting) {
-            this.cachedResults = this.computePredictions(pearlsEnabled, itemsEnabled);
-            this.cacheWorldTime = worldTime;
-            this.cachePearlSetting = pearlsEnabled;
-            this.cacheItemSetting = itemsEnabled;
-         }
-
-         return this.cachedResults;
-      } else {
+      if (fullNullCheck() || mc.level == null) {
          return Collections.emptyList();
       }
+
+      long now = System.nanoTime();
+      // Cache results within the same frame (~2ms window) so onRender3D and onRender2D share identical results
+      if (now - this.lastComputeNano < 2_000_000L && !this.cachedResults.isEmpty()) {
+         return this.cachedResults;
+      }
+
+      List<Prediction.PredictionResult> list = new ArrayList<>();
+
+      // 1. Predict player held weapon / item (Bow, Crossbow, Ender Pearl)
+      Prediction.PredictionResult playerPrediction = this.getPlayerPrediction();
+      if (playerPrediction != null) {
+         list.add(playerPrediction);
+      }
+
+      // 2. Predict in-flight world entities (Thrown pearls, flying arrows, falling items)
+      list.addAll(this.computeWorldEntityPredictions());
+
+      this.cachedResults = list;
+      this.lastComputeNano = now;
+      return this.cachedResults;
    }
 
-   private List<Prediction.PredictionResult> computePredictions(boolean pearlsEnabled, boolean itemsEnabled) {
+   private Prediction.PredictionResult getPlayerPrediction() {
+      if (mc.player == null || mc.level == null) {
+         return null;
+      }
+
+      ItemStack mainHand = mc.player.getMainHandItem();
+      ItemStack offHand = mc.player.getOffhandItem();
+
+      // Bow
+      if (this.renderBow.getValue()) {
+         if (mainHand.getItem() instanceof BowItem) {
+            return this.simulateBow(mainHand);
+         } else if (offHand.getItem() instanceof BowItem) {
+            return this.simulateBow(offHand);
+         }
+      }
+
+      // Crossbow
+      if (this.renderCrossbow.getValue()) {
+         if (mainHand.getItem() instanceof CrossbowItem) {
+            return this.simulateCrossbow(mainHand);
+         } else if (offHand.getItem() instanceof CrossbowItem) {
+            return this.simulateCrossbow(offHand);
+         }
+      }
+
+      // Ender Pearl
+      if (this.renderPearls.getValue()) {
+         if (mainHand.is(Items.ENDER_PEARL)) {
+            return this.simulatePlayerPearl(mainHand);
+         } else if (offHand.is(Items.ENDER_PEARL)) {
+            return this.simulatePlayerPearl(offHand);
+         }
+      }
+
+      return null;
+   }
+
+   private Prediction.PredictionResult simulateBow(ItemStack stack) {
+      boolean isUsing = mc.player.isUsingItem() && mc.player.getUseItem() == stack;
+      float power;
+      if (isUsing) {
+         power = BowItem.getPowerForTime(mc.player.getTicksUsingItem());
+      } else {
+         power = 1.0F; // Full charge preview while holding bow
+      }
+
+      if (power < 0.1F) {
+         return null;
+      }
+      double speed = power * 3.0F;
+      return this.simulatePlayerLaunch(new ItemStack(Items.BOW), speed, 0.05, 0.99, 0.60);
+   }
+
+   private Prediction.PredictionResult simulateCrossbow(ItemStack stack) {
+      double speed = 3.15F;
+      return this.simulatePlayerLaunch(new ItemStack(Items.CROSSBOW), speed, 0.05, 0.99, 0.60);
+   }
+
+   private Prediction.PredictionResult simulatePlayerPearl(ItemStack stack) {
+      double speed = 1.5F;
+      return this.simulatePlayerLaunch(new ItemStack(Items.ENDER_PEARL), speed, 0.03, 0.99, 0.80);
+   }
+
+   private Prediction.PredictionResult simulatePlayerLaunch(
+      ItemStack icon, double speed, double gravity, double drag, double waterDrag
+   ) {
+      if (mc.player == null || mc.level == null) {
+         return null;
+      }
+
+      float tickDelta = Render3DEngine.getTickDelta();
+      Vec3 eyePos = mc.player.getEyePosition(tickDelta);
+
+      float yaw = mc.player.getYRot();
+      float pitch = mc.player.getXRot();
+      if (ModuleManager.aura != null && ModuleManager.aura.isEnabled() && Aura.target != null) {
+         yaw = ModuleManager.aura.rotationYaw;
+         pitch = ModuleManager.aura.rotationPitch;
+      }
+
+      float f = -Mth.sin(yaw * (float) (Math.PI / 180.0)) * Mth.cos(pitch * (float) (Math.PI / 180.0));
+      float g = -Mth.sin(pitch * (float) (Math.PI / 180.0));
+      float h = Mth.cos(yaw * (float) (Math.PI / 180.0)) * Mth.cos(pitch * (float) (Math.PI / 180.0));
+      Vec3 dir = new Vec3(f, g, h).normalize();
+      Vec3 motion = dir.scale(speed);
+
+      // Add player momentum if moving (matching vanilla Minecraft projectile throw physics)
+      Vec3 playerMotion = mc.player.getDeltaMovement();
+      motion = motion.add(playerMotion.x, mc.player.onGround() ? 0.0 : playerMotion.y, playerMotion.z);
+
+      Vec3 startPos = eyePos.subtract(0.0, 0.1, 0.0);
+      return this.simulateTrajectory(startPos, motion, gravity, drag, waterDrag, icon, mc.player);
+   }
+
+   private List<Prediction.PredictionResult> computeWorldEntityPredictions() {
       List<Prediction.PredictionResult> results = new ArrayList<>();
       if (mc.level == null) {
          return results;
       }
 
+      boolean pearls = this.renderPearls.getValue();
+      boolean arrows = this.renderBow.getValue() || this.renderCrossbow.getValue();
+      boolean items = this.renderItems.getValue();
+
       for (Entity entity : mc.level.entitiesForRendering()) {
-         if (entity instanceof ThrownEnderpearl pearl && pearlsEnabled && !pearl.onGround()) {
-            Prediction.PredictionResult result = this.simulate(pearl, new ItemStack(Items.ENDER_PEARL));
+         if (entity instanceof ThrownEnderpearl pearl && pearls && !pearl.onGround()) {
+            Prediction.PredictionResult result = this.simulateEntity(pearl, new ItemStack(Items.ENDER_PEARL), 0.03, 0.99, 0.80);
             if (result != null) {
                results.add(result);
             }
-         } else if (entity instanceof ItemEntity item && itemsEnabled && this.shouldSimulateItem(item)) {
-            Prediction.PredictionResult result = this.simulate(item, item.getItem().copy());
+         } else if (entity instanceof AbstractArrow arrow && arrows && !arrow.onGround() && arrow.getDeltaMovement().lengthSqr() > 1.0E-4) {
+            ItemStack icon = arrow.getWeaponItem().isEmpty() ? new ItemStack(Items.ARROW) : arrow.getWeaponItem();
+            Prediction.PredictionResult result = this.simulateEntity(arrow, icon, 0.05, 0.99, 0.60);
+            if (result != null) {
+               results.add(result);
+            }
+         } else if (entity instanceof ItemEntity item && items && this.shouldSimulateItem(item)) {
+            Prediction.PredictionResult result = this.simulateEntity(item, item.getItem().copy(), 0.04, 0.98, 0.80);
             if (result != null) {
                results.add(result);
             }
@@ -116,13 +236,26 @@ public class Prediction extends Module {
       return !item.onGround() && item.getDeltaMovement().lengthSqr() > 1.0E-4;
    }
 
-   private Prediction.PredictionResult simulate(Entity entity, ItemStack icon) {
+   private Prediction.PredictionResult simulateEntity(
+      Entity entity, ItemStack icon, double gravity, double drag, double waterDrag
+   ) {
+      if (mc.level == null) {
+         return null;
+      }
+      Vec3 position = entity.position();
+      Vec3 motion = entity.getDeltaMovement();
+      return this.simulateTrajectory(position, motion, gravity, drag, waterDrag, icon, entity);
+   }
+
+   private Prediction.PredictionResult simulateTrajectory(
+      Vec3 startPos, Vec3 initialMotion, double gravity, double drag, double waterDrag, ItemStack icon, Entity ignoreEntity
+   ) {
       if (mc.level == null) {
          return null;
       }
 
-      Vec3 position = entity.position();
-      Vec3 motion = entity.getDeltaMovement();
+      Vec3 position = startPos;
+      Vec3 motion = initialMotion;
       List<Vec3> points = new ArrayList<>();
       Vec3 landing = position;
       Vec3 display = position;
@@ -131,26 +264,29 @@ public class Prediction extends Module {
       for (int i = 0; i < 600; i++) {
          points.add(position);
          Vec3 next = position.add(motion);
-         Vec3 start = position.add(0.0, entity.getBbHeight() * 0.5, 0.0);
-         Vec3 end = next.add(0.0, entity.getBbHeight() * 0.5, 0.0);
-         HitResult hit = this.findCollision(start, end);
-         motion = this.updateMotion(entity, motion);
-         time += 0.05;
-         if (hit != null) {
-            Vec3 hitPos = hit.getLocation();
-            Vec3 segment = hitPos.subtract(position);
-            Vec3 renderEnd = hitPos;
-            double segLength = segment.length();
-            if (segLength > 0.001) {
-               double trim = Math.min(0.5, Math.max(0.0, segLength - 0.01));
-               if (trim > 0.0) {
-                  renderEnd = hitPos.subtract(segment.normalize().scale(trim));
-               }
-            }
 
-            points.add(renderEnd);
+         HitResult hit = this.findCollision(position, next, ignoreEntity);
+
+         boolean inWater = false;
+         try {
+            BlockPos bpos = BlockPos.containing(position);
+            inWater = mc.level.getFluidState(bpos).is(FluidTags.WATER);
+         } catch (Throwable ignored) {
+         }
+
+         if (inWater) {
+            motion = motion.scale(waterDrag);
+         } else {
+            motion = motion.scale(drag);
+         }
+         motion = motion.subtract(0.0, gravity, 0.0);
+         time += 0.05;
+
+         if (hit != null && hit.getType() != Type.MISS) {
+            Vec3 hitPos = hit.getLocation();
+            points.add(hitPos);
             landing = hitPos;
-            display = renderEnd;
+            display = hitPos;
             break;
          }
 
@@ -169,71 +305,68 @@ public class Prediction extends Module {
       return points.size() < 2 ? null : new Prediction.PredictionResult(Collections.unmodifiableList(points), landing, display, time, icon);
    }
 
-   private Vec3 updateMotion(Entity entity, Vec3 original) {
-      Vec3 updated;
-      if (entity.isInWater()) {
-         updated = original.scale(0.8);
-      } else {
-         updated = original.scale(0.99);
-      }
-
-      if ((entity.isNoGravity() || !(entity instanceof Arrow)) && !(entity instanceof ItemEntity)) {
-         if (!entity.isNoGravity() && entity instanceof ThrownEnderpearl) {
-            updated = updated.add(0.0, -0.03, 0.0);
-         }
-      } else {
-         updated = updated.add(0.0, -0.05, 0.0);
-      }
-
-      return updated;
-   }
-
-   private HitResult findCollision(Vec3 start, Vec3 end) {
-      if (mc.level != null && mc.player != null) {
-         ClipContext ctx = new ClipContext(start, end, Block.COLLIDER, Fluid.NONE, mc.player);
-         HitResult result = mc.level.clip(ctx);
-         return result.getType() == Type.BLOCK ? result : null;
-      } else {
+   private HitResult findCollision(Vec3 start, Vec3 end, Entity ignoreEntity) {
+      if (mc.level == null) {
          return null;
       }
+      ClipContext ctx = new ClipContext(start, end, Block.COLLIDER, Fluid.NONE, ignoreEntity != null ? ignoreEntity : mc.player);
+      HitResult blockHit = mc.level.clip(ctx);
+      Vec3 limit = (blockHit != null && blockHit.getType() != Type.MISS) ? blockHit.getLocation() : end;
+
+      AABB searchBox = new AABB(
+         Math.min(start.x, limit.x), Math.min(start.y, limit.y), Math.min(start.z, limit.z),
+         Math.max(start.x, limit.x), Math.max(start.y, limit.y), Math.max(start.z, limit.z)
+      ).inflate(0.5);
+
+      EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
+         mc.level,
+         ignoreEntity != null ? ignoreEntity : mc.player,
+         start,
+         limit,
+         searchBox,
+         e -> !e.isSpectator() && e.isPickable() && e != ignoreEntity && e != mc.player,
+         0.3F
+      );
+
+      if (entityHit != null) {
+         return entityHit;
+      }
+      return (blockHit != null && blockHit.getType() == Type.BLOCK) ? blockHit : null;
    }
 
-   private void renderPath(Prediction.PredictionResult result) {
+   private void renderPath(PoseStack stack, Prediction.PredictionResult result) {
       List<Vec3> path = result.path();
-      Prediction.TagLayout layout = null;
-      if (this.showTags.getValue()) {
-         Vec3 landingScreen = Render3DEngine.worldSpaceToScreenSpace(result.displayPos());
-         if (this.isOnScreen(landingScreen)) {
-            layout = this.createTagLayout(result, landingScreen);
-         }
-      }
-
+      // Render full 3D trajectory curve
       for (int i = 0; i < path.size() - 1; i++) {
          Vec3 start = path.get(i);
          Vec3 end = path.get(i + 1);
-         boolean clipSegment = false;
-         if (layout != null) {
-            Vec3 startScreen = Render3DEngine.worldSpaceToScreenSpace(start);
-            Vec3 endScreen = Render3DEngine.worldSpaceToScreenSpace(end);
-            if (this.isValidScreenPoint(startScreen) && this.isValidScreenPoint(endScreen)) {
-               double topY = layout.y();
-               if (!(startScreen.y <= topY) || !(endScreen.y <= topY)) {
-                  if (startScreen.y < topY && endScreen.y > topY) {
-                     double t = Mth.clamp((topY - startScreen.y) / (endScreen.y - startScreen.y), 0.0, 1.0);
-                     end = start.lerp(end, t);
-                     clipSegment = true;
-                  } else if (startScreen.y >= topY && endScreen.y >= topY) {
-                     break;
-                  }
-               }
-            }
-         }
-
          this.drawSegment(start, end, i);
-         if (clipSegment) {
-            break;
-         }
       }
+      // Render landing spot indicator
+      this.renderLandingSpot(stack, result);
+   }
+
+   private void renderLandingSpot(PoseStack stack, Prediction.PredictionResult result) {
+      Vec3 landing = result.landingPos();
+      Color baseColor = HudEditor.getColor(0);
+      Color fillColor = Render2DEngine.injectAlpha(baseColor, 60);
+      Color outlineColor = Render2DEngine.injectAlpha(baseColor, 220);
+
+      double size = 0.25;
+      AABB landingBox = new AABB(
+         landing.x - size, landing.y - 0.05, landing.z - size,
+         landing.x + size, landing.y + 0.15, landing.z + size
+      );
+
+      // 1. Draw 3D filled bounding box & outline at impact point
+      Render3DEngine.drawFilledBox(stack, landingBox, fillColor);
+      Render3DEngine.drawBoxOutline(landingBox, outlineColor, 1.5F);
+
+      // 2. Draw 3D Crosshair / Target lines on impact point
+      double arm = 0.35;
+      Render3DEngine.drawLine(new Vec3(landing.x - arm, landing.y, landing.z), new Vec3(landing.x + arm, landing.y, landing.z), outlineColor);
+      Render3DEngine.drawLine(new Vec3(landing.x, landing.y, landing.z - arm), new Vec3(landing.x, landing.y, landing.z + arm), outlineColor);
+      Render3DEngine.drawLine(new Vec3(landing.x, landing.y - 0.1, landing.z), new Vec3(landing.x, landing.y + 0.3, landing.z), outlineColor);
    }
 
    private void drawTag(GuiGraphics context, Prediction.PredictionResult result) {
@@ -283,10 +416,6 @@ public class Prediction extends Module {
       return Double.isFinite(screenPos.x) && Double.isFinite(screenPos.y) && screenPos.z > 0.0 && screenPos.z < 1.0;
    }
 
-   private boolean isValidScreenPoint(Vec3 screenPos) {
-      return Double.isFinite(screenPos.x) && Double.isFinite(screenPos.y) && screenPos.z > 0.0 && screenPos.z < 1.0;
-   }
-
    private String formatTime(double seconds) {
       return String.format(Locale.ROOT, "%.1f s", seconds);
    }
@@ -297,7 +426,7 @@ public class Prediction extends Module {
       float width = Math.max(35.0F, textWidth + 20.0F);
       float height = 14.0F;
       float x = (float)screen.x - width / 2.0F;
-      float y = (float)screen.y + 4.0F;
+      float y = (float)screen.y - height - 6.0F;
       float iconScale = 0.8F;
       float iconSize = 16.0F * iconScale;
       float iconX = x + 2.0F;

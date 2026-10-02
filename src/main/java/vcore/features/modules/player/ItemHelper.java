@@ -61,7 +61,7 @@ public class ItemHelper extends Module {
                Bind bind = setting.getBind();
                boolean down = bind != null && this.isKeyPressed(bind.getKey());
                if (down && !this.pressed[i] && !this.useItem(setting)) {
-                  this.sendMessage("Item không tồn tại !");
+                  this.sendMessage("Item does not exist!");
                }
 
                this.pressed[i] = down;

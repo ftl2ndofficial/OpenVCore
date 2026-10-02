@@ -111,7 +111,7 @@ public class FreeLook extends Module {
       if (ModuleManager.aura == null) {
          return false;
       } else if (ModuleManager.aura.isEnabled() && Aura.target != null) {
-         this.sendMessage("Không thể sử dụng cùng Aura");
+         this.sendMessage("Cannot be used with Aura.");
          return true;
       } else {
          return false;

@@ -342,7 +342,7 @@ public class Aura extends Module {
 
    public void handleKill() {
       if (target instanceof LivingEntity && (((LivingEntity)target).getHealth() <= 0.0F || ((LivingEntity)target).isDeadOrDying())) {
-         Managers.NOTIFICATION.publicity("Aura", "Đã hạ mục tiêu thành công!", 3, Notification.Type.SUCCESS);
+         Managers.NOTIFICATION.publicity("Aura", "Target eliminated: " + target.getName().getString(), 3, Notification.Type.SUCCESS);
       }
    }
 
@@ -429,7 +429,7 @@ public class Aura extends Module {
          && status.getEntity(mc.level) != null
          && target != null
          && status.getEntity(mc.level) == target) {
-         Managers.NOTIFICATION.publicity("Aura", "Đã phá khiên của " + target.getName().getString(), 2, Notification.Type.SUCCESS);
+         Managers.NOTIFICATION.publicity("Aura", "Broke shield of " + target.getName().getString() + "!", 2, Notification.Type.SUCCESS);
       }
    }
 

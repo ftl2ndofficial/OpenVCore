@@ -24,15 +24,15 @@ public class ItemHelperCommand extends Command {
             if (stack != null && !stack.isEmpty()) {
                int emptyIndex = helper.findEmptyIndex();
                if (emptyIndex == -1) {
-                  sendMessage("Không còn setting item trống");
+                  sendMessage("No empty item slot available.");
                   return 1;
                } else {
                   helper.setItemAt(emptyIndex, stack.getItem());
-                  sendMessage(stack.getHoverName().getString() + " đã được set vào Item" + (emptyIndex + 1));
+                  sendMessage(stack.getHoverName().getString() + " has been set to Item " + (emptyIndex + 1));
                   return 1;
                }
             } else {
-               sendMessage("Tay đang trống.");
+               sendMessage("Your hand is empty.");
                return 1;
             }
          } else {
@@ -45,7 +45,7 @@ public class ItemHelperCommand extends Command {
             helper.resetAll();
          }
 
-         sendMessage("Đã reset ItemHelper.");
+         sendMessage("Reset ItemHelper successfully.");
          return 1;
       }));
       builder.then(((RequiredArgumentBuilder)arg("slot", StringArgumentType.word()).then(literal("set").executes(context -> {
@@ -56,14 +56,14 @@ public class ItemHelperCommand extends Command {
                ItemStack stack = mc.player.getMainHandItem();
                if (stack != null && !stack.isEmpty()) {
                   helper.setItemAt(index, stack.getItem());
-                  sendMessage("Set vật phẩm " + stack.getHoverName().getString() + " thành công");
+                  sendMessage("Successfully set item " + stack.getHoverName().getString());
                   return 1;
                } else {
-                  sendMessage("Tay đang trống.");
+                  sendMessage("Your hand is empty.");
                   return 1;
                }
             } else {
-               sendMessage("Slot không hợp lệ.");
+               sendMessage("Invalid slot.");
                return 1;
             }
          } else {
@@ -77,10 +77,10 @@ public class ItemHelperCommand extends Command {
             int index = this.parseSlot((String)context.getArgument("slot", String.class));
             if (index >= 0 && index < helper.getItemSettings().size()) {
                helper.clearItemAt(index);
-               sendMessage("Đã xóa Item" + (index + 1));
+               sendMessage("Cleared Item " + (index + 1));
                return 1;
             } else {
-               sendMessage("Slot không hợp lệ.");
+               sendMessage("Invalid slot.");
                return 1;
             }
          }

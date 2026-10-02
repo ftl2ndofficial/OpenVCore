@@ -22,7 +22,7 @@ public final class RPC extends Module {
    private final Timer timer_delay = new Timer();
    private static Thread thread;
    String slov;
-   String[] rpc_perebor_en = new String[]{"Đang Lọ", "Đang xem Bún Bò Huế"};
+   String[] rpc_perebor_en = new String[]{"Playing Minecraft", "Chilling with OpenVCore"};
    int randomInt;
 
    public RPC() {
