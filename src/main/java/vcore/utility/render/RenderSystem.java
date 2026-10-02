@@ -101,7 +101,10 @@ public class RenderSystem extends com.mojang.blaze3d.systems.RenderSystem {
    }
 
    public static void lineWidth(float width) {
-      GL11.glLineWidth(width);
+      // In OpenGL 3.2+ Core Profile and modern GPU drivers (e.g. NVIDIA),
+      // glLineWidth with values != 1.0F is rejected with GL_INVALID_VALUE (1281):
+      // 'Operation is not valid from a preview context.'
+      // Blaze3D line rendering is handled via shaders and quads.
    }
 
    public static void enableScissor(int x, int y, int width, int height) {

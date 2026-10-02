@@ -128,6 +128,15 @@ public final class VCoreScreensTest implements FabricClientGameTest {
       // Clean old test cached configs to ensure pristine defaults
       cleanTestConfigs();
 
+      // ----------------------------------------------------
+      // 0. Mixin Verification (Verify all Mixin targets against Vanilla Minecraft 1.21.11)
+      // ----------------------------------------------------
+      System.out.println("[Step 0] Verifying all Mixin targets against Vanilla Minecraft 1.21.11...");
+      var mixinResult = MixinVerificationEngine.runVerification();
+      if (!mixinResult.isSuccess()) {
+         throw new AssertionError("Mixin Verification FAILED with " + mixinResult.errors().size() + " errors: " + mixinResult.errors());
+      }
+
       // Set standard GUI scale to 2 for TitleScreen
       context.runOnClient(client -> {
          client.options.guiScale().set(2);

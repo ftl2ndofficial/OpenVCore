@@ -121,8 +121,13 @@ public final class PopEffect extends Module {
          switch ((PopEffect.Mode)this.mode.getValue()) {
             case ChamsOld:
                this.addChamsOld(event.getEntity());
+               break;
             case ChamsNew:
+               this.addChamsNew(event.getEntity());
+               break;
             case Effect:
+               this.addEffect(event.getEntity());
+               break;
          }
       }
    }
@@ -160,12 +165,19 @@ public final class PopEffect extends Module {
    }
 
    private void renderChamsOld(@NotNull PoseStack matrices) {
+      if (this.oldPopList.isEmpty()) {
+         return;
+      }
       RenderSystem.enableBlend();
       RenderSystem.disableDepthTest();
       RenderSystem.defaultBlendFunc();
       this.oldPopList.forEach(person -> this.renderOldEntity(matrices, person.player, person.modelPlayer, person.getAlpha()));
       RenderSystem.enableDepthTest();
       RenderSystem.disableBlend();
+      com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+      try {
+         org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+      } catch (Throwable ignored) {}
    }
 
    private void renderChamsNew(@NotNull PoseStack matrices) {
@@ -178,6 +190,10 @@ public final class PopEffect extends Module {
          RenderSystem.enableCull();
          RenderSystem.enableDepthTest();
          RenderSystem.disableBlend();
+         com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+         try {
+            org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+         } catch (Throwable ignored) {}
       }
    }
 
@@ -205,9 +221,10 @@ public final class PopEffect extends Module {
 
    private void renderOldEntity(@NotNull PoseStack matrices, @NotNull Player entity, @NotNull PlayerModel model, int alpha) {
       setOuterLayerVisible(model, false);
-      double x = entity.getX() - mc.getEntityRenderDispatcher().camera.position().x;
-      double y = entity.getY() - mc.getEntityRenderDispatcher().camera.position().y;
-      double z = entity.getZ() - mc.getEntityRenderDispatcher().camera.position().z;
+      Vec3 camPos = Render3DEngine.getCameraPos();
+      double x = entity.getX() - camPos.x;
+      double y = entity.getY() - camPos.y;
+      double z = entity.getZ() - camPos.z;
       ((IEntity)entity).setPos(entity.position().add(0.0, this.oldYSpeed.getValue().intValue() / 50.0, 0.0));
       matrices.pushPose();
       matrices.translate((float)x, (float)y, (float)z);

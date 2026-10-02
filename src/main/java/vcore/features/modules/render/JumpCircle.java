@@ -27,6 +27,7 @@ import vcore.setting.Setting;
 import vcore.utility.Timer;
 import vcore.utility.VcoreUtility;
 import vcore.utility.render.Render2DEngine;
+import vcore.utility.render.Render3DEngine;
 import vcore.utility.render.TextureStorage;
 
 public class JumpCircle extends Module {
@@ -104,47 +105,60 @@ public class JumpCircle extends Module {
 
    @Override
    public void onRender3D(PoseStack stack) {
-      Collections.reverse(this.circles);
-      RenderSystem.disableDepthTest();
-      RenderSystem.enableBlend();
-      RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-      switch ((JumpCircle.Mode)this.mode.getValue()) {
-         case Default:
-            RenderSystem.setShaderTexture(0, TextureStorage.defaultCircle);
-            break;
-         case Portal:
-            RenderSystem.setShaderTexture(0, TextureStorage.bubble);
-            break;
-         case Custom:
-            RenderSystem.setShaderTexture(0, Objects.requireNonNullElse(this.custom, TextureStorage.defaultCircle));
+      if (fullNullCheck() || this.circles.isEmpty()) {
+         return;
       }
 
-      BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-
-      for (JumpCircle.Circle c : this.circles) {
-         float colorAnim = (float)c.timer.getPassedTimeMs() / 6000.0F;
-         float sizeAnim = this.circleScale.getValue()
-            - (float)Math.pow(1.0F - (float)c.timer.getPassedTimeMs() * (this.easeOut.getValue() ? 2.0F : 1.0F) / 5000.0F, 4.0);
-         stack.pushPose();
-         stack.translate(
-            c.pos().x - mc.getEntityRenderDispatcher().camera.position().x,
-            c.pos().y - mc.getEntityRenderDispatcher().camera.position().y,
-            c.pos().z - mc.getEntityRenderDispatcher().camera.position().z
-         );
-         stack.mulPose(Axis.XP.rotationDegrees(90.0F));
-         stack.mulPose(Axis.ZP.rotationDegrees(sizeAnim * this.rotateSpeed.getValue() * 1000.0F));
-         Matrix4f matrix = stack.last().pose();
-         float alpha = 1.0F - colorAnim;
-         this.drawCircleLayer(buffer, matrix, sizeAnim, alpha * 0.65F);
-         this.drawCircleLayer(buffer, matrix, sizeAnim, alpha);
-         stack.popPose();
-      }
-
-      Render2DEngine.endBuilding(buffer);
-      RenderSystem.disableBlend();
-      RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      RenderSystem.enableDepthTest();
+      Vec3 camPos = Render3DEngine.getCameraPos();
       Collections.reverse(this.circles);
+      try {
+         RenderSystem.disableDepthTest();
+         RenderSystem.enableBlend();
+         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+         switch ((JumpCircle.Mode)this.mode.getValue()) {
+            case Default:
+               RenderSystem.setShaderTexture(0, TextureStorage.defaultCircle);
+               break;
+            case Portal:
+               RenderSystem.setShaderTexture(0, TextureStorage.bubble);
+               break;
+            case Custom:
+               RenderSystem.setShaderTexture(0, Objects.requireNonNullElse(this.custom, TextureStorage.defaultCircle));
+         }
+
+         BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+
+         for (JumpCircle.Circle c : this.circles) {
+            float colorAnim = (float)c.timer.getPassedTimeMs() / 6000.0F;
+            float sizeAnim = this.circleScale.getValue()
+               - (float)Math.pow(1.0F - (float)c.timer.getPassedTimeMs() * (this.easeOut.getValue() ? 2.0F : 1.0F) / 5000.0F, 4.0);
+            stack.pushPose();
+            stack.translate(
+               c.pos().x - camPos.x,
+               c.pos().y - camPos.y,
+               c.pos().z - camPos.z
+            );
+            stack.mulPose(Axis.XP.rotationDegrees(90.0F));
+            stack.mulPose(Axis.ZP.rotationDegrees(sizeAnim * this.rotateSpeed.getValue() * 1000.0F));
+            Matrix4f matrix = stack.last().pose();
+            float alpha = 1.0F - colorAnim;
+            this.drawCircleLayer(buffer, matrix, sizeAnim, alpha * 0.65F);
+            this.drawCircleLayer(buffer, matrix, sizeAnim, alpha);
+            stack.popPose();
+         }
+
+         Render2DEngine.endBuilding(buffer);
+      } finally {
+         RenderSystem.defaultBlendFunc();
+         RenderSystem.disableBlend();
+         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+         RenderSystem.enableDepthTest();
+         com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+         try {
+            org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+         } catch (Throwable ignored) {}
+         Collections.reverse(this.circles);
+      }
    }
 
    private void drawCircleLayer(@NotNull BufferBuilder buffer, @NotNull Matrix4f matrix, float size, float alpha) {

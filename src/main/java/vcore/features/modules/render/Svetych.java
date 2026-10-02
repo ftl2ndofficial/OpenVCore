@@ -85,9 +85,13 @@ public class Svetych extends Module {
          this.renderGlow(camera, baseColor, now, alphaLimit);
          RenderSystem.enableCull();
          RenderSystem.depthMask(true);
-         RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
+         RenderSystem.defaultBlendFunc();
          RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
          RenderSystem.disableBlend();
+         com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+         try {
+            org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+         } catch (Throwable ignored) {}
       }
    }
 

@@ -142,6 +142,9 @@ public class ItemESP extends Module {
 
    @Override
    public void onRender2D(GuiGraphics context) {
+      if (fullNullCheck()) {
+         return;
+      }
       if (this.hasAnyGroupEnabled()) {
          boolean onlyOtherItem = !this.showNetherite.getValue()
             && !this.showDiamond.getValue()

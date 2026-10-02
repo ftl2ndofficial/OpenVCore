@@ -34,7 +34,7 @@ public class Crosshair extends Module {
 
    @Override
    public void onRender2D(GuiGraphics context) {
-      if (mc.screen != null) {
+      if (mc.screen != null || fullNullCheck()) {
          return;
       }
       if (mc.options.getCameraType().isFirstPerson()) {

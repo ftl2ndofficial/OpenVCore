@@ -87,7 +87,12 @@ public final class FragParticleRenderer {
          }
 
          RenderSystem.depthMask(true);
+         RenderSystem.defaultBlendFunc();
          RenderSystem.disableBlend();
+         BufferUploader.invalidateCommandEncoder();
+         try {
+            org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+         } catch (Throwable ignored) {}
       }
    }
 

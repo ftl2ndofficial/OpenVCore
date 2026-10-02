@@ -241,12 +241,17 @@ public class Prediction extends Module {
          this.applyTagScale(matrices, layout);
          Render2DEngine.drawRound(matrices, layout.x(), layout.y(), layout.width(), layout.height(), 3.0F, new Color(0, 0, 0, 150));
          if (!result.icon().isEmpty()) {
-            matrices.pushPose();
-            matrices.translate(layout.iconX(), layout.iconY(), 0.0F);
-            matrices.scale(layout.iconScale(), layout.iconScale(), 1.0F);
+            context.pose().pushMatrix();
+            float centerX = layout.x() + layout.width() / 2.0F;
+            float centerY = layout.y() + layout.height() / 2.0F;
+            context.pose().translate(centerX, centerY);
+            context.pose().scale(0.85F, 0.85F);
+            context.pose().translate(-centerX, -centerY);
+            context.pose().translate(layout.iconX(), layout.iconY());
+            context.pose().scale(layout.iconScale(), layout.iconScale());
             context.renderItem(result.icon(), 0, 0);
             context.renderItemDecorations(mc.font, result.icon(), 0, 0);
-            matrices.popPose();
+            context.pose().popMatrix();
          }
 
          matrices.pushPose();

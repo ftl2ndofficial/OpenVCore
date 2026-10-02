@@ -3,6 +3,7 @@ package vcore.features.modules.render;
 import com.google.common.collect.Lists;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,38 +56,63 @@ public class BlockESP extends Module {
 
    @Override
    public void onUpdate() {
+      if (fullNullCheck()) {
+         blocks.clear();
+         this.canContinue = true;
+         return;
+      }
+
       if (this.searchTimer.every(1000L) && this.canContinue) {
-         CompletableFuture.supplyAsync(this::scan, this.searchThread).thenAcceptAsync(this::sync, Util.backgroundExecutor());
          this.canContinue = false;
+         CompletableFuture.supplyAsync(this::scan, this.searchThread)
+            .thenAcceptAsync(this::sync, Util.backgroundExecutor())
+            .exceptionally(t -> {
+               this.canContinue = true;
+               return null;
+            });
       }
    }
 
    private ArrayList<BlockESP.BlockVec> scan() {
-      ArrayList<BlockESP.BlockVec> blocks = new ArrayList<>();
-      int startX = (int)Math.floor(mc.player.getX() - this.range.getValue().intValue());
-      int endX = (int)Math.ceil(mc.player.getX() + this.range.getValue().intValue());
-      int startY = mc.level.getMinY() + 1;
-      int endY = mc.level.getMaxY();
-      int startZ = (int)Math.floor(mc.player.getZ() - this.range.getValue().intValue());
-      int endZ = (int)Math.ceil(mc.player.getZ() + this.range.getValue().intValue());
+      ArrayList<BlockESP.BlockVec> found = new ArrayList<>();
+      if (mc.player == null || mc.level == null) {
+         return found;
+      }
+
+      int r = this.range.getValue();
+      int px = (int)Math.floor(mc.player.getX());
+      int py = (int)Math.floor(mc.player.getY());
+      int pz = (int)Math.floor(mc.player.getZ());
+
+      int startX = px - r;
+      int endX = px + r;
+      int startY = Math.max(mc.level.getMinY() + 1, py - r);
+      int endY = Math.min(mc.level.getMaxY(), py + r);
+      int startZ = pz - r;
+      int endZ = pz + r;
 
       for (int x = startX; x <= endX; x++) {
-         for (int y = startY; y <= endY; y++) {
-            for (int z = startZ; z <= endZ; z++) {
+         for (int z = startZ; z <= endZ; z++) {
+            if (!mc.level.getChunkSource().hasChunk(x >> 4, z >> 4)) {
+               continue;
+            }
+            for (int y = startY; y <= endY; y++) {
                BlockPos pos = new BlockPos(x, y, z);
                BlockState bs = mc.level.getBlockState(pos);
                if (this.shouldAdd(bs.getBlock(), pos)) {
-                  blocks.add(new BlockESP.BlockVec(pos.getX(), pos.getY(), pos.getZ()));
+                  found.add(new BlockESP.BlockVec(pos.getX(), pos.getY(), pos.getZ()));
                }
             }
          }
       }
 
-      return blocks;
+      return found;
    }
 
    private void sync(ArrayList<BlockESP.BlockVec> b) {
-      blocks = b;
+      if (b != null) {
+         blocks = b;
+      }
       this.canContinue = true;
    }
 
@@ -98,11 +124,10 @@ public class BlockESP extends Module {
             this.disable("Saving ur pc :)");
          } else {
             if (this.fill.getValue() || this.outline.getValue()) {
-               for (BlockESP.BlockVec vec : Lists.newArrayList(blocks)) {
+               List<BlockESP.BlockVec> currentBlocks = new ArrayList<>(blocks);
+               for (BlockESP.BlockVec vec : currentBlocks) {
                   if (count <= this.limitCount.getValue() || !this.limit.getValue().isEnabled()) {
-                     if (vec.getDistance(mc.player.position()) > this.range.getPow2Value()) {
-                        blocks.remove(vec);
-                     } else {
+                     if (vec.getDistance(mc.player.position()) <= this.range.getPow2Value()) {
                         AABB b = new AABB(vec.x, vec.y, vec.z, vec.x + 1.0, vec.y + 1.0, vec.z + 1.0);
                         if (this.fill.getValue()) {
                            Render3DEngine.FILLED_QUEUE.add(new Render3DEngine.FillAction(b, this.color.getValue().getColorObject()));

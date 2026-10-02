@@ -62,7 +62,6 @@ public class Hat extends Module {
          }
 
          BufferUploader.drawWithShader(buffer.buildOrThrow());
-         RenderSystem.lineWidth(2.0F);
          buffer = tessellator.begin(Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
 
          for (int i = 0; i <= steps; i++) {
@@ -75,6 +74,11 @@ public class Hat extends Module {
          BufferUploader.drawWithShader(buffer.buildOrThrow());
          RenderSystem.enableCull();
          RenderSystem.disableBlend();
+         RenderSystem.defaultBlendFunc();
+         BufferUploader.invalidateCommandEncoder();
+         try {
+            org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+         } catch (Throwable ignored) {}
       }
    }
 

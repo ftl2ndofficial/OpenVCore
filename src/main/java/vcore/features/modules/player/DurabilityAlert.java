@@ -74,8 +74,6 @@ public class DurabilityAlert extends Module {
             );
          RenderSystem.setShaderColor(WARNING_COLOR.getRed() / 255.0F, WARNING_COLOR.getGreen() / 255.0F, WARNING_COLOR.getBlue() / 255.0F, 1.0F);
          RenderSystem.setShaderTexture(0, TextureStorage.brokenShield);
-         GL11.glTexParameteri(3553, 10241, 9729);
-         GL11.glTexParameteri(3553, 10240, 9729);
          context.blit(
             RenderPipelines.GUI_TEXTURED,
             TextureStorage.brokenShield,
@@ -88,8 +86,6 @@ public class DurabilityAlert extends Module {
             200,
             200
          );
-         GL11.glTexParameteri(3553, 10241, 9728);
-         GL11.glTexParameteri(3553, 10240, 9728);
          RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       }
    }

@@ -61,7 +61,8 @@
     "accesors.IGlCommandEncoder",
     "MixinItemEntityRenderer",
     "MixinItemEntityRenderState",
-    "accesors.ISignEditScreen"
+    "accesors.ISignEditScreen",
+    "accesors.IPlayerInteractEntityC2SPacket"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -493,7 +493,8 @@ public class Animations extends Module {
          || i == Items.IRON_SWORD
          || i == Items.GOLDEN_SWORD
          || i == Items.DIAMOND_SWORD
-         || i == Items.NETHERITE_SWORD;
+         || i == Items.NETHERITE_SWORD
+         || i == Items.MACE;
    }
 
    private boolean isPickaxe(Item i) {

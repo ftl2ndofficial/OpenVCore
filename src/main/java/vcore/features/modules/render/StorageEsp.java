@@ -75,9 +75,13 @@ public class StorageEsp extends Module {
 
    @Override
    public void onRender3D(PoseStack stack) {
-      if (!mc.options.hideGui) {
-         for (BlockEntity blockEntity : getBlockEntities()) {
-            Color color = this.getColor(blockEntity);
+      if (fullNullCheck() || mc.options.hideGui) {
+         return;
+      }
+
+      List<BlockEntity> blockEntities = getBlockEntities();
+      for (BlockEntity blockEntity : blockEntities) {
+         Color color = this.getColor(blockEntity);
             if (color != null) {
                if (blockEntity instanceof ChestBlockEntity) {
                   BlockState state = blockEntity.getLevel().getBlockState(blockEntity.getBlockPos());
@@ -182,7 +186,7 @@ public class StorageEsp extends Module {
                .yRot(-((float)Math.toRadians(mc.gameRenderer.getMainCamera().yRot())))
                .add(x1, y1, z1);
 
-            for (BlockEntity blockEntity : getBlockEntities()) {
+            for (BlockEntity blockEntity : blockEntities) {
                Color color = this.getColor(blockEntity);
                if (color != null) {
                   if (blockEntity instanceof ChestBlockEntity) {
@@ -231,7 +235,6 @@ public class StorageEsp extends Module {
             }
          }
       }
-   }
 
    @Nullable
    private Color getColor(BlockEntity bEnt) {
@@ -261,9 +264,14 @@ public class StorageEsp extends Module {
 
    public static List<BlockEntity> getBlockEntities() {
       List<BlockEntity> list = new ArrayList<>();
+      if (mc.player == null || mc.level == null) {
+         return list;
+      }
 
       for (LevelChunk chunk : getLoadedChunks()) {
-         list.addAll(chunk.getBlockEntities().values());
+         try {
+            list.addAll(chunk.getBlockEntities().values());
+         } catch (Exception ignored) {}
       }
 
       return list;
@@ -271,11 +279,16 @@ public class StorageEsp extends Module {
 
    public static List<LevelChunk> getLoadedChunks() {
       List<LevelChunk> chunks = new ArrayList<>();
-      int viewDist = (Integer)mc.options.renderDistance().get();
+      if (mc.player == null || mc.level == null) {
+         return chunks;
+      }
+      int viewDist = Math.min((Integer)mc.options.renderDistance().get(), 16);
+      int playerChunkX = ((int)Math.floor(mc.player.getX())) >> 4;
+      int playerChunkZ = ((int)Math.floor(mc.player.getZ())) >> 4;
 
       for (int x = -viewDist; x <= viewDist; x++) {
          for (int z = -viewDist; z <= viewDist; z++) {
-            LevelChunk chunk = mc.level.getChunkSource().getChunkNow((int)mc.player.getX() / 16 + x, (int)mc.player.getZ() / 16 + z);
+            LevelChunk chunk = mc.level.getChunkSource().getChunkNow(playerChunkX + x, playerChunkZ + z);
             if (chunk != null) {
                chunks.add(chunk);
             }

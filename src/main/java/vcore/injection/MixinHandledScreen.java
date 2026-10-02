@@ -302,8 +302,6 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
    private void drawBackground(GuiGraphics context, int x, int y, float[] colors) {
       RenderSystem.disableBlend();
       RenderSystem.setShaderColor(colors[0], colors[1], colors[2], 1.0F);
-      RenderSystem.texParameter(3553, 10240, 9729);
-      RenderSystem.texParameter(3553, 10241, 9987);
       context.blit(RenderPipelines.GUI_TEXTURED, TextureStorage.container, x, y, 0.0F, 0.0F, 176, 67, 176, 67);
       RenderSystem.enableBlend();
    }

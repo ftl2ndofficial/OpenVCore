@@ -88,3 +88,10 @@ java {
 jar {
     exclude 'baritone/**'
 }
+
+task verifyMixins(type: JavaExec) {
+    group = 'verification'
+    description = 'Verifies that all mixin targets exist in vanilla Minecraft 1.21.11.'
+    classpath = sourceSets.gametest.runtimeClasspath
+    mainClass = 'vcore.test.MixinVerificationEngine'
+}
