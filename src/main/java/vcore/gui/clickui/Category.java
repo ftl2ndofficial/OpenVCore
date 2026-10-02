@@ -56,7 +56,7 @@ public class Category extends AbstractCategory {
 
          this.scrollOffset = AnimationUtility.fast(this.scrollOffset, this.scrollTarget, 10.0F);
          context.pose().pushMatrix();
-         Render2DEngine.addWindow(Render2DEngine.toPoseStack(context.pose()), this.getX(), this.getY() + 25.0F, this.getX() + this.width, this.getY() + 280.0F - 5.0F, 1.0);
+         Render2DEngine.addWindow(context, this.getX(), this.getY() + 25.0F, this.getX() + this.width, this.getY() + 280.0F - 5.0F);
          float baseY = this.getY() + 25.0F - this.scrollOffset;
 
          for (AbstractButton button : this.buttons) {
@@ -73,7 +73,7 @@ public class Category extends AbstractCategory {
             }
          }
 
-         Render2DEngine.popWindow();
+         Render2DEngine.popWindow(context);
          context.pose().popMatrix();
       }
 

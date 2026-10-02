@@ -153,7 +153,7 @@ public class ModuleButton extends AbstractButton {
          }
 
          Render2DEngine.addWindow(
-            matrices,
+            context,
             new Render2DEngine.Rectangle(
                this.x + 1.0F, this.y + this.height, this.width + this.x - 2.0F, (float)(this.height + this.y + this.getElementsHeight())
             )
@@ -194,11 +194,11 @@ public class ModuleButton extends AbstractButton {
                e.render(context, mouseX, mouseY, delta);
             }
          });
-         Render2DEngine.popWindow();
+         Render2DEngine.popWindow(context);
       } else if (this.hovered) {
-         Render2DEngine.addWindow(matrices, this.x + 1.0F, this.y, this.x + this.width - 2.0F, this.y + this.height, 1.0);
+         Render2DEngine.addWindow(context, this.x + 1.0F, this.y, this.x + this.width - 2.0F, this.y + this.height);
          Render2DEngine.drawBlurredShadow(matrices, mouseX - 10, mouseY - 10, 20.0F, 20.0F, 35, HudEditor.getColor(270));
-         Render2DEngine.popWindow();
+         Render2DEngine.popWindow(context);
       }
 
       this.category_animation = AnimationUtility.fast(this.category_animation, offsetY + this.getSettingsBottomPadding(offsetY), 20.0F);

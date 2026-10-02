@@ -17,6 +17,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Stack;
 import javax.imageio.ImageIO;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.util.Mth;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -90,6 +91,29 @@ public class Render2DEngine {
          stack.m20, stack.m21, 0.0F, 1.0F
       );
       return poseStack;
+   }
+
+   public static void addWindow(GuiGraphics context, Render2DEngine.Rectangle r1) {
+      addWindow(toPoseStack(context.pose()), r1);
+      int minX = (int)Math.min(r1.x, r1.x1);
+      int maxX = (int)Math.max(r1.x, r1.x1);
+      int minY = (int)Math.min(r1.y, r1.y1);
+      int maxY = (int)Math.max(r1.y, r1.y1);
+      context.enableScissor(minX, minY, maxX, maxY);
+   }
+
+   public static void addWindow(GuiGraphics context, float x, float y, float x1, float y1) {
+      addWindow(toPoseStack(context.pose()), x, y, x1, y1, 1.0);
+      int minX = (int)Math.min(x, x1);
+      int maxX = (int)Math.max(x, x1);
+      int minY = (int)Math.min(y, y1);
+      int maxY = (int)Math.max(y, y1);
+      context.enableScissor(minX, minY, maxX, maxY);
+   }
+
+   public static void popWindow(GuiGraphics context) {
+      popWindow();
+      context.disableScissor();
    }
 
    public static void addWindow(PoseStack stack, Render2DEngine.Rectangle r1) {
