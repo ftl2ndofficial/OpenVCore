@@ -2,9 +2,38 @@ package vcore.utility.discord;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
+import java.util.Locale;
 
 public interface DiscordRPC extends Library {
-   DiscordRPC INSTANCE = (DiscordRPC)Native.load("discord-rpc", DiscordRPC.class);
+   class Holder {
+      private static final DiscordRPC INSTANCE = loadInstance();
+
+      private static DiscordRPC loadInstance() {
+         if (!isWindows()) {
+            return null;
+         }
+         try {
+            return (DiscordRPC) Native.load("discord-rpc", DiscordRPC.class);
+         } catch (Throwable ignored) {
+            return null;
+         }
+      }
+
+      public static boolean isWindows() {
+         String os = System.getProperty("os.name");
+         return os != null && os.toLowerCase(Locale.ROOT).contains("win");
+      }
+   }
+
+   DiscordRPC INSTANCE = Holder.INSTANCE;
+
+   static boolean isSupported() {
+      return Holder.isWindows() && Holder.INSTANCE != null;
+   }
+
+   static DiscordRPC getInstance() {
+      return Holder.INSTANCE;
+   }
 
    void Discord_UpdateHandlers(DiscordEventHandlers var1);
 

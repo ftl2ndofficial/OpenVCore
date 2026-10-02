@@ -966,6 +966,12 @@ public class VCoreClient100TestSuite {
    private static void test100_Vcore_MetadataSafelyResolved() {
       String authors = VcoreUtility.getAuthors();
       assertTrue(authors != null && !authors.isEmpty(), "Authors resolved non-empty: " + authors);
+      boolean isWin = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win");
+      assertEq(isWin, vcore.features.modules.misc.RPC.isWindows(), "RPC.isWindows matches system property");
+      if (!isWin) {
+         assertTrue(!vcore.utility.discord.DiscordRPC.isSupported(), "DiscordRPC is not supported on non-Windows");
+         assertNull(vcore.utility.discord.DiscordRPC.getInstance(), "DiscordRPC instance is null on non-Windows");
+      }
    }
 
    // --- ASSERTION HELPERS ---

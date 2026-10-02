@@ -1,5 +1,6 @@
 package vcore.features.modules.misc;
 
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.client.gui.screens.ManageServerScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -13,11 +14,11 @@ import vcore.utility.discord.DiscordRPC;
 import vcore.utility.discord.DiscordRichPresence;
 
 public final class RPC extends Module {
-   private static final DiscordRPC rpc = DiscordRPC.INSTANCE;
    public static Setting<Boolean> showIP = new Setting<>("ShowIP", true);
    public static Setting<Boolean> nickname = new Setting<>("Nickname", true);
-   private static final String NAME_PROTECT_SMALL_IMAGE_TEXT = "discord.gg/GNYyWbwKUE";
-   public static DiscordRichPresence presence = new DiscordRichPresence();
+   public static final String DISCORD_LINK = "https://dsc.knualabs.icu";
+   private static final String NAME_PROTECT_SMALL_IMAGE_TEXT = "https://dsc.knualabs.icu";
+   public static DiscordRichPresence presence;
    public static boolean started;
    private final Timer timer_delay = new Timer();
    private static Thread thread;
@@ -29,62 +30,117 @@ public final class RPC extends Module {
       super("DiscordRPC", "Discord rich presence integration.", Module.Category.MISC);
    }
 
+   public static boolean isWindows() {
+      String os = System.getProperty("os.name");
+      return os != null && os.toLowerCase(Locale.ROOT).contains("win");
+   }
+
+   @Override
+   public void onEnable() {
+      if (!isWindows() || !DiscordRPC.isSupported()) {
+         this.disable();
+         return;
+      }
+      this.startRpc();
+   }
+
    @Override
    public void onDisable() {
       started = false;
       if (thread != null && !thread.isInterrupted()) {
          thread.interrupt();
+         thread = null;
       }
 
-      rpc.Discord_Shutdown();
-   }
-
-   @Override
-   public void onUpdate() {
-      this.startRpc();
-   }
-
-   public void startRpc() {
-      if (!this.isDisabled()) {
-         if (!started) {
-            started = true;
-            DiscordEventHandlers handlers = new DiscordEventHandlers();
-            rpc.Discord_Initialize("1555445272459485244", handlers, true, "");
-            presence.startTimestamp = System.currentTimeMillis() / 1000L;
-            presence.largeImageKey = "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdzdvbmNocjZoN3lxaDVkbW0zYnA0eHNqODF1bjRtdmM4cm1zNnprcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/DyvuwYcDPGgI86JGWw/giphy.gif";
-            rpc.Discord_UpdatePresence(presence);
-            thread = new Thread(() -> {
-               while (!Thread.currentThread().isInterrupted()) {
-                  rpc.Discord_RunCallbacks();
-                  presence.details = this.getDetails();
-                  presence.state = "Build >> Release (1.21.11)";
-                  if (nickname.getValue()) {
-                     presence.smallImageText = ModuleManager.nameProtect.isEnabled() ? "discord.gg/GNYyWbwKUE" : mc.getUser().getName();
-                     presence.smallImageKey = "https://minotar.net/helm/" + mc.getUser().getName() + "/100.png";
-                  } else {
-                     presence.smallImageText = "";
-                     presence.smallImageKey = "";
-                  }
-
-                  this.clearButtons();
-                  rpc.Discord_UpdatePresence(presence);
-
-                  try {
-                     Thread.sleep(2000L);
-                  } catch (InterruptedException var2) {
-                  }
-               }
-            }, "RPC-Callback-Handler");
-            thread.start();
+      if (isWindows()) {
+         try {
+            DiscordRPC rpc = DiscordRPC.getInstance();
+            if (rpc != null) {
+               rpc.Discord_Shutdown();
+            }
+         } catch (Throwable ignored) {
          }
       }
    }
 
-   private void clearButtons() {
-      presence.button_label_1 = null;
-      presence.button_url_1 = null;
-      presence.button_label_2 = null;
-      presence.button_url_2 = null;
+   @Override
+   public void onUpdate() {
+      if (!isWindows() || !DiscordRPC.isSupported()) {
+         if (started) {
+            this.onDisable();
+         }
+         return;
+      }
+      this.startRpc();
+   }
+
+   public void startRpc() {
+      if (!isWindows() || this.isDisabled() || started) {
+         return;
+      }
+
+      DiscordRPC rpc = DiscordRPC.getInstance();
+      if (rpc == null) {
+         return;
+      }
+
+      try {
+         started = true;
+         if (presence == null) {
+            presence = new DiscordRichPresence();
+         }
+         DiscordEventHandlers handlers = new DiscordEventHandlers();
+         rpc.Discord_Initialize("1555445272459485244", handlers, true, "");
+         presence.startTimestamp = System.currentTimeMillis() / 1000L;
+         presence.largeImageKey = "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdzdvbmNocjZoN3lxaDVkbW0zYnA0eHNqODF1bjRtdmM4cm1zNnprcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/DyvuwYcDPGgI86JGWw/giphy.gif";
+         this.updateButtons();
+         rpc.Discord_UpdatePresence(presence);
+         thread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+               try {
+                  DiscordRPC currentRpc = DiscordRPC.getInstance();
+                  if (currentRpc == null || !started) {
+                     break;
+                  }
+                  currentRpc.Discord_RunCallbacks();
+                  if (presence != null) {
+                     presence.details = this.getDetails();
+                     presence.state = "Build >> Release (1.21.11)";
+                     if (nickname.getValue()) {
+                        presence.smallImageText = ModuleManager.nameProtect.isEnabled() ? NAME_PROTECT_SMALL_IMAGE_TEXT : mc.getUser().getName();
+                        presence.smallImageKey = "https://minotar.net/helm/" + mc.getUser().getName() + "/100.png";
+                     } else {
+                        presence.smallImageText = "";
+                        presence.smallImageKey = "";
+                     }
+
+                     this.updateButtons();
+                     currentRpc.Discord_UpdatePresence(presence);
+                  }
+               } catch (Throwable ignored) {
+               }
+
+               try {
+                  Thread.sleep(2000L);
+               } catch (InterruptedException var2) {
+                  break;
+               }
+            }
+         }, "RPC-Callback-Handler");
+         thread.setDaemon(true);
+         thread.start();
+      } catch (Throwable t) {
+         started = false;
+      }
+   }
+
+   private void updateButtons() {
+      if (presence != null) {
+         presence.button_label_1 = "Discord";
+         presence.button_url_1 = DISCORD_LINK;
+         presence.button_label_2 = null;
+         presence.button_url_2 = null;
+      }
    }
 
    private String getDetails() {
