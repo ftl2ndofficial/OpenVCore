@@ -88,37 +88,48 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
       int outlineColor,
       net.minecraft.client.renderer.feature.ModelFeatureRenderer.CrumblingOverlay crumblingOverlay
    ) {
+      boolean renderedCustom = false;
       if (modelState instanceof AvatarRenderState avatarState && ModuleManager.customModel != null && ModuleManager.customModel.isEnabled() && ModuleManager.customModel.shouldApply(avatarState)) {
          if (model instanceof PlayerModel playerModel) {
             playerModel.setupAnim(avatarState);
             if (ModuleManager.customModel.renderCustomPlayerModel(avatarState, playerModel, poseStack, collector, renderType, lightCoords, overlayCoords, tint)) {
-               return;
+               renderedCustom = true;
             }
          }
       }
-      collector.submitModel(model, modelState, poseStack, renderType, lightCoords, overlayCoords, tint, sprite, outlineColor, crumblingOverlay);
+      if (!renderedCustom) {
+         collector.submitModel(model, modelState, poseStack, renderType, lightCoords, overlayCoords, tint, sprite, outlineColor, crumblingOverlay);
+      }
+
+      if (!Module.fullNullCheck() && ModuleManager.hat != null && ModuleManager.hat.isEnabled()) {
+         if (modelState instanceof AvatarRenderState avatarState && Module.mc.player != null && avatarState.id == Module.mc.player.getId()) {
+            if (!(Module.mc.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen)) {
+               if (!Module.mc.options.getCameraType().isFirstPerson() || ModuleManager.freeCam.isEnabled()) {
+                  if (model instanceof PlayerModel playerModel) {
+                     playerModel.setupAnim(avatarState);
+                     if (renderedCustom) {
+                        ModuleManager.customModel.renderHat(avatarState, poseStack, collector);
+                     } else {
+                        poseStack.pushPose();
+                        playerModel.head.translateAndRotate(poseStack);
+                        float yOffset = Hat.getYOffset(Module.mc.player);
+                        poseStack.translate(0.0F, yOffset, 0.0F);
+                        poseStack.mulPose(Axis.ZN.rotationDegrees(180.0F));
+                        poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
+                        ModuleManager.hat.renderHat(poseStack, collector);
+                        poseStack.popPose();
+                     }
+                  }
+               }
+            }
+         }
+      }
    }
 
    @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At("RETURN"))
    public void onSubmitPost(S state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState camera, CallbackInfo ci) {
       if (state instanceof AvatarRenderState avatarState && ModuleManager.customModel != null) {
          ModuleManager.customModel.endPlayerRender(avatarState);
-      }
-      if (!Module.fullNullCheck()) {
-         if (state instanceof AvatarRenderState avatarState && Module.mc.player != null && avatarState.id == Module.mc.player.getId() && ModuleManager.hat.isEnabled()) {
-            if (!(Module.mc.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen)) {
-               if (this.model instanceof PlayerModel playerModel) {
-                  poseStack.pushPose();
-                  playerModel.head.translateAndRotate(poseStack);
-                  float yOffset = Hat.getYOffset(Module.mc.player);
-                  poseStack.translate(0.0F, yOffset, 0.0F);
-                  poseStack.mulPose(Axis.ZN.rotationDegrees(180.0F));
-                  poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
-                  ModuleManager.hat.renderHat(poseStack, submitNodeCollector);
-                  poseStack.popPose();
-               }
-            }
-         }
       }
    }
 

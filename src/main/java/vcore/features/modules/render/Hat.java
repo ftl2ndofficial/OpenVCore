@@ -29,33 +29,46 @@ public class Hat extends Module {
          return;
       }
 
-      float radius = 0.6F;
-      int steps = 72;
+      float radius = 0.48F;
+      float height = 0.28F;
+      int steps = 48;
       double angleStep = (Math.PI * 2) / steps;
       Color customHatColor = this.color.getValue().getColorObject();
       int apexA = 240;
       int baseA = 160;
 
-      submitNodeCollector.submitCustomGeometry(stack, RenderTypes.debugTriangleFan(), (pose, consumer) -> {
-         Color apexColor = this.getHatColor(0.0F, customHatColor);
-         consumer.addVertex(pose, 0.0F, 0.35F, 0.0F).setColor(apexColor.getRed(), apexColor.getGreen(), apexColor.getBlue(), apexA);
-         for (int i = 0; i <= steps; i++) {
-            float x = (float)(Math.cos(i * angleStep) * radius);
-            float z = (float)(Math.sin(i * angleStep) * radius);
-            Color baseColor = this.getHatColor((float)i / steps, customHatColor);
-            consumer.addVertex(pose, x, 0.0F, z).setColor(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), baseA);
+      submitNodeCollector.submitCustomGeometry(stack, RenderTypes.dragonRays(), (pose, consumer) -> {
+         for (int i = 0; i < steps; i++) {
+            float x1 = (float)(Math.cos(i * angleStep) * radius);
+            float z1 = (float)(Math.sin(i * angleStep) * radius);
+            float x2 = (float)(Math.cos((i + 1) * angleStep) * radius);
+            float z2 = (float)(Math.sin((i + 1) * angleStep) * radius);
+
+            Color apexColor = this.getHatColor((i + 0.5F) / steps, customHatColor);
+            Color baseColor1 = this.getHatColor((float)i / steps, customHatColor);
+            Color baseColor2 = this.getHatColor((float)(i + 1) / steps, customHatColor);
+
+            // Exterior face
+            consumer.addVertex(pose, 0.0F, height, 0.0F).setColor(apexColor.getRed(), apexColor.getGreen(), apexColor.getBlue(), apexA);
+            consumer.addVertex(pose, x1, 0.0F, z1).setColor(baseColor1.getRed(), baseColor1.getGreen(), baseColor1.getBlue(), baseA);
+            consumer.addVertex(pose, x2, 0.0F, z2).setColor(baseColor2.getRed(), baseColor2.getGreen(), baseColor2.getBlue(), baseA);
+
+            // Interior face (visible from underneath)
+            consumer.addVertex(pose, 0.0F, height, 0.0F).setColor(apexColor.getRed(), apexColor.getGreen(), apexColor.getBlue(), apexA);
+            consumer.addVertex(pose, x2, 0.0F, z2).setColor(baseColor2.getRed(), baseColor2.getGreen(), baseColor2.getBlue(), baseA);
+            consumer.addVertex(pose, x1, 0.0F, z1).setColor(baseColor1.getRed(), baseColor1.getGreen(), baseColor1.getBlue(), baseA);
          }
       });
    }
 
    public static float getYOffset(Entity entity) {
-      float offset = -0.41F;
+      float offset = -0.50F;
       if (!Boolean.TRUE.equals(ModuleManager.hat.autoOffset.getValue())) {
          return offset;
       }
 
       if (entity instanceof LivingEntity livingEntity && !livingEntity.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
-         offset -= 0.071F;
+         offset -= 0.07F;
       }
 
       return offset;

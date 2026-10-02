@@ -29,6 +29,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.PlayerModelPart;
 import net.minecraft.world.item.Items;
 import vcore.core.Managers;
+import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
 import vcore.setting.Setting;
 
@@ -144,6 +145,36 @@ public class CustomModel extends Module {
       }
 
       return true;
+   }
+
+   public void renderHat(AvatarRenderState state, PoseStack matrices, SubmitNodeCollector collector) {
+      if (ModuleManager.hat == null || !ModuleManager.hat.isEnabled()) {
+         return;
+      }
+      switch ((CustomModel.Mode)this.mode.getValue()) {
+         case Rabbit -> {
+            matrices.pushPose();
+            this.rabbitModel.root.translateAndRotate(matrices);
+            this.rabbitModel.head.translateAndRotate(matrices);
+            matrices.translate(0.0F, -0.80F, 0.0F);
+            matrices.mulPose(Axis.ZN.rotationDegrees(180.0F));
+            matrices.mulPose(Axis.YP.rotationDegrees(-180.0F));
+            ModuleManager.hat.renderHat(matrices, collector);
+            matrices.popPose();
+         }
+         case FreddyBear -> {
+            matrices.pushPose();
+            matrices.scale(0.75F, 0.65F, 0.75F);
+            matrices.translate(0.0F, 0.85F, 0.0F);
+            this.freddyModel.root.translateAndRotate(matrices);
+            this.freddyModel.head.translateAndRotate(matrices);
+            matrices.translate(0.0F, -0.80F, 0.0F);
+            matrices.mulPose(Axis.ZN.rotationDegrees(180.0F));
+            matrices.mulPose(Axis.YP.rotationDegrees(-180.0F));
+            ModuleManager.hat.renderHat(matrices, collector);
+            matrices.popPose();
+         }
+      }
    }
 
    public boolean renderCape(PoseStack matrices, SubmitNodeCollector submitNodeCollector, int light, AvatarRenderState state) {
