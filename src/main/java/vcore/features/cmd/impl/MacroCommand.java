@@ -3,10 +3,10 @@ package vcore.features.cmd.impl;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import java.lang.reflect.Field;
 import net.minecraft.commands.SharedSuggestionProvider;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
+import vcore.utility.KeyboardUtility;
 import vcore.core.Managers;
 import vcore.core.manager.client.MacroManager;
 import vcore.features.cmd.Command;
@@ -76,24 +76,7 @@ public class MacroCommand extends Command {
    }
 
    public String toString(int key) {
-      String kn = key > 0 ? GLFW.glfwGetKeyName(key, GLFW.glfwGetKeyScancode(key)) : "None";
-      if (kn == null) {
-         try {
-            for (Field declaredField : GLFW.class.getDeclaredFields()) {
-               if (declaredField.getName().startsWith("GLFW_KEY_")) {
-                  int a = (Integer)declaredField.get(null);
-                  if (a == key) {
-                     String nb = declaredField.getName().substring("GLFW_KEY_".length());
-                     kn = nb.substring(0, 1).toUpperCase() + nb.substring(1).toLowerCase();
-                  }
-               }
-            }
-         } catch (Exception ignored) {
-            kn = "unknown." + key;
-         }
-      }
-
-      return key == -1 ? "None" : (kn + "").toUpperCase();
+      return KeyboardUtility.getBindName(key, false);
    }
 
    String usage() {

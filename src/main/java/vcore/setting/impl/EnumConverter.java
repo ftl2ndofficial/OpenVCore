@@ -14,60 +14,60 @@ public class EnumConverter extends Converter<Enum, JsonElement> {
    }
 
    public static int currentEnum(Enum clazz) {
-      for (int i = 0; i < ((Enum[])clazz.getClass().getEnumConstants()).length; i++) {
-         Enum e = ((Enum[])clazz.getClass().getEnumConstants())[i];
-         if (e.name().equalsIgnoreCase(clazz.name())) {
-            return i;
-         }
-      }
-
-      return -1;
+      return clazz != null ? clazz.ordinal() : -1;
    }
 
-   public static Enum increaseEnum(Enum clazz) {
-      int index = currentEnum(clazz);
-
-      for (int i = 0; i < ((Enum[])clazz.getClass().getEnumConstants()).length; i++) {
-         Enum e = ((Enum[])clazz.getClass().getEnumConstants())[i];
-         if (i == index + 1) {
-            return e;
-         }
+   public static Enum<?> increaseEnum(Enum<?> clazz) {
+      if (clazz == null) {
+         return null;
       }
-
-      return ((Enum[])clazz.getClass().getEnumConstants())[0];
+      Enum<?>[] constants = clazz.getDeclaringClass().getEnumConstants();
+      if (constants == null || constants.length == 0) {
+         return clazz;
+      }
+      return constants[(clazz.ordinal() + 1) % constants.length];
    }
 
    public static Enum<?> setEnumInt(@NotNull Enum<?> clazz, int id) {
-      for (int i = 0; i < ((Enum[])clazz.getClass().getEnumConstants()).length; i++) {
-         Enum<?> e = ((Enum[])clazz.getClass().getEnumConstants())[i];
-         if (i == id) {
-            return e;
-         }
+      Enum<?>[] constants = clazz.getDeclaringClass().getEnumConstants();
+      if (constants == null || constants.length == 0) {
+         return clazz;
       }
-
-      return ((Enum[])clazz.getClass().getEnumConstants())[0];
+      if (id >= 0 && id < constants.length) {
+         return constants[id];
+      }
+      return constants[0];
    }
 
    public static String[] getNames(Enum clazz) {
+      if (clazz == null) {
+         return new String[0];
+      }
       return Arrays.stream((Enum[])clazz.getClass().getEnumConstants()).map(Enum::toString).toArray(String[]::new);
    }
 
    public static String getProperName(Enum clazz) {
-      return clazz.toString();
+      return clazz != null ? clazz.toString() : "";
    }
 
    public JsonElement doForward(Enum anEnum) {
-      return new JsonPrimitive(anEnum.toString());
+      return new JsonPrimitive(anEnum != null ? anEnum.toString() : "");
    }
 
    public Enum doBackward(JsonElement jsonElement) {
+      if (jsonElement == null || !jsonElement.isJsonPrimitive()) {
+         return null;
+      }
       String raw = jsonElement.getAsString();
+      if (raw == null) {
+         return null;
+      }
 
       try {
          return Enum.valueOf(this.clazz, raw);
       } catch (IllegalArgumentException ignored) {
          for (Enum e : this.clazz.getEnumConstants()) {
-            if (e.toString().equalsIgnoreCase(raw)) {
+            if (e.name().equalsIgnoreCase(raw) || e.toString().equalsIgnoreCase(raw)) {
                return e;
             }
          }

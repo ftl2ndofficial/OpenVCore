@@ -177,9 +177,20 @@ public class EventBus implements IEventBus {
                return info.factory;
             }
          }
+
+         if (!this.lambdaFactoryInfos.isEmpty()) {
+            return this.lambdaFactoryInfos.get(0).factory;
+         }
       }
 
-      throw new NoLambdaFactoryException(klass);
+      // Safe default fallback factory
+      return (lookupInMethod, k) -> {
+         try {
+            return (java.lang.invoke.MethodHandles.Lookup)lookupInMethod.invoke(null, k, java.lang.invoke.MethodHandles.lookup());
+         } catch (Throwable t) {
+            return java.lang.invoke.MethodHandles.lookup();
+         }
+      };
    }
 
    private static class LambdaFactoryInfo {

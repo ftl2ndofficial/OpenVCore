@@ -95,3 +95,10 @@ task verifyMixins(type: JavaExec) {
     classpath = sourceSets.gametest.runtimeClasspath
     mainClass = 'vcore.test.MixinVerificationEngine'
 }
+
+task testArchitecture(type: JavaExec) {
+    group = 'verification'
+    description = 'Verifies reflection elimination, KeyboardUtility, EnumConverter, and direct Module registration.'
+    classpath = sourceSets.gametest.runtimeClasspath
+    mainClass = 'vcore.test.ArchitectureRefactorTest'
+}

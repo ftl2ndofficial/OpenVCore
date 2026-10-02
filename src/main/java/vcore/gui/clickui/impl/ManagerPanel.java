@@ -3,9 +3,9 @@ package vcore.gui.clickui.impl;
 import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import vcore.utility.KeyboardUtility;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.util.StringUtil;
@@ -729,37 +729,7 @@ public class ManagerPanel {
    }
 
    private String formatBind(int key) {
-      if (key == -1) {
-         return "None";
-      }
-
-      String keyName = GLFW.glfwGetKeyName(key, GLFW.glfwGetKeyScancode(key));
-      if (keyName == null) {
-         try {
-            for (Field field : GLFW.class.getDeclaredFields()) {
-               if (field.getName().startsWith("GLFW_KEY_") && (Integer)field.get(null) == key) {
-                  String name = field.getName().substring("GLFW_KEY_".length());
-                  keyName = name.substring(0, 1).toUpperCase() + name.substring(1).toLowerCase();
-                  break;
-               }
-            }
-         } catch (IllegalAccessException ignored) {
-            keyName = "Unknown";
-         }
-      }
-
-      if (keyName == null) {
-         keyName = "Unknown";
-      }
-      return switch (keyName.toUpperCase()) {
-         case "LEFT_CONTROL" -> "LCtrl";
-         case "RIGHT_CONTROL" -> "RCtrl";
-         case "LEFT_SHIFT" -> "LShift";
-         case "RIGHT_SHIFT" -> "RShift";
-         case "LEFT_ALT" -> "LAlt";
-         case "RIGHT_ALT" -> "RAlt";
-         default -> keyName.toUpperCase();
-      };
+      return KeyboardUtility.getKeyName(key);
    }
 
    private List<ManagerPanel.FriendDisplayEntry> getFriendDisplayEntries() {

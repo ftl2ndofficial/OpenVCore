@@ -1,6 +1,6 @@
 {
   "required": true,
-  "minVersion": "Release",
+  "minVersion": "0.8",
   "package": "vcore.injection",
   "compatibilityLevel": "JAVA_21",
   "plugin": "vcore.injection.VcoreMixinPlugin",

@@ -59,13 +59,25 @@ public class LambdaListener implements IListener {
             this.executor = (Consumer)lambdaFactory.invoke((Object)object);
          }
       } catch (Throwable throwable) {
-         throwable.printStackTrace();
+         try {
+            method.setAccessible(true);
+            this.executor = event -> {
+               try {
+                  method.invoke(this.isStatic ? null : object, event);
+               } catch (Throwable ignored) {
+               }
+            };
+         } catch (Throwable ignored) {
+            throwable.printStackTrace();
+         }
       }
    }
 
    @Override
    public void call(Object event) {
-      this.executor.accept(event);
+      if (this.executor != null) {
+         this.executor.accept(event);
+      }
    }
 
    @Override

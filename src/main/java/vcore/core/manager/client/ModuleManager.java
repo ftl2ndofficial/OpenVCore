@@ -1,7 +1,6 @@
 package vcore.core.manager.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -238,19 +237,43 @@ public class ModuleManager implements IManager {
    public static RPC rpc = new RPC();
 
    public ModuleManager() {
-      for (Field field : this.getClass().getDeclaredFields()) {
-         if (Module.class.isAssignableFrom(field.getType())) {
-            field.setAccessible(true);
+      this.initModules();
+      hudEditor.enableSilently();
+   }
 
-            try {
-               this.modules.add((Module)field.get(this));
-            } catch (IllegalAccessException e) {
-               Vcore.LOGGER.error("Error initializing modules", e);
-            }
+   private void register(Module... mods) {
+      for (Module m : mods) {
+         if (m != null) {
+            this.modules.add(m);
          }
       }
+   }
 
-      hudEditor.enableSilently();
+   private void initModules() {
+      this.register(
+         inventoryCleaner, portalInventory, hotbarReplenish, totemPopCounter, durabilityAlert,
+         totemAnimation, clientSettings, messageAppend, elytraReplace, notifications,
+         noEntityTrace, noCameraClip, targetStrafe, itemScroller, chestStealer,
+         autoTpAccept, antiServerRP, perfectDelay, tridentBoost, windJump,
+         ClientSound, pearlChaser, worldTweaks, nameProtect, lagNotifier,
+         autoRespawn, aspectRatio, smoothCamera, itemPhysics, waterSpeed,
+         triggerBot, storageEsp, noInteract, jumpCircle, fullbright,
+         fakePlayer, autoSprint, autoGApple, animations, chunkAnimation,
+         antiAttack, prediction, elytraSwap, elytraPlus, elytraTarget,
+         particles, fragEffects, elytraBoost, elytraMotion, targerESP,
+         viewModel, customModel, hudEditor, crosshair, criticals,
+         tapeMouse, antiCrash, keyPearl, autoTotem, velocity,
+         tooltips, popEffect, noRender, clickGui, autoWalk,
+         blockESP, airStuck, maceSwap, eMaceHelper, wallsBypass,
+         autoTool, itemHelper, autoBuff, autoAuth, moveFix,
+         autoEat, spammer, combatLeave, freeLook, freeCam,
+         nodelay, bowSpam, itemESP, guiMove, antiWeb,
+         antiBot, Arrows, noSlow, noFall, hitBox,
+         flight, aimBot, noPush, unHook, fixHP,
+         speed, reach, nuker, phase, xray,
+         autoCart, autoCrystal, crystalOptimizer, aura, maceKill,
+         esp, hat, svetych, rpc
+      );
    }
 
    public Module get(String name) {

@@ -3,6 +3,7 @@ package vcore;
 import java.awt.Color;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.util.Objects;
 import meteordevelopment.orbit.EventBus;
 import meteordevelopment.orbit.IEventBus;
 import net.fabricmc.api.ModInitializer;
@@ -23,7 +24,7 @@ import vcore.utility.player.MovementUtility;
 import vcore.utility.render.Render2DEngine;
 
 public class Vcore implements ModInitializer {
-   public static final ModMetadata MOD_META = ((ModContainer)FabricLoader.getInstance().getModContainer("vcore").orElseThrow()).getMetadata();
+   public static final ModMetadata MOD_META = FabricLoader.getInstance().getModContainer("vcore").map(ModContainer::getMetadata).orElse(null);
    public static final String RANK = "DEV";
    public static final String USER = "vu_2007";
    public static final String MOD_ID = "vcore";
@@ -32,6 +33,12 @@ public class Vcore implements ModInitializer {
    public static final Runtime RUNTIME = Runtime.getRuntime();
    public static final boolean baritone = FabricLoader.getInstance().isModLoaded("baritone") || FabricLoader.getInstance().isModLoaded("baritone-meteor");
    public static final IEventBus EVENT_BUS = new EventBus();
+
+   static {
+      EVENT_BUS.registerLambdaFactory("vcore", (lookupInMethod, klass) -> (Lookup)lookupInMethod.invoke(null, klass, MethodHandles.lookup()));
+      EVENT_BUS.registerLambdaFactory("", (lookupInMethod, klass) -> (Lookup)lookupInMethod.invoke(null, klass, MethodHandles.lookup()));
+   }
+
    public static Color copy_color = new Color(-1);
    public static Vcore.KeyListening currentKeyListener;
    public static BlockPos gps_position;
@@ -45,6 +52,7 @@ public class Vcore implements ModInitializer {
       mc = Minecraft.getInstance();
       initTime = System.currentTimeMillis();
       EVENT_BUS.registerLambdaFactory("vcore", (lookupInMethod, klass) -> (Lookup)lookupInMethod.invoke(null, klass, MethodHandles.lookup()));
+      EVENT_BUS.registerLambdaFactory("", (lookupInMethod, klass) -> (Lookup)lookupInMethod.invoke(null, klass, MethodHandles.lookup()));
       EVENT_BUS.subscribe(core);
       this.preloadRuntimeClasses();
       PopEffectParticles.register();
@@ -59,11 +67,7 @@ public class Vcore implements ModInitializer {
    }
 
    private void preloadRuntimeClasses() {
-      try {
-         Class.forName(MovementUtility.class.getName(), true, Vcore.class.getClassLoader());
-      } catch (ClassNotFoundException exception) {
-         throw new IllegalStateException("Không thể nạp class runtime bắt buộc của Vcore.", exception);
-      }
+      Objects.requireNonNull(MovementUtility.class.getClassLoader());
    }
 
    public static boolean isFuturePresent() {

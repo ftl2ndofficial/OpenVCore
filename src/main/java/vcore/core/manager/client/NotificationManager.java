@@ -7,7 +7,6 @@ import java.awt.Toolkit;
 import java.awt.TrayIcon;
 import java.awt.TrayIcon.MessageType;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -52,19 +51,8 @@ public class NotificationManager implements IManager {
                break;
             }
 
-            if (n != null) {
-               String title;
-               try {
-                  Field f = n.getClass().getDeclaredField("title");
-                  f.setAccessible(true);
-                  title = (String)f.get(n);
-               } catch (Exception e) {
-                  continue;
-               }
-
-               if (title != null && title.equals("TotemPopCounter")) {
-                  break;
-               }
+            if (n != null && "TotemPopCounter".equals(n.getTitle())) {
+               break;
             }
          }
 
@@ -92,19 +80,8 @@ public class NotificationManager implements IManager {
                break;
             }
 
-            if (n != null) {
-               String title;
-               try {
-                  Field f = n.getClass().getDeclaredField("title");
-                  f.setAccessible(true);
-                  title = (String)f.get(n);
-               } catch (Exception e) {
-                  continue;
-               }
-
-               if (title != null && title.equals("TotemPopCounter")) {
-                  break;
-               }
+            if (n != null && "TotemPopCounter".equals(n.getTitle())) {
+               break;
             }
          }
 

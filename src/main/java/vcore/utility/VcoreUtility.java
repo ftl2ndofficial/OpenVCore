@@ -25,6 +25,9 @@ public final class VcoreUtility {
 
    @NotNull
    public static String getAuthors() {
+      if (Vcore.MOD_META == null) {
+         return "OpenVCore Team";
+      }
       List<String> names = Vcore.MOD_META.getAuthors().stream().<String>map(Person::getName).toList();
       return String.join(", ", names);
    }

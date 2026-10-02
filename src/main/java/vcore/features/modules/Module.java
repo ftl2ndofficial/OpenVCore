@@ -6,6 +6,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -241,14 +242,30 @@ public abstract class Module {
    }
 
    public static boolean fullNullCheck() {
-      return mc.player == null || mc.level == null || ModuleManager.unHook.isEnabled();
+      return mc == null || mc.player == null || mc.level == null || (ModuleManager.unHook != null && ModuleManager.unHook.isEnabled());
    }
 
    public String getName() {
       return this.getDisplayName();
    }
 
-   public List<Setting<?>> getSettings() {
+   private List<Setting<?>> cachedSettings = null;
+
+   public synchronized <T extends Setting<?>> T registerSetting(T setting) {
+      setting.setModule(this);
+      if (this.cachedSettings == null) {
+         this.cachedSettings = new ArrayList<>();
+      } else if (!(this.cachedSettings instanceof ArrayList)) {
+         this.cachedSettings = new ArrayList<>(this.cachedSettings);
+      }
+      this.cachedSettings.add(setting);
+      return setting;
+   }
+
+   public synchronized List<Setting<?>> getSettings() {
+      if (this.cachedSettings != null) {
+         return this.cachedSettings;
+      }
       ArrayList<Setting<?>> settingList = new ArrayList<>();
       IdentityHashMap<Setting<?>, Integer> settingDepth = new IdentityHashMap<>();
       Class<?> currentSuperclass = this.getClass();
@@ -276,7 +293,8 @@ public abstract class Module {
          Comparator.<Setting<?>>comparingInt(setting -> settingDepth.getOrDefault(setting, Integer.MAX_VALUE)).thenComparingLong(Setting::getCreationOrder)
       );
       settingList.forEach(s -> s.setModule(this));
-      return settingList;
+      this.cachedSettings = Collections.unmodifiableList(settingList);
+      return this.cachedSettings;
    }
 
    public boolean isEnabled() {

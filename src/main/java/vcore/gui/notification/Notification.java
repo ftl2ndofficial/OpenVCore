@@ -56,16 +56,26 @@ public class Notification {
             this.icon = "H";
       }
 
-      this.width = NotificationManager.isDefault()
-         ? FontRenderers.sf_bold_mini.getStringWidth(message) + 38.0F
-         : FontRenderers.sf_bold_micro.getStringWidth(title + " " + message) + 20.0F;
+      float textWidth = 100.0F;
+      if (NotificationManager.isDefault()) {
+         if (FontRenderers.sf_bold_mini != null) {
+            textWidth = FontRenderers.sf_bold_mini.getStringWidth(message);
+         }
+         this.width = textWidth + 38.0F;
+      } else {
+         if (FontRenderers.sf_bold_micro != null) {
+            textWidth = FontRenderers.sf_bold_micro.getStringWidth(title + " " + message);
+         }
+         this.width = textWidth + 20.0F;
+      }
       this.height = NotificationManager.isDefault() ? 25.0F : 13.0F;
       this.animation = new EaseOutBack(NotificationManager.isDefault() ? 10 : 20);
       this.animationX = this.width;
+      int windowHeight = (Module.mc != null && Module.mc.getWindow() != null) ? Module.mc.getWindow().getGuiScaledHeight() : 480;
       if (NotificationManager.isDefault()) {
-         this.y = Module.mc.getWindow().getGuiScaledHeight() - this.height;
+         this.y = windowHeight - this.height;
       } else {
-         this.y = Module.mc.getWindow().getGuiScaledHeight() / 2.0F + 10.0F;
+         this.y = windowHeight / 2.0F + 10.0F;
       }
    }
 
@@ -172,6 +182,22 @@ public class Notification {
 
    private boolean isFinished() {
       return this.timer.passedMs(this.lifeTime);
+   }
+
+   public String getTitle() {
+      return this.title;
+   }
+
+   public String getMessage() {
+      return this.message;
+   }
+
+   public String getIcon() {
+      return this.icon;
+   }
+
+   public int getLifeTime() {
+      return this.lifeTime;
    }
 
    public double getHeight() {
