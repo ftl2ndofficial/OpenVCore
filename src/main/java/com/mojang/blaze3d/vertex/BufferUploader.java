@@ -265,6 +265,9 @@ public class BufferUploader {
 
             if (uSampler0 != -1) {
                GL20.glUniform1i(uSampler0, 0);
+               try {
+                  GL33.glBindSampler(0, 0);
+               } catch (Throwable ignored) {}
             }
 
             boolean hasTex = state.format().contains(VertexFormatElement.UV0);
