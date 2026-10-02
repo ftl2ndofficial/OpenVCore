@@ -254,9 +254,7 @@ public abstract class Module {
    public synchronized <T extends Setting<?>> T registerSetting(T setting) {
       setting.setModule(this);
       if (this.cachedSettings == null) {
-         this.cachedSettings = new ArrayList<>();
-      } else if (!(this.cachedSettings instanceof ArrayList)) {
-         this.cachedSettings = new ArrayList<>(this.cachedSettings);
+         this.getSettings();
       }
       this.cachedSettings.add(setting);
       return setting;
@@ -264,7 +262,7 @@ public abstract class Module {
 
    public synchronized List<Setting<?>> getSettings() {
       if (this.cachedSettings != null) {
-         return this.cachedSettings;
+         return new ArrayList<>(this.cachedSettings);
       }
       ArrayList<Setting<?>> settingList = new ArrayList<>();
       IdentityHashMap<Setting<?>, Integer> settingDepth = new IdentityHashMap<>();
@@ -293,8 +291,8 @@ public abstract class Module {
          Comparator.<Setting<?>>comparingInt(setting -> settingDepth.getOrDefault(setting, Integer.MAX_VALUE)).thenComparingLong(Setting::getCreationOrder)
       );
       settingList.forEach(s -> s.setModule(this));
-      this.cachedSettings = Collections.unmodifiableList(settingList);
-      return this.cachedSettings;
+      this.cachedSettings = new ArrayList<>(settingList);
+      return new ArrayList<>(this.cachedSettings);
    }
 
    public boolean isEnabled() {

@@ -43,7 +43,7 @@ import vcore.setting.impl.SettingGroup;
 
 public class ConfigManager implements IManager {
    public static final String CONFIG_FOLDER_NAME = "Vcore";
-   public static final File MAIN_FOLDER = new File(mc.gameDirectory, "Vcore");
+   public static final File MAIN_FOLDER = (mc != null && mc.gameDirectory != null) ? new File(mc.gameDirectory, "Vcore") : new File("Vcore");
    public static final File CONFIGS_FOLDER = new File(MAIN_FOLDER, "configs");
    public static final File MISC_FOLDER = new File(MAIN_FOLDER, "misc");
    public static final File IMAGES_FOLDER = new File(MISC_FOLDER, "images");

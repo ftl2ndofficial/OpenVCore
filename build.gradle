@@ -102,3 +102,10 @@ task testArchitecture(type: JavaExec) {
     classpath = sourceSets.gametest.runtimeClasspath
     mainClass = 'vcore.test.ArchitectureRefactorTest'
 }
+
+task testClient100(type: JavaExec) {
+    group = 'verification'
+    description = 'Runs the 100 comprehensive client integration and logic tests for OpenVCore.'
+    classpath = sourceSets.gametest.runtimeClasspath
+    mainClass = 'vcore.test.VCoreClient100TestSuite'
+}

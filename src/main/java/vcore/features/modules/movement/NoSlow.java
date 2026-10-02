@@ -1,5 +1,6 @@
 package vcore.features.modules.movement;
 
+import java.util.ArrayList;
 import java.util.List;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.core.component.DataComponents;
@@ -35,7 +36,7 @@ public class NoSlow extends Module {
 
    @Override
    public List<Setting<?>> getSettings() {
-      List<Setting<?>> settings = super.getSettings();
+      List<Setting<?>> settings = new ArrayList<>(super.getSettings());
       settings.removeIf(setting -> setting != this.mode && !"Enabled".equals(setting.getName()) && !"Keybind".equals(setting.getName()));
       return settings;
    }

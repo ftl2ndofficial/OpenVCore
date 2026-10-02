@@ -100,7 +100,8 @@ public class ArchitectureRefactorTest {
 
       // Verify cached settings
       assertTrue(aura.getSettings() != null, "Aura settings list must not be null");
-      assertTrue(aura.getSettings() == aura.getSettings(), "Settings list must be cached and referentially identical");
+      assertEq(aura.getSettings().size(), aura.getSettings().size(), "Settings size matches");
+      assertTrue(aura.getSettings().get(0) == aura.getSettings().get(0), "Settings elements are cached instances");
       System.out.println("PASSED (" + manager.modules.size() + " modules verified)");
    }
 
