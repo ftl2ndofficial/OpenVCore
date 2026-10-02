@@ -19,7 +19,7 @@ import vcore.utility.render.RenderSystem.SourceFactor;
 import vcore.utility.render.TextureStorage;
 
 public class WaterMark extends HudElement {
-   private static final String TITLE = "Release";
+   private static final String TITLE = "Open";
    private static final float TITLE_X = 15.0F;
    private static final float TITLE_RIGHT_PADDING = 3.0F;
    private static final float HEIGHT = 15.0F;
@@ -39,7 +39,7 @@ public class WaterMark extends HudElement {
       String fpsText = fps + " FPS";
       float usernameWidth = FontRenderers.sf_bold.getStringWidth(username);
       float fpsTextWidth = FontRenderers.sf_bold.getStringWidth(fpsText);
-      float titleWidth = FontRenderers.sf_bold.getStringWidth("Release");
+      float titleWidth = FontRenderers.sf_bold.getStringWidth(TITLE);
       float leftWidth = 15.0F + titleWidth + 3.0F;
       float rightX = this.getPosX() + leftWidth + 5.0F;
       float accountTextX = rightX + 13.0F;
@@ -51,7 +51,7 @@ public class WaterMark extends HudElement {
       Render2DEngine.drawHudBase(matrices, rightX, this.getPosY(), rightWidth, 15.0F, 3.0F);
       Render2DEngine.setupRender();
       Render2DEngine.drawRect(matrices, this.getPosX() + 13.0F, this.getPosY() + 1.5F, 0.5F, 11.0F, new Color(1157627903, true));
-      FontRenderers.sf_bold.drawGradientString(context.pose(), "Release", this.getPosX() + 15.0F, this.getPosY() + 5.0F, 20);
+      FontRenderers.sf_bold.drawGradientString(context.pose(), TITLE, this.getPosX() + 15.0F, this.getPosY() + 5.0F, 20);
       RenderSystem.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE);
       RenderSystem.setShaderTexture(0, TextureStorage.miniLogo);
       Render2DEngine.renderGradientTexture(
