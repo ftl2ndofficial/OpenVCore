@@ -68,6 +68,37 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
       }
    }
 
+   @org.spongepowered.asm.mixin.injection.Redirect(
+      method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+      at = @At(
+         value = "INVOKE",
+         target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V"
+      )
+   )
+   private <M_STATE> void redirectSubmitModel(
+      SubmitNodeCollector collector,
+      net.minecraft.client.model.Model<? super M_STATE> model,
+      M_STATE modelState,
+      PoseStack poseStack,
+      net.minecraft.client.renderer.rendertype.RenderType renderType,
+      int lightCoords,
+      int overlayCoords,
+      int tint,
+      net.minecraft.client.renderer.texture.TextureAtlasSprite sprite,
+      int outlineColor,
+      net.minecraft.client.renderer.feature.ModelFeatureRenderer.CrumblingOverlay crumblingOverlay
+   ) {
+      if (modelState instanceof AvatarRenderState avatarState && ModuleManager.customModel != null && ModuleManager.customModel.isEnabled() && ModuleManager.customModel.shouldApply(avatarState)) {
+         if (model instanceof PlayerModel playerModel) {
+            playerModel.setupAnim(avatarState);
+            if (ModuleManager.customModel.renderCustomPlayerModel(avatarState, playerModel, poseStack, collector, renderType, lightCoords, overlayCoords, tint)) {
+               return;
+            }
+         }
+      }
+      collector.submitModel(model, modelState, poseStack, renderType, lightCoords, overlayCoords, tint, sprite, outlineColor, crumblingOverlay);
+   }
+
    @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At("RETURN"))
    public void onSubmitPost(S state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState camera, CallbackInfo ci) {
       if (state instanceof AvatarRenderState avatarState && ModuleManager.customModel != null) {
@@ -75,15 +106,17 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
       }
       if (!Module.fullNullCheck()) {
          if (state instanceof AvatarRenderState avatarState && Module.mc.player != null && avatarState.id == Module.mc.player.getId() && ModuleManager.hat.isEnabled()) {
-            if (this.model instanceof PlayerModel playerModel) {
-               poseStack.pushPose();
-               playerModel.head.translateAndRotate(poseStack);
-               float yOffset = Hat.getYOffset(Module.mc.player);
-               poseStack.translate(0.0F, yOffset, 0.0F);
-               poseStack.mulPose(Axis.ZN.rotationDegrees(180.0F));
-               poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
-               ModuleManager.hat.renderHat(poseStack);
-               poseStack.popPose();
+            if (!(Module.mc.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen)) {
+               if (this.model instanceof PlayerModel playerModel) {
+                  poseStack.pushPose();
+                  playerModel.head.translateAndRotate(poseStack);
+                  float yOffset = Hat.getYOffset(Module.mc.player);
+                  poseStack.translate(0.0F, yOffset, 0.0F);
+                  poseStack.mulPose(Axis.ZN.rotationDegrees(180.0F));
+                  poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
+                  ModuleManager.hat.renderHat(poseStack, submitNodeCollector);
+                  poseStack.popPose();
+               }
             }
          }
       }

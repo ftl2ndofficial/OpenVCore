@@ -8,4 +8,18 @@ public class Fullbright extends Module {
    public Fullbright() {
       super("Fullbright", "Removes darkness.", Module.Category.RENDER);
    }
+
+   @Override
+   public void onEnable() {
+      if (mc.gameRenderer != null && mc.gameRenderer.lightTexture() != null) {
+         mc.gameRenderer.lightTexture().tick();
+      }
+   }
+
+   @Override
+   public void onDisable() {
+      if (mc.gameRenderer != null && mc.gameRenderer.lightTexture() != null) {
+         mc.gameRenderer.lightTexture().tick();
+      }
+   }
 }

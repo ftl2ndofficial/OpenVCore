@@ -139,4 +139,11 @@ public abstract class MixinGameRenderer {
          cir.setReturnValue(matrix4f);
       }
    }
+
+   @Inject(method = "getNightVisionScale", at = @At("HEAD"), cancellable = true)
+   private static void onGetNightVisionScale(net.minecraft.world.entity.LivingEntity entity, float tickDelta, CallbackInfoReturnable<Float> cir) {
+      if (ModuleManager.fullbright != null && ModuleManager.fullbright.isEnabled()) {
+         cir.setReturnValue(1.0F);
+      }
+   }
 }

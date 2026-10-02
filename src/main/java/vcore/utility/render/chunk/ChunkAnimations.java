@@ -55,28 +55,10 @@ public class ChunkAnimations {
 
          long timeDif = System.currentTimeMillis() - time;
          if (timeDif < animationDuration) {
-            int chunkY = origin.getY();
-            int animationMode = this.mode == 2 ? (chunkY < this.getVoidFogHeight() ? 0 : 1) : (this.mode == 4 ? 3 : this.mode);
-            switch (animationMode) {
-               case 0: {
-                  double dy = -chunkY + this.getFunctionValue((float)timeDif, 0.0F, chunkY, animationDuration);
-                  return new Vec3(0.0, dy, 0.0);
-               }
-               case 1: {
-                  double dy = 256 - chunkY - this.getFunctionValue((float)timeDif, 0.0F, 256 - chunkY, animationDuration);
-                  return new Vec3(0.0, dy, 0.0);
-               }
-               case 2:
-               default:
-                  break;
-               case 3:
-                  Direction chunkFacing = animationData.chunkFacing;
-                  if (chunkFacing != null) {
-                     Vec3i vec = chunkFacing.getUnitVec3i();
-                     double mod = -(200.0F - this.getFunctionValue((float)timeDif, 0.0F, 200.0F, animationDuration));
-                     return new Vec3(vec.getX() * mod, 0.0, vec.getZ() * mod);
-                  }
-            }
+            double startOffset = 64.0;
+            double progress = this.getFunctionValue((float)timeDif, 0.0F, (float)startOffset, (float)animationDuration);
+            double dy = -startOffset + progress;
+            return new Vec3(0.0, dy, 0.0);
          } else {
             this.timeStamps.remove(key);
          }
@@ -106,9 +88,8 @@ public class ChunkAnimations {
          BlockPos zeroedCenteredChunkPos = this.getZeroedCenteredChunkPos(immutablePos);
          double distSq = zeroedPlayerPos.distToLowCornerSqr(zeroedCenteredChunkPos.getX(), zeroedCenteredChunkPos.getY(), zeroedCenteredChunkPos.getZ());
          long key = immutablePos.asLong();
-         if (distSq > 1024.0) {
-            this.timeStamps
-               .put(key, new ChunkAnimations.AnimationData(-1L, this.mode == 3 ? this.getChunkFacing(zeroedPlayerPos.subtract(zeroedCenteredChunkPos)) : null));
+         if (distSq > 256.0) {
+            this.timeStamps.put(key, new ChunkAnimations.AnimationData(-1L, null));
          } else {
             this.timeStamps.remove(key);
          }

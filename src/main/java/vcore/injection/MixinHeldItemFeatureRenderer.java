@@ -25,21 +25,6 @@ public abstract class MixinHeldItemFeatureRenderer<S extends ArmedEntityRenderSt
       super(context);
    }
 
-   @Inject(method = "submit", at = @At("HEAD"))
-   private void applyCustomModelHeldItemRoot(
-      PoseStack poseStack,
-      SubmitNodeCollector submitNodeCollector,
-      int lightCoords,
-      S state,
-      float yRot,
-      float xRot,
-      CallbackInfo ci
-   ) {
-      if (ModuleManager.customModel != null) {
-         ModuleManager.customModel.applyHeldItemRootTransform(poseStack, state);
-      }
-   }
-
    @Inject(method = "submitArmWithItem", at = @At("HEAD"), cancellable = true)
    private void renderCustomModelHeldItem(
       S state,
@@ -55,6 +40,7 @@ public abstract class MixinHeldItemFeatureRenderer<S extends ArmedEntityRenderSt
          ci.cancel();
          if (!item.isEmpty()) {
             poseStack.pushPose();
+            ModuleManager.customModel.applyHeldItemRootTransform(poseStack, state);
             this.getParentModel().translateToHand(state, arm, poseStack);
             poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
             poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));

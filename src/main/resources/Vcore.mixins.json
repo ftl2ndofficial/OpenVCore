@@ -6,7 +6,7 @@
   "plugin": "vcore.injection.VcoreMixinPlugin",
   "client": [
     "MixinArmorFeatureRenderer",
-    "MixinAnimalModel",
+    "MixinLevelRendererChunkAnimations",
     "MixinBackgroundRenderer",
     "MixinBossBarHud",
     "MixinCamera",

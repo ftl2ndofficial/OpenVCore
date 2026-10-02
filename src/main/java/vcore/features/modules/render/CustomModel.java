@@ -105,24 +105,42 @@ public class CustomModel extends Module {
    }
 
    public boolean renderCustomPlayerModel(
-      AbstractClientPlayer player,
+      AvatarRenderState state,
       PlayerModel vanillaModel,
       PoseStack matrices,
-      VertexConsumer vertexConsumer,
+      SubmitNodeCollector collector,
+      RenderType renderType,
       int light,
       int overlay,
       int color
    ) {
-      if (!this.shouldApply(player)) {
+      if (!this.shouldApply(state)) {
          return false;
       }
 
       switch ((CustomModel.Mode)this.mode.getValue()) {
          case Rabbit:
-            this.renderRabbit(vanillaModel, matrices, vertexConsumer, light, overlay, color);
+            this.copyRotation(this.rabbitModel.head, vanillaModel.head);
+            this.copyRotation(this.rabbitModel.leftArm, vanillaModel.leftArm);
+            this.copyRotation(this.rabbitModel.rightArm, vanillaModel.rightArm);
+            this.copyRotation(this.rabbitModel.leftLeg, vanillaModel.leftLeg);
+            this.copyRotation(this.rabbitModel.rightLeg, vanillaModel.rightLeg);
+            matrices.pushPose();
+            collector.submitModelPart(this.rabbitModel.root, matrices, renderType, light, overlay, null);
+            matrices.popPose();
             break;
          case FreddyBear:
-            this.renderFreddy(vanillaModel, matrices, vertexConsumer, light, overlay, color);
+            this.copyRotation(this.freddyModel.head, vanillaModel.head);
+            this.copyRotation(this.freddyModel.leftArm, vanillaModel.leftArm);
+            this.copyRotation(this.freddyModel.rightArm, vanillaModel.rightArm);
+            this.copyRotation(this.freddyModel.leftLeg, vanillaModel.leftLeg);
+            this.copyRotation(this.freddyModel.rightLeg, vanillaModel.rightLeg);
+            matrices.pushPose();
+            matrices.scale(0.75F, 0.65F, 0.75F);
+            matrices.translate(0.0F, 0.85F, 0.0F);
+            collector.submitModelPart(this.freddyModel.root, matrices, renderType, light, overlay, null);
+            matrices.popPose();
+            break;
       }
 
       return true;
