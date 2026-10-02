@@ -21,6 +21,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.HitResult.Type;
 import net.minecraft.world.phys.Vec3;
 import vcore.features.modules.Module;
+import vcore.gui.clickui.ClickGUI;
 import vcore.gui.font.FontRenderers;
 import vcore.setting.Setting;
 import vcore.utility.render.Render2DEngine;
@@ -57,7 +58,10 @@ public class Prediction extends Module {
 
    @Override
    public void onRender2D(GuiGraphics context) {
-      if (this.showTags.getValue() && !fullNullCheck() && !mc.options.hideGui) {
+      if (fullNullCheck() || mc.screen instanceof ClickGUI) {
+         return;
+      }
+      if (this.showTags.getValue() && !mc.options.hideGui) {
          for (Prediction.PredictionResult result : this.getPredictions()) {
             this.drawTag(context, result);
          }

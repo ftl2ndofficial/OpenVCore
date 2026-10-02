@@ -28,6 +28,7 @@ import vcore.features.modules.combat.AntiBot;
 import vcore.features.modules.combat.HitBox;
 import vcore.features.modules.misc.FixHP;
 import vcore.features.modules.misc.NameProtect;
+import vcore.gui.clickui.ClickGUI;
 import vcore.gui.font.FontRenderers;
 import vcore.setting.Setting;
 import vcore.setting.impl.ColorSetting;
@@ -79,18 +80,19 @@ public class ESP extends Module {
 
    @Override
    public void onRender2D(GuiGraphics context) {
-      if (fullNullCheck()) {
+      if (fullNullCheck() || mc.screen instanceof ClickGUI) {
          this.projectedBounds.clear();
-      } else {
-         this.projectedBounds.clear();
-         this.collectTargets().forEach(entity -> {
-            Vector4f rect = this.project(entity);
-            if (rect != null) {
-               this.projectedBounds.put(entity, rect);
-            }
-         });
-         this.projectedBounds.forEach((entity, rect) -> this.renderEntity(context, entity, rect));
+         return;
       }
+
+      this.projectedBounds.clear();
+      this.collectTargets().forEach(entity -> {
+         Vector4f rect = this.project(entity);
+         if (rect != null) {
+            this.projectedBounds.put(entity, rect);
+         }
+      });
+      this.projectedBounds.forEach((entity, rect) -> this.renderEntity(context, entity, rect));
    }
 
    @Override

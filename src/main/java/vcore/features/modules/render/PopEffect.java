@@ -1,34 +1,26 @@
 package vcore.features.modules.render;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
-import com.mojang.authlib.GameProfile;
-import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 import java.awt.Color;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.ModelPart.Cube;
+import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.player.RemotePlayer;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
-import net.minecraft.client.renderer.entity.EntityRendererProvider.Context;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.Entity.RemovalReason;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
@@ -37,13 +29,13 @@ import org.joml.Vector3f;
 import vcore.events.impl.TotemPopEvent;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.popeffect.PopEffectParticles;
-import vcore.injection.accesors.IEntity;
 import vcore.injection.accesors.IModelPart;
 import vcore.setting.Setting;
 import vcore.setting.impl.ColorSetting;
 import vcore.utility.math.MathUtility;
 import vcore.utility.render.Render2DEngine;
 import vcore.utility.render.Render3DEngine;
+import vcore.utility.render.RenderSystem;
 
 public final class PopEffect extends Module {
    private static final int FULL_BRIGHT_LIGHT = 15728880;
@@ -93,7 +85,9 @@ public final class PopEffect extends Module {
             break;
          case ChamsNew:
             this.renderChamsNew(stack);
+            break;
          case Effect:
+            break;
       }
    }
 
@@ -134,12 +128,22 @@ public final class PopEffect extends Module {
 
    private void addChamsOld(@NotNull Player source) {
       if (!source.equals(mc.player)) {
-         this.oldPopList.add(new PopEffect.OldPerson(this.createCapturedPlayer(source)));
+         for (PopEffect.OldPerson existing : this.oldPopList) {
+            if (existing.uuid.equals(source.getUUID()) && existing.age == 0) {
+               return;
+            }
+         }
+         this.oldPopList.add(new PopEffect.OldPerson(source));
       }
    }
 
    private void addChamsNew(@NotNull Player source) {
       if (!source.equals(mc.player)) {
+         for (PopEffect.NewPerson existing : this.newPopList) {
+            if (existing.uuid.equals(source.getUUID()) && existing.age == 0) {
+               return;
+            }
+         }
          this.newPopList.add(new PopEffect.NewPerson(source));
       }
    }
@@ -171,7 +175,7 @@ public final class PopEffect extends Module {
       RenderSystem.enableBlend();
       RenderSystem.disableDepthTest();
       RenderSystem.defaultBlendFunc();
-      this.oldPopList.forEach(person -> this.renderOldEntity(matrices, person.player, person.modelPlayer, person.getAlpha()));
+      this.oldPopList.forEach(person -> this.renderOldEntity(matrices, person));
       RenderSystem.enableDepthTest();
       RenderSystem.disableBlend();
       com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
@@ -219,36 +223,26 @@ public final class PopEffect extends Module {
       }
    }
 
-   private void renderOldEntity(@NotNull PoseStack matrices, @NotNull Player entity, @NotNull PlayerModel model, int alpha) {
-      setOuterLayerVisible(model, false);
+   private void renderOldEntity(@NotNull PoseStack matrices, @NotNull PopEffect.OldPerson person) {
+      setOuterLayerVisible(person.modelPlayer, false);
       Vec3 camPos = Render3DEngine.getCameraPos();
-      double x = entity.getX() - camPos.x;
-      double y = entity.getY() - camPos.y;
-      double z = entity.getZ() - camPos.z;
-      ((IEntity)entity).setPos(entity.position().add(0.0, this.oldYSpeed.getValue().intValue() / 50.0, 0.0));
+      double x = person.pos.x - camPos.x;
+      double y = person.pos.y - camPos.y;
+      double z = person.pos.z - camPos.z;
       matrices.pushPose();
       matrices.translate((float)x, (float)y, (float)z);
-      float yRotYaw = alpha / 255.0F * 360.0F * this.oldRotationSpeed.getValue();
+      float yRotYaw = person.getAlpha() / 255.0F * 360.0F * this.oldRotationSpeed.getValue();
       yRotYaw = yRotYaw == 0.0F
          ? 0.0F
          : Render2DEngine.interpolateFloat(
             yRotYaw, yRotYaw - this.oldAlphaSpeed.getValue().intValue() / 255.0F * 360.0F * this.oldRotationSpeed.getValue(), Render3DEngine.getTickDelta()
          );
-      matrices.mulPose(Axis.YP.rotation(MathUtility.rad(180.0F - entity.yBodyRot + yRotYaw)));
+      matrices.mulPose(Axis.YP.rotationDegrees(180.0F - person.yBodyRot + yRotYaw));
       preparePlayerScale(matrices);
-      AvatarRenderState state = new AvatarRenderState();
-      if (mc.getEntityRenderDispatcher().getRenderer(entity) instanceof AvatarRenderer renderer
-         && entity instanceof AbstractClientPlayer clientPlayer) {
-         renderer.extractRenderState(clientPlayer, state, Render3DEngine.getTickDelta());
-      }
-      model.setupAnim(state);
-      BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-      RenderSystem.setShaderColor(
-         this.oldColor.getValue().getGlRed(), this.oldColor.getValue().getGlGreen(), this.oldColor.getValue().getGlBlue(), alpha / 255.0F
-      );
-      model.renderToBuffer(matrices, buffer, 15728880, OverlayTexture.NO_OVERLAY, -1);
+      int color = this.withAlpha(this.oldColor.getValue(), person.getAlpha() / 255.0F);
+      BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+      person.modelPlayer.renderToBuffer(matrices, buffer, 15728880, OverlayTexture.NO_OVERLAY, color);
       Render2DEngine.endBuilding(buffer);
-      RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       matrices.popPose();
    }
 
@@ -258,7 +252,6 @@ public final class PopEffect extends Module {
       int color = this.withAlpha(this.newFilledColor.getValue(), alpha);
       this.setupChamsNewPlayerTransform(matrices, person);
       setOuterLayerVisible(person.modelPlayer, false);
-      this.applyChamsNewFlyingTransforms(matrices, person);
 
       for (PopEffect.BodyPart part : PopEffect.BodyPart.values()) {
          Vec3 partDisplacement = this.getPartDisplacement(person.uuid, part, displacement);
@@ -277,7 +270,6 @@ public final class PopEffect extends Module {
       int color = this.withAlpha(this.newWireframeColor.getValue(), alpha);
       this.setupChamsNewPlayerTransform(matrices, person);
       setOuterLayerVisible(person.modelPlayer, false);
-      this.applyChamsNewFlyingTransforms(matrices, person);
 
       for (PopEffect.BodyPart part : PopEffect.BodyPart.values()) {
          Vec3 partDisplacement = this.getPartDisplacement(person.uuid, part, displacement);
@@ -290,112 +282,27 @@ public final class PopEffect extends Module {
       matrices.popPose();
    }
 
-   @NotNull
-   private Player createCapturedPlayer(@NotNull Player source) {
-      Player captured = new RemotePlayer(mc.level, new GameProfile(source.getUUID(), source.getName().getString())) {
-         public boolean isSpectator() {
-            return false;
-         }
-
-         public boolean isCreative() {
-            return false;
-         }
-      };
-      captured.copyPosition(source);
-      captured.yBodyRot = source.yBodyRot;
-      captured.yBodyRotO = source.yBodyRotO;
-      captured.yHeadRot = source.yHeadRot;
-      captured.yHeadRotO = source.yHeadRotO;
-      captured.attackAnim = source.attackAnim;
-      captured.swingTime = source.swingTime;
-      captured.setShiftKeyDown(source.isShiftKeyDown());
-      captured.setPose(source.getPose());
-      captured.walkAnimation.setSpeed(source.walkAnimation.speed());
-      return captured;
-   }
-
-   @NotNull
-   private Player createChamsNewCapturedPlayer(@NotNull Player source) {
-      Player captured = new RemotePlayer(mc.level, new GameProfile(UUID.randomUUID(), "Captured Player")) {
-         public boolean isSpectator() {
-            return false;
-         }
-
-         public boolean isCreative() {
-            return false;
-         }
-
-         public boolean isPushable() {
-            return false;
-         }
-
-         public boolean canBeCollidedWith() {
-            return false;
-         }
-
-         public boolean canCollideWith(Entity other) {
-            return false;
-         }
-      };
-      captured.copyPosition(source);
-      captured.xo = source.xo;
-      captured.yo = source.yo;
-      captured.zo = source.zo;
-      captured.xOld = source.xOld;
-      captured.yOld = source.yOld;
-      captured.zOld = source.zOld;
-      captured.yRotO = source.yRotO;
-      captured.xRotO = source.xRotO;
-      captured.yBodyRot = source.yBodyRot;
-      captured.yBodyRotO = source.yBodyRotO;
-      captured.yHeadRot = source.yHeadRot;
-      captured.yHeadRotO = source.yHeadRotO;
-      captured.attackAnim = source.attackAnim;
-      captured.oAttackAnim = source.oAttackAnim;
-      captured.swingTime = source.swingTime;
-      captured.swinging = source.swinging;
-      captured.setShiftKeyDown(source.isShiftKeyDown());
-      captured.setPose(source.getPose());
-      captured.walkAnimation.setSpeed(source.walkAnimation.speed());
-      return captured;
-   }
-
-   private void setupCapturedPlayerTransform(@NotNull PoseStack matrices, @NotNull Player entity) {
-      double x = entity.getX() - mc.getEntityRenderDispatcher().camera.position().x;
-      double y = entity.getY() - mc.getEntityRenderDispatcher().camera.position().y;
-      double z = entity.getZ() - mc.getEntityRenderDispatcher().camera.position().z;
-      matrices.pushPose();
-      matrices.translate((float)x, (float)y, (float)z);
-      matrices.mulPose(Axis.YP.rotation(MathUtility.rad(180.0F - entity.yBodyRot)));
-      preparePlayerScale(matrices);
-   }
-
    private void setupChamsNewPlayerTransform(@NotNull PoseStack matrices, @NotNull PopEffect.NewPerson person) {
-      double x = person.player.getX() - mc.getEntityRenderDispatcher().camera.position().x;
-      double y = person.player.getY() - mc.getEntityRenderDispatcher().camera.position().y;
-      double z = person.player.getZ() - mc.getEntityRenderDispatcher().camera.position().z;
+      Vec3 camPos = Render3DEngine.getCameraPos();
+      double x = person.pos.x - camPos.x;
+      double y = person.pos.y - camPos.y;
+      double z = person.pos.z - camPos.z;
       matrices.pushPose();
       matrices.translate((float)x, (float)y, (float)z);
-      matrices.mulPose(Axis.YP.rotationDegrees(180.0F - person.player.yBodyRot));
+      matrices.mulPose(Axis.YP.rotationDegrees(180.0F - person.yBodyRot));
       prepareChamsNewPlayerScale(matrices);
-   }
-
-   private void applyChamsNewFlyingTransforms(@NotNull PoseStack matrices, @NotNull PopEffect.NewPerson person) {
-      if (!person.usingRiptide) {
-         matrices.mulPose(Axis.XP.rotationDegrees(person.leaningPitch * (90.0F - person.statePitch)));
-      }
    }
 
    private static void preparePlayerScale(@NotNull PoseStack matrices) {
       matrices.scale(-1.0F, -1.0F, 1.0F);
-      matrices.scale(1.6F, 1.8F, 1.6F);
+      matrices.scale(0.9375F, 0.9375F, 0.9375F);
       matrices.translate(0.0F, -1.501F, 0.0F);
    }
 
    private static void prepareChamsNewPlayerScale(@NotNull PoseStack matrices) {
       matrices.scale(-1.0F, -1.0F, 1.0F);
-      matrices.scale(0.8F, 0.9F, 0.8F);
-      matrices.translate(0.0F, -1.5F, 0.0F);
+      matrices.scale(0.9375F, 0.9375F, 0.9375F);
+      matrices.translate(0.0F, -1.501F, 0.0F);
    }
 
    private static void setOuterLayerVisible(@NotNull PlayerModel model, boolean visible) {
@@ -407,16 +314,14 @@ public final class PopEffect extends Module {
       model.hat.visible = visible;
    }
 
-   private static void copyModelPartTransform(@NotNull ModelPart target, @NotNull ModelPart source) {
-      target.xRot = source.xRot;
-      target.yRot = source.yRot;
-      target.zRot = source.zRot;
-      target.x = source.x;
-      target.y = source.y;
-      target.z = source.z;
-      target.xScale = source.xScale;
-      target.yScale = source.yScale;
-      target.zScale = source.zScale;
+   private void captureModelPose(@NotNull Player source, @NotNull PlayerModel model) {
+      if (mc.getEntityRenderDispatcher().getRenderer(source) instanceof AvatarRenderer renderer
+         && source instanceof AbstractClientPlayer clientPlayer) {
+         AvatarRenderState state = new AvatarRenderState();
+         renderer.extractRenderState(clientPlayer, state, Render3DEngine.getTickDelta());
+         model.setupAnim(state);
+      }
+      setOuterLayerVisible(model, false);
    }
 
    private void renderModelPart(
@@ -440,6 +345,7 @@ public final class PopEffect extends Module {
             break;
          case RIGHT_LEG:
             model.rightLeg.render(matrices, buffer, 15728880, OverlayTexture.NO_OVERLAY, color);
+            break;
       }
    }
 
@@ -491,7 +397,12 @@ public final class PopEffect extends Module {
    private void vertexLine(@NotNull Matrix4f matrix, @NotNull BufferBuilder buffer, float x1, float y1, float z1, float x2, float y2, float z2, int color) {
       Vector3f from = new Vector3f(x1, y1, z1);
       Vector3f to = new Vector3f(x2, y2, z2);
-      Vector3f normal = new Vector3f(to).sub(from).normalize();
+      Vector3f normal = new Vector3f(to).sub(from);
+      if (normal.lengthSquared() > 1.0E-6F) {
+         normal.normalize();
+      } else {
+         normal.set(0.0F, 1.0F, 0.0F);
+      }
       int alpha = color >> 24 & 0xFF;
       int red = color >> 16 & 0xFF;
       int green = color >> 8 & 0xFF;
@@ -507,14 +418,14 @@ public final class PopEffect extends Module {
          RandomSource random = RandomSource.create(seed);
 
          Vec3 base = switch (part) {
-            case HEAD -> new Vec3(0.0, -1.0, 0.0);
+            case HEAD -> new Vec3(0.0, -0.6, 0.0);
             case BODY -> Vec3.ZERO;
-            case LEFT_ARM -> new Vec3(1.0, 0.0, 0.0);
-            case RIGHT_ARM -> new Vec3(-1.0, 0.0, 0.0);
-            case LEFT_LEG -> new Vec3(0.3, 1.0, 0.0);
-            case RIGHT_LEG -> new Vec3(-0.3, 1.0, 0.0);
+            case LEFT_ARM -> new Vec3(0.6, 0.0, 0.0);
+            case RIGHT_ARM -> new Vec3(-0.6, 0.0, 0.0);
+            case LEFT_LEG -> new Vec3(0.3, 0.6, 0.0);
+            case RIGHT_LEG -> new Vec3(-0.3, 0.6, 0.0);
          };
-         Vec3 noise = new Vec3((random.nextDouble() - 0.5) * 0.5, (random.nextDouble() - 0.5) * 0.5, (random.nextDouble() - 0.5) * 0.5);
+         Vec3 noise = new Vec3((random.nextDouble() - 0.5) * 0.2, (random.nextDouble() - 0.5) * 0.2, (random.nextDouble() - 0.5) * 0.2);
          return base.add(noise).normalize().scale(amount);
       } else {
          return Vec3.ZERO;
@@ -590,52 +501,25 @@ public final class PopEffect extends Module {
    }
 
    private final class NewPerson {
-      private final Player player;
+      private final Vec3 pos;
+      private final float yBodyRot;
       private final PlayerModel modelPlayer;
       private final UUID uuid;
-      private final float statePitch;
-      private final float leaningPitch;
-      private final boolean usingRiptide;
       private int age;
 
       private NewPerson(@NotNull Player source) {
-         this.player = PopEffect.this.createChamsNewCapturedPlayer(source);
+         this.pos = source.position();
+         this.yBodyRot = source.yBodyRot;
          this.modelPlayer = PopEffect.this.createPlayerModel();
-         this.uuid = this.player.getUUID();
-         this.statePitch = source.getXRot();
-         this.leaningPitch = source.getSwimAmount(0.0F);
-         this.usingRiptide = source.isAutoSpinAttack();
+         this.uuid = source.getUUID();
          this.age = 0;
-         this.captureModelPose(source);
-      }
-
-      private void captureModelPose(@NotNull Player source) {
-         if (Module.mc.getEntityRenderDispatcher().getRenderer(source) instanceof LivingEntityRenderer<?, ?, ?> renderer
-            && renderer.getModel() instanceof PlayerModel originalModel) {
-            PopEffect.copyModelPartTransform(this.modelPlayer.head, originalModel.head);
-            PopEffect.copyModelPartTransform(this.modelPlayer.hat, originalModel.hat);
-            PopEffect.copyModelPartTransform(this.modelPlayer.body, originalModel.body);
-            PopEffect.copyModelPartTransform(this.modelPlayer.leftArm, originalModel.leftArm);
-            PopEffect.copyModelPartTransform(this.modelPlayer.rightArm, originalModel.rightArm);
-            PopEffect.copyModelPartTransform(this.modelPlayer.leftLeg, originalModel.leftLeg);
-            PopEffect.copyModelPartTransform(this.modelPlayer.rightLeg, originalModel.rightLeg);
-            PopEffect.setOuterLayerVisible(this.modelPlayer, false);
-         } else {
-            AvatarRenderState state = new AvatarRenderState();
-            if (Module.mc.getEntityRenderDispatcher().getRenderer(this.player) instanceof AvatarRenderer renderer
-               && this.player instanceof AbstractClientPlayer clientPlayer) {
-               renderer.extractRenderState(clientPlayer, state, Render3DEngine.getTickDelta());
-            }
-            this.modelPlayer.setupAnim(state);
-            PopEffect.setOuterLayerVisible(this.modelPlayer, false);
-         }
+         PopEffect.this.captureModelPose(source, this.modelPlayer);
       }
 
       private void update(@NotNull CopyOnWriteArrayList<PopEffect.NewPerson> arrayList) {
          this.age++;
          if (this.age >= PopEffect.this.newLifeTime.getValue()) {
             arrayList.remove(this);
-            this.player.remove(RemovalReason.DISCARDED);
          }
       }
 
@@ -665,24 +549,30 @@ public final class PopEffect extends Module {
    }
 
    private final class OldPerson {
-      private final Player player;
+      private Vec3 pos;
+      private final float yBodyRot;
       private final PlayerModel modelPlayer;
+      private final UUID uuid;
       private int alpha;
+      private int age;
 
-      private OldPerson(@NotNull Player player) {
-         this.player = player;
+      private OldPerson(@NotNull Player source) {
+         this.pos = source.position();
+         this.yBodyRot = source.yBodyRot;
          this.modelPlayer = PopEffect.this.createPlayerModel();
-         this.modelPlayer.getHead().offsetScale(new Vector3f(-0.3F, -0.3F, -0.3F));
+         this.uuid = source.getUUID();
          this.alpha = PopEffect.this.oldColor.getValue().getAlpha();
+         this.age = 0;
+         PopEffect.this.captureModelPose(source, this.modelPlayer);
       }
 
       private void update(@NotNull CopyOnWriteArrayList<PopEffect.OldPerson> arrayList) {
+         this.age++;
          if (this.alpha <= 0) {
             arrayList.remove(this);
-            this.player.remove(RemovalReason.KILLED);
-            this.player.onClientRemoval();
          } else {
             this.alpha = this.alpha - PopEffect.this.oldAlphaSpeed.getValue();
+            this.pos = this.pos.add(0.0, PopEffect.this.oldYSpeed.getValue().intValue() / 50.0, 0.0);
          }
       }
 

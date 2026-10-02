@@ -17,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import org.joml.Matrix4f;
 import org.joml.Vector4d;
 import vcore.features.modules.Module;
+import vcore.gui.clickui.ClickGUI;
 import vcore.gui.font.FontRenderers;
 import vcore.setting.Setting;
 import vcore.setting.impl.ColorSetting;
@@ -142,7 +143,7 @@ public class ItemESP extends Module {
 
    @Override
    public void onRender2D(GuiGraphics context) {
-      if (fullNullCheck()) {
+      if (fullNullCheck() || mc.screen instanceof ClickGUI) {
          return;
       }
       if (this.hasAnyGroupEnabled()) {
