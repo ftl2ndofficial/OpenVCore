@@ -40,6 +40,9 @@ public class MixinEntityLiving implements IEntityLiving {
 
    @Override
    public List<Aura.Position> getPositionHistory() {
+      if (this.positonHistory == null) {
+         this.positonHistory = new ArrayList<>();
+      }
       return this.positonHistory;
    }
 
@@ -61,6 +64,9 @@ public class MixinEntityLiving implements IEntityLiving {
                this.prevServerX = target.x;
                this.prevServerY = target.y;
                this.prevServerZ = target.z;
+               if (this.positonHistory == null) {
+                  this.positonHistory = new ArrayList<>();
+               }
                this.positonHistory.add(new Aura.Position(target.x, target.y, target.z));
                this.positonHistory.removeIf(Aura.Position::shouldRemove);
             }

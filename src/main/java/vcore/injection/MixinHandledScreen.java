@@ -56,7 +56,7 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
    @Unique
    private static final float INVENTORY_ANIM_DURATION = 250.0F;
    @Unique
-   private final Timer delayTimer = new Timer();
+   private Timer delayTimer = new Timer();
    @Unique
    private Runnable postRender;
    @Unique
@@ -69,7 +69,24 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
    @Shadow
    protected int topPos;
    private static final ItemStack[] ITEMS = new ItemStack[27];
+   @Unique
    private Map<Render2DEngine.Rectangle, Integer> clickableRects = new HashMap<>();
+
+   @Unique
+   private Map<Render2DEngine.Rectangle, Integer> getClickableRects() {
+      if (this.clickableRects == null) {
+         this.clickableRects = new HashMap<>();
+      }
+      return this.clickableRects;
+   }
+
+   @Unique
+   private Timer getDelayTimer() {
+      if (this.delayTimer == null) {
+         this.delayTimer = new Timer();
+      }
+      return this.delayTimer;
+   }
 
    protected MixinHandledScreen(Component title) {
       super(title);
@@ -96,9 +113,9 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
                && ModuleManager.itemScroller.isEnabled()
                && this.shit()
                && this.attack()
-               && this.delayTimer.passedMs(ModuleManager.itemScroller.delay.getValue().intValue())) {
+               && this.getDelayTimer().passedMs(ModuleManager.itemScroller.delay.getValue().intValue())) {
                this.slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
-               this.delayTimer.reset();
+               this.getDelayTimer().reset();
             }
          }
       }
@@ -128,7 +145,7 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
          int yOffset = 20;
          int stage = 0;
          if (ModuleManager.tooltips.isEnabled() && ModuleManager.tooltips.shulkerRegear.getValue()) {
-            this.clickableRects.clear();
+            this.getClickableRects().clear();
 
             for (int i1 = 0; i1 < Module.mc.player.containerMenu.slots.size(); i1++) {
                Slot slot = (Slot)Module.mc.player.containerMenu.slots.get(i1);
@@ -136,7 +153,7 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
                   && slot.getItem().getItem() instanceof BlockItem bi
                   && bi.getBlock() instanceof ShulkerBoxBlock
                   && this.renderShulkerToolTip(context, xOffset, yOffset + 67, mouseX, mouseY, slot.getItem())) {
-                  this.clickableRects.put(new Render2DEngine.Rectangle(xOffset, yOffset, xOffset + 176, yOffset + 67), slot.index);
+                  this.getClickableRects().put(new Render2DEngine.Rectangle(xOffset, yOffset, xOffset + 176, yOffset + 67), slot.index);
                   yOffset += 67;
                   if (stage == 0) {
                      if (yOffset + 67 >= Module.mc.getWindow().getGuiScaledHeight()) {
@@ -326,16 +343,19 @@ public abstract class MixinHandledScreen<T extends AbstractContainerMenu> extend
             }
          }
 
-         for (Render2DEngine.Rectangle rect : this.clickableRects.keySet()) {
-            if (rect.contains(mouseX, mouseY)) {
-               if (ModuleManager.tooltips.shulkerRegearShiftMode.getValue()) {
-                  Module.mc
-                     .gameMode
-                     .handleInventoryMouseClick(Module.mc.player.containerMenu.containerId, this.clickableRects.get(rect), 0, ClickType.QUICK_MOVE, Module.mc.player);
-               } else {
-                  Module.mc
-                     .gameMode
-                     .handleInventoryMouseClick(Module.mc.player.containerMenu.containerId, this.clickableRects.get(rect), 0, ClickType.PICKUP, Module.mc.player);
+         Map<Render2DEngine.Rectangle, Integer> rects = this.getClickableRects();
+         if (!rects.isEmpty()) {
+            for (Render2DEngine.Rectangle rect : rects.keySet()) {
+               if (rect != null && rect.contains(mouseX, mouseY)) {
+                  if (ModuleManager.tooltips.shulkerRegearShiftMode.getValue()) {
+                     Module.mc
+                        .gameMode
+                        .handleInventoryMouseClick(Module.mc.player.containerMenu.containerId, rects.get(rect), 0, ClickType.QUICK_MOVE, Module.mc.player);
+                  } else {
+                     Module.mc
+                        .gameMode
+                        .handleInventoryMouseClick(Module.mc.player.containerMenu.containerId, rects.get(rect), 0, ClickType.PICKUP, Module.mc.player);
+                  }
                }
             }
          }

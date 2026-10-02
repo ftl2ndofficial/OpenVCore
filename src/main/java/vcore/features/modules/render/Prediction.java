@@ -216,13 +216,16 @@ public class Prediction extends Module {
                results.add(result);
             }
          } else if (entity instanceof AbstractArrow arrow && arrows && !arrow.onGround() && arrow.getDeltaMovement().lengthSqr() > 1.0E-4) {
-            ItemStack icon = arrow.getWeaponItem().isEmpty() ? new ItemStack(Items.ARROW) : arrow.getWeaponItem();
+            ItemStack weaponItem = arrow.getWeaponItem();
+            ItemStack icon = (weaponItem != null && !weaponItem.isEmpty()) ? weaponItem : new ItemStack(Items.ARROW);
             Prediction.PredictionResult result = this.simulateEntity(arrow, icon, 0.05, 0.99, 0.60);
             if (result != null) {
                results.add(result);
             }
          } else if (entity instanceof ItemEntity item && items && this.shouldSimulateItem(item)) {
-            Prediction.PredictionResult result = this.simulateEntity(item, item.getItem().copy(), 0.04, 0.98, 0.80);
+            ItemStack itemStack = item.getItem();
+            ItemStack icon = (itemStack != null && !itemStack.isEmpty()) ? itemStack.copy() : ItemStack.EMPTY;
+            Prediction.PredictionResult result = this.simulateEntity(item, icon, 0.04, 0.98, 0.80);
             if (result != null) {
                results.add(result);
             }
