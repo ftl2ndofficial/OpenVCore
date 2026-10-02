@@ -3,16 +3,17 @@
   "id": "vcore",
   "version": "${version}",
   "icon": "icon.png",
-  "name": "V-Core",
-  "description": "Better minecraft:
-- Inventory Animation
-- Boost FPS
-- Clear Ram",
+  "name": "OpenVCore",
+  "description": "Free & open-source VCore",
   "authors": [
     {
-      "name": "vu_2007"
+      "name": "FTL2nd"
     }
   ],
+  "contact": {
+    "homepage": "https://github.com/ftl2ndofficial/OpenVCore",
+    "sources": "https://github.com/ftl2ndofficial/OpenVCore"
+  },
   "accessWidener": "Vcore.accesswidener",
   "environment": "client",
   "entrypoints": {

@@ -32,4 +32,15 @@ public class Bind {
    public void setHold(boolean hold) {
       this.hold = hold;
    }
+
+   public boolean isBound() {
+      if (this.mouse) {
+         return this.key >= 0;
+      }
+      return this.key > 0;
+   }
+
+   public boolean isEmpty() {
+      return !this.isBound();
+   }
 }

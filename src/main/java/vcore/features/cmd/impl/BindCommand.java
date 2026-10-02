@@ -55,18 +55,24 @@ public class BindCommand extends Command {
             .executes(
                context -> {
                   StringBuilder binds = new StringBuilder("Binds: ");
+                  int count = 0;
 
                   for (Module feature : Managers.MODULE.modules) {
-                     if (!Objects.equals(feature.getBind().getBind(), "None")) {
+                     if (KeyBinds.hasBind(feature)) {
                         binds.append("\n- ")
                            .append(feature.getName())
                            .append(" -> ")
                            .append(KeyBinds.getShortKeyName(feature))
-                           .append(feature.getBind().isHold() ? "[hold]" : "");
+                           .append(feature.getBind().isHold() ? " [hold]" : "");
+                        count++;
                      }
                   }
 
-                  sendMessage(binds.toString());
+                  if (count == 0) {
+                     sendMessage("No binds set.");
+                  } else {
+                     sendMessage(binds.toString());
+                  }
                   return 1;
                }
             )

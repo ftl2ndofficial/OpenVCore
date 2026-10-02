@@ -37,7 +37,7 @@ public class KeyBinds extends HudElement {
       float pointerX = 0.0F;
 
       for (Module feature : Managers.MODULE.modules) {
-         if (!feature.isDisabled() && !Objects.equals(feature.getBind().getBind(), "None") && feature != ModuleManager.clickGui) {
+         if (this.shouldDisplay(feature)) {
             if (y_offset1 == 0) {
                y_offset1 += 4;
             }
@@ -105,16 +105,17 @@ public class KeyBinds extends HudElement {
       int y_offset = 0;
 
       for (Module feature : Managers.MODULE.modules) {
-         if (!feature.isDisabled() && !Objects.equals(feature.getBind().getBind(), "None") && feature != ModuleManager.clickGui) {
+         if (this.shouldDisplay(feature)) {
+            int textColor = feature.isOn() ? -1 : 0x88AAAAAA;
             FontRenderers.sf_bold_mini
-               .drawString(context.pose(), feature.getName(), this.getPosX() + 5.0F, this.getPosY() + 19.0F + y_offset, feature.isOn() ? -1 : -1);
+               .drawString(context.pose(), feature.getName(), this.getPosX() + 5.0F, this.getPosY() + 19.0F + y_offset, textColor);
             FontRenderers.sf_bold_mini
                .drawCenteredString(
                   context.pose(),
                   getShortKeyName(feature),
                   px + (this.getPosX() + max_width - px) / 2.0F,
                   this.getPosY() + 19.0F + y_offset,
-                  feature.isOn() ? -1 : -1
+                  textColor
                );
             Render2DEngine.drawRect(matrices, px, this.getPosY() + 17.0F + y_offset, 0.5F, 8.0F, new Color(1157627903, true));
             y_offset += 9;
@@ -123,6 +124,28 @@ public class KeyBinds extends HudElement {
 
       Render2DEngine.popWindow();
       this.setBounds(this.getPosX(), this.getPosY(), this.hAnimation, this.vAnimation);
+   }
+
+   public static boolean hasBind(Module feature) {
+      if (feature == null) {
+         return false;
+      }
+      Bind bind = feature.getBind();
+      if (bind == null || !bind.isBound()) {
+         return false;
+      }
+      String name = bind.getBind();
+      return name != null && !name.equalsIgnoreCase("none") && !name.isEmpty();
+   }
+
+   public boolean shouldDisplay(Module feature) {
+      if (feature == null || feature == ModuleManager.clickGui || !hasBind(feature)) {
+         return false;
+      }
+      if (HudEditor.isKeyBindsOnlyEnabled()) {
+         return feature.isOn();
+      }
+      return true;
    }
 
    @NotNull

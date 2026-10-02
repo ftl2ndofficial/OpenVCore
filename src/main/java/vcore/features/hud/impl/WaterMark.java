@@ -19,7 +19,7 @@ import vcore.utility.render.RenderSystem.SourceFactor;
 import vcore.utility.render.TextureStorage;
 
 public class WaterMark extends HudElement {
-   private static final String TITLE = "Open";
+   private static final String TITLE = "OpenVCore";
    private static final float TITLE_X = 15.0F;
    private static final float TITLE_RIGHT_PADDING = 3.0F;
    private static final float HEIGHT = 15.0F;

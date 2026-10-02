@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.gui.GuiGraphics;
+import vcore.core.manager.client.ModuleManager;
 import vcore.events.impl.EventMouse;
 import vcore.events.impl.TotemPopEvent;
 import vcore.features.hud.HudElement;
@@ -52,6 +53,7 @@ public final class HudEditor extends Module {
    private final Setting<Boolean> coordsEnabled = new Setting<>("Coords", false);
    private final Setting<Boolean> inventoryHudEnabled = new Setting<>("Inventory", false);
    private final Setting<Boolean> keyBindsEnabled = new Setting<>("KeyBinds", false);
+   public final Setting<Boolean> keyBindsOnlyEnabled = new Setting<>("OnlyEnabled", false, v -> this.keyBindsEnabled.getValue());
    private final Setting<Boolean> pingHudEnabled = new Setting<>("Ping", false);
    private final Setting<Boolean> potionHudEnabled = new Setting<>("Potion", false);
    private final Setting<Boolean> speedometerEnabled = new Setting<>("Speed", false);
@@ -138,6 +140,10 @@ public final class HudEditor extends Module {
 
    public static Color getTextColor() {
       return TEXT_COLOR;
+   }
+
+   public static boolean isKeyBindsOnlyEnabled() {
+      return ModuleManager.hudEditor != null && ModuleManager.hudEditor.keyBindsOnlyEnabled.getValue();
    }
 
    public static Color getTextColor2() {

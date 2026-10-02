@@ -451,6 +451,16 @@ public class VCoreClient100TestSuite {
       Bind mouseBind = new Bind(1, true, false);
       assertTrue(mouseBind.isMouse(), "Mouse bind flag");
       assertEq("M1", mouseBind.getBind(), "Mouse bind string representation");
+      assertTrue(mouseBind.isBound(), "Mouse bind isBound");
+      assertTrue(!mouseBind.isEmpty(), "Mouse bind not empty");
+
+      Bind keyboardBind = new Bind(GLFW.GLFW_KEY_R, false, false);
+      assertTrue(keyboardBind.isBound(), "Keyboard key R isBound");
+      assertTrue(!keyboardBind.isEmpty(), "Keyboard key R not empty");
+
+      Bind unbound = new Bind(-1, false, false);
+      assertTrue(!unbound.isBound(), "Unbound (-1) is not bound");
+      assertTrue(unbound.isEmpty(), "Unbound (-1) isEmpty");
    }
 
    // --- GROUP 4: SETTINGS & CONSTRAINTS (36 - 50) ---
