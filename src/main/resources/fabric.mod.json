@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "vcore",
-  "version": "Release",
+  "version": "${version}",
   "icon": "icon.png",
   "name": "V-Core",
   "description": "Better minecraft:

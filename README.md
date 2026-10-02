@@ -19,7 +19,7 @@ Requires **JDK 21+**.
   ./gradlew build -x test
   ```
 
-Output jar: `build/libs/vcore-Release.jar`
+Output jar: `build/libs/OpenVCore-1.0.jar`
 
 ### Usage
 - Put the jar into `.minecraft/mods/` (requires Fabric Loader `>=0.16.0` on Minecraft 1.21.11).
@@ -42,7 +42,7 @@ Yêu cầu **Java 21 trở lên**.
   ./gradlew build -x test
   ```
 
-File sau khi build: `build/libs/vcore-Release.jar`
+File sau khi build: `build/libs/OpenVCore-1.0.jar`
 
 ### Cách dùng
 - Thả file jar vào thư mục `.minecraft/mods/` (cần Fabric Loader `>=0.16.0` trên Minecraft 1.21.11).
