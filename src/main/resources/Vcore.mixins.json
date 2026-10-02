@@ -58,6 +58,7 @@
     "accesors.IMinecraftClient",
     "accesors.IModelPart",
     "accesors.INativeImage",
+    "accesors.IGlCommandEncoder",
     "MixinItemEntityRenderer",
     "MixinItemEntityRenderState",
     "accesors.ISignEditScreen"

@@ -164,7 +164,11 @@ class GlyphMap {
          DynamicTexture tex = new DynamicTexture(() -> "glyph_" + i.getPath(), image);
          tex.upload();
          Minecraft mc = Minecraft.getInstance();
-         mc.execute(() -> mc.getTextureManager().register(i, tex));
+         if (mc.isSameThread()) {
+            mc.getTextureManager().register(i, tex);
+         } else {
+            mc.execute(() -> mc.getTextureManager().register(i, tex));
+         }
       } catch (Throwable e) {
          e.printStackTrace();
       }

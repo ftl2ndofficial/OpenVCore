@@ -1,50 +1,50 @@
-# VCore 0.8 (Release)
+# OpenVCore (1.21.11)
 
-Mã nguồn phiên bản **Release** (tên do Dev đặt) của client **VCore** dành cho **Minecraft 1.21 / 1.21.1 (Fabric)**.
-
-## Credits
-
-- File `.jar` leak bởi: **Glux** (Discord ID: `376860086619996178`) trong **Cheat Club** (https://discord.gg/cheathouse).
-- Source remap & build setup: FTL 2nd.
+Free VCore for anyone who thinks this thing is overpriced.  
+*Bản port miễn phí cho những ai thấy client này thực sự bị hét giá quá cao.*
 
 ---
 
-## Hướng dẫn Build
+## English
 
-### Yêu cầu môi trường
-- **JDK**: Java 21 trở lên (khuyến nghị JDK 21 LTS).
-- Dự án đã tích hợp sẵn Gradle Wrapper, không cần cài đặt Gradle riêng.
+### Build
+Requires **JDK 21+**.
 
-### Các bước build
-
-- **Trên Windows**:
+- Windows:
   ```cmd
-  .\gradlew.bat build
+  .\gradlew.bat build -x test
   ```
-
-- **Trên Linux / macOS**:
+- Linux / macOS:
   ```bash
-  chmod +x gradlew
-  ./gradlew build
+  ./gradlew build -x test
   ```
 
-Sau khi quá trình biên dịch hoàn tất (`BUILD SUCCESSFUL`), file mod thành phẩm sẽ nằm tại:
-```text
-build/libs/vcore-Release.jar
-```
+Output jar: `build/libs/vcore-Release.jar`
+
+### Usage
+- Put the jar into `.minecraft/mods/` (requires Fabric Loader `>=0.16.0` on Minecraft 1.21.11).
+- **ClickGUI**: `RIGHT SHIFT`
+- **Commands**: Prefix `@` in chat (e.g. `@help`, `@bind`)
 
 ---
 
-## Hướng dẫn Sử dụng
+## Tiếng Việt
 
-1. **Cài đặt môi trường:**
-   - Cài đặt **Minecraft 1.21** hoặc **1.21.1**.
-   - Cài đặt **Fabric Loader** (khuyến nghị phiên bản `0.15.11` trở lên) cùng **Fabric API**.
+### Cách build
+Yêu cầu **Java 21 trở lên**.
 
-2. **Cài đặt Mod:**
-   - Copy file `vcore-Release.jar` (nằm trong thư mục `build/libs/`) vào thư mục `.minecraft/mods/`.
-   - Khởi động Minecraft với profile Fabric.
+- Windows:
+  ```cmd
+  .\gradlew.bat build -x test
+  ```
+- Linux / macOS:
+  ```bash
+  ./gradlew build -x test
+  ```
 
-3. **Thao tác trong Game:**
-   - **Mở Menu ClickGUI:** Nhấn phím `RIGHT SHIFT` (Shift phải).
-   - **Lệnh (Commands):** Sử dụng tiền tố (prefix) `@` trong khung chat (Ví dụ: `@help`, `@bind`, `@cfg`...).
+File sau khi build: `build/libs/vcore-Release.jar`
+
+### Cách dùng
+- Thả file jar vào thư mục `.minecraft/mods/` (cần Fabric Loader `>=0.16.0` trên Minecraft 1.21.11).
+- **Mở ClickGUI**: Nhấn phím `RIGHT SHIFT` (Shift phải).
+- **Lệnh**: Dùng tiền tố `@` trong khung chat (ví dụ: `@help`, `@bind`).

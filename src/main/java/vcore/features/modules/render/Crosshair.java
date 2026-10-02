@@ -34,6 +34,9 @@ public class Crosshair extends Module {
 
    @Override
    public void onRender2D(GuiGraphics context) {
+      if (mc.screen != null) {
+         return;
+      }
       if (mc.options.getCameraType().isFirstPerson()) {
          PoseStack poseStack = Render2DEngine.toPoseStack(context.pose());
          float midX = mc.getWindow().getGuiScaledWidth() / 2.0F;

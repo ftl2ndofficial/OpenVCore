@@ -1,33 +1,39 @@
 package vcore.utility.render;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTexture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL33;
 
 public class RenderSystem extends com.mojang.blaze3d.systems.RenderSystem {
    private static final float[] shaderColor = new float[]{1.0F, 1.0F, 1.0F, 1.0F};
 
    public static void enableBlend() {
-      GL11.glEnable(GL11.GL_BLEND);
+      GlStateManager._enableBlend();
    }
 
    public static void disableBlend() {
-      GL11.glDisable(GL11.GL_BLEND);
+      GlStateManager._disableBlend();
    }
 
    public static void enableDepthTest() {
-      GL11.glEnable(GL11.GL_DEPTH_TEST);
+      GlStateManager._enableDepthTest();
    }
 
    public static void disableDepthTest() {
-      GL11.glDisable(GL11.GL_DEPTH_TEST);
+      GlStateManager._disableDepthTest();
+   }
+
+   public static void depthFunc(int func) {
+      GlStateManager._depthFunc(func);
    }
 
    public static void defaultBlendFunc() {
-      GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+      GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
    }
 
    public enum SourceFactor {
@@ -48,19 +54,19 @@ public class RenderSystem extends com.mojang.blaze3d.systems.RenderSystem {
    }
 
    public static void blendFunc(int src, int dst) {
-      GL11.glBlendFunc(src, dst);
+      GlStateManager._blendFuncSeparate(src, dst, src, dst);
    }
 
    public static void blendFunc(SourceFactor src, DestFactor dst) {
-      GL11.glBlendFunc(src.value, dst.value);
+      GlStateManager._blendFuncSeparate(src.value, dst.value, src.value, dst.value);
    }
 
    public static void blendFuncSeparate(int srcRGB, int dstRGB, int srcAlpha, int dstAlpha) {
-      org.lwjgl.opengl.GL14.glBlendFuncSeparate(srcRGB, dstRGB, srcAlpha, dstAlpha);
+      GlStateManager._blendFuncSeparate(srcRGB, dstRGB, srcAlpha, dstAlpha);
    }
 
    public static void colorMask(boolean r, boolean g, boolean b, boolean a) {
-      GL11.glColorMask(r, g, b, a);
+      GlStateManager._colorMask(r, g, b, a);
    }
 
    public static void clearColor(float r, float g, float b, float a) {
@@ -68,19 +74,19 @@ public class RenderSystem extends com.mojang.blaze3d.systems.RenderSystem {
    }
 
    public static void clear(int mask, boolean checkError) {
-      GL11.glClear(mask);
+      GlStateManager._clear(mask);
    }
 
    public static void depthMask(boolean mask) {
-      GL11.glDepthMask(mask);
+      GlStateManager._depthMask(mask);
    }
 
    public static void disableCull() {
-      GL11.glDisable(GL11.GL_CULL_FACE);
+      GlStateManager._disableCull();
    }
 
    public static void enableCull() {
-      GL11.glEnable(GL11.GL_CULL_FACE);
+      GlStateManager._enableCull();
    }
 
    public static void setShaderColor(float r, float g, float b, float a) {
@@ -99,16 +105,16 @@ public class RenderSystem extends com.mojang.blaze3d.systems.RenderSystem {
    }
 
    public static void enableScissor(int x, int y, int width, int height) {
-      GL11.glEnable(GL11.GL_SCISSOR_TEST);
-      GL11.glScissor(x, y, width, height);
+      GlStateManager._enableScissorTest();
+      GlStateManager._scissorBox(x, y, width, height);
    }
 
    public static void disableScissor() {
-      GL11.glDisable(GL11.GL_SCISSOR_TEST);
+      GlStateManager._disableScissorTest();
    }
 
    public static void texParameter(int target, int pname, int param) {
-      GL11.glTexParameteri(target, pname, param);
+      GlStateManager._texParameter(target, pname, param);
    }
 
    private static final org.joml.Matrix4f projectionMatrix = new org.joml.Matrix4f();
@@ -132,7 +138,7 @@ public class RenderSystem extends com.mojang.blaze3d.systems.RenderSystem {
    }
 
    public static void setShaderTexture(int unit, Identifier texture) {
-      GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+      GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
       if (texture != null) {
          try {
             AbstractTexture tex = Minecraft.getInstance().getTextureManager().getTexture(texture);
@@ -142,7 +148,11 @@ public class RenderSystem extends com.mojang.blaze3d.systems.RenderSystem {
                   gpuTex = tex.getTexture();
                } catch (IllegalStateException ignored) {}
                if (gpuTex instanceof GlTexture glTex) {
+                  try {
+                     GL33.glBindSampler(unit, 0);
+                  } catch (Throwable ignored) {}
                   GL11.glBindTexture(GL11.GL_TEXTURE_2D, glTex.glId());
+                  GlStateManager._bindTexture(glTex.glId());
                }
             }
          } catch (Exception ignored) {}

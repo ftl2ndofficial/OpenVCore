@@ -11,8 +11,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.player.RemotePlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
@@ -33,6 +35,7 @@ import vcore.features.modules.combat.Aura;
 import vcore.features.modules.misc.FakePlayer;
 import vcore.features.modules.render.ESP;
 import vcore.features.modules.render.HudEditor;
+import vcore.features.modules.render.TargerESP;
 import vcore.gui.clickui.Category;
 import vcore.gui.clickui.ClickGUI;
 import vcore.gui.clickui.ManagerScreen;
@@ -295,6 +298,8 @@ public final class VCoreScreensTest implements FabricClientGameTest {
       System.out.println("[VCoreScreensTest] Creating isolated test world...");
       try (var world = context.worldBuilder().create()) {
          world.getClientWorld().waitForChunksRender();
+         world.getServer().runCommand("time set day");
+         world.getServer().runCommand("gamerule advance_time false");
          System.out.println("[VCoreScreensTest] Test world loaded successfully!");
 
          // ----------------------------------------------------
@@ -379,6 +384,39 @@ public final class VCoreScreensTest implements FabricClientGameTest {
          context.waitTicks(10);
 
          // ----------------------------------------------------
+         // 15a. In-Game PauseScreen (Authentic translucent dimming without pitch-black wash)
+         // ----------------------------------------------------
+         System.out.println("[Step 15a] Verifying PauseScreen translucent background...");
+         capture(context, () -> new PauseScreen(true), PauseScreen.class, "step15a-pause-screen", "step15a_pause_screen.png");
+         context.setScreen(() -> null);
+         context.waitTicks(10);
+
+         // ----------------------------------------------------
+         // 15b. In-Game InventoryScreen (Crisp background without black wash)
+         // ----------------------------------------------------
+         System.out.println("[Step 15b] Verifying InventoryScreen translucent background...");
+         capture(
+            context,
+            () -> new net.minecraft.client.gui.screens.inventory.InventoryScreen(net.minecraft.client.Minecraft.getInstance().player),
+            net.minecraft.client.gui.screens.inventory.InventoryScreen.class,
+            "step15b-inventory",
+            "step15b_inventory_screen.png"
+         );
+         context.setScreen(() -> null);
+         context.waitTicks(10);
+
+         // ----------------------------------------------------
+         // 15c. In-Game ChatScreen with Active Input (Translucent input bar, not solid black)
+         // ----------------------------------------------------
+         System.out.println("[Step 15c] Verifying ChatScreen input bar (translucent box, not black bar)...");
+         context.setScreen(() -> new ChatScreen("/gamemode creative", false));
+         context.waitForScreen(ChatScreen.class);
+         context.waitTicks(20);
+         captureDirect(context, "step15c-chat-input-bar", "step15c_chat_input_bar.png");
+         context.setScreen(() -> null);
+         context.waitTicks(10);
+
+         // ----------------------------------------------------
          // 16. In-Game 3D Entity ESP & Fullbright (FakePlayer + ArmorStand)
          // ----------------------------------------------------
          System.out.println("[Step 16] Verifying 3D Entity ESP, FakePlayer & Fullbright...");
@@ -406,6 +444,9 @@ public final class VCoreScreensTest implements FabricClientGameTest {
 
             // Spawn ArmorStand alongside with Netherite armor
             ArmorStand stand = new ArmorStand(client.level, client.player.getX() + 0.8, client.player.getY(), client.player.getZ() + 3.5);
+            int standId = Integer.MIN_VALUE + 100;
+            while (client.level.getEntity(standId) != null) standId++;
+            stand.setId(standId);
             stand.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.GOLDEN_HELMET));
             stand.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.NETHERITE_CHESTPLATE));
             stand.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.NETHERITE_LEGGINGS));
@@ -463,12 +504,106 @@ public final class VCoreScreensTest implements FabricClientGameTest {
          captureDirect(context, "step18-targetesp-crosshair", "step18_world_targetesp_crosshair.png");
 
          // ----------------------------------------------------
+         // 18a. In-Game Particles Active (World Stars, Hit, Pearl)
+         // ----------------------------------------------------
+         System.out.println("[Step 18a] Verifying Particles active in 3D world (no black world)...");
+         context.runOnClient(client -> {
+            ModuleManager.particles.enable();
+            var worldSetting = ModuleManager.particles.getSettingByName("World");
+            if (worldSetting != null) ((Setting<Boolean>) worldSetting).setValue(true);
+         });
+         context.waitTicks(35);
+         captureDirect(context, "step18a-world-particles", "step18a_world_particles.png");
+
+         // ----------------------------------------------------
+         // 18b. In-Game TargetESP Image Mode
+         // ----------------------------------------------------
+         System.out.println("[Step 18b] Verifying TargetESP Image Mode...");
+         context.runOnClient(client -> {
+            var modeSetting = ModuleManager.targerESP.getSettingByName("Mode");
+            if (modeSetting != null) ((Setting<TargerESP.Mode>) modeSetting).setValue(TargerESP.Mode.Image);
+         });
+         context.waitTicks(25);
+         captureDirect(context, "step18b-targetesp-image", "step18b_world_targetesp_image.png");
+
+         // ----------------------------------------------------
+         // 18c. In-Game TargetESP Circle Mode
+         // ----------------------------------------------------
+         System.out.println("[Step 18c] Verifying TargetESP Circle Mode...");
+         context.runOnClient(client -> {
+            var modeSetting = ModuleManager.targerESP.getSettingByName("Mode");
+            if (modeSetting != null) ((Setting<TargerESP.Mode>) modeSetting).setValue(TargerESP.Mode.Circle);
+         });
+         context.waitTicks(25);
+         captureDirect(context, "step18c-targetesp-circle", "step18c_world_targetesp_circle.png");
+
+         // ----------------------------------------------------
+         // 18d. In-Game TargetESP Ghost Mode
+         // ----------------------------------------------------
+         System.out.println("[Step 18d] Verifying TargetESP Ghost Mode...");
+         context.runOnClient(client -> {
+            var modeSetting = ModuleManager.targerESP.getSettingByName("Mode");
+            if (modeSetting != null) ((Setting<TargerESP.Mode>) modeSetting).setValue(TargerESP.Mode.Ghost);
+         });
+         context.waitTicks(25);
+         captureDirect(context, "step18d-targetesp-ghost", "step18d_world_targetesp_ghost.png");
+
+         // ----------------------------------------------------
+         // 18e. All 3D Modules Simultaneously Active (ESP + Storage + Particles + TargetESP + Fullbright + Arrows + Crosshair)
+         // ----------------------------------------------------
+         System.out.println("[Step 18e] Verifying ALL 3D modules active at once without black world...");
+         context.runOnClient(client -> {
+            ModuleManager.esp.enable();
+            ModuleManager.storageEsp.enable();
+            ModuleManager.particles.enable();
+            ModuleManager.targerESP.enable();
+            ModuleManager.crosshair.enable();
+            ModuleManager.Arrows.enable();
+            ModuleManager.fullbright.enable();
+         });
+         context.waitTicks(30);
+         captureDirect(context, "step18e-all-3d-modules", "step18e_world_all_3d_modules.png");
+
+         // ----------------------------------------------------
+         // 18f. ClickGUI with Crosshair Enabled - Verify Crosshair is HIDDEN
+         // ----------------------------------------------------
+         System.out.println("[Step 18f] Verifying ClickGUI with Crosshair enabled (Crosshair MUST BE HIDDEN)...");
+         context.runOnClient(client -> {
+            client.options.guiScale().set(1);
+            client.resizeDisplay();
+            ModuleManager.aura.enable();
+            ModuleManager.clickGui.blur.setValue(false);
+         });
+         capture(context, ClickGUI::getClickGui, ClickGUI.class, "step18f-clickgui-crosshair-hidden", "step18f_clickgui_crosshair_hidden.png");
+         context.setScreen(() -> null);
+         context.waitTicks(10);
+
+         // ----------------------------------------------------
+         // 18g. PauseScreen while 3D Modules Active (Translucent dimming, no black box)
+         // ----------------------------------------------------
+         System.out.println("[Step 18g] Verifying PauseScreen while 3D modules active (no black wash, proper blend)...");
+         context.setScreen(() -> new PauseScreen(true));
+         context.waitForScreen(PauseScreen.class);
+         context.waitTicks(20);
+         captureDirect(context, "step18g-pause-with-3d", "step18g_pause_with_3d.png");
+         context.setScreen(() -> null);
+         context.waitTicks(15);
+         captureDirect(context, "step18h-world-resumed", "step18h_world_resumed.png");
+
+         // ----------------------------------------------------
          // 19. In-Game ClickGUI Blur Over 3D World Scene
          // ----------------------------------------------------
          System.out.println("[Step 19] Verifying ClickGUI blur over 3D world scene...");
          context.runOnClient(client -> {
             client.options.guiScale().set(1);
             client.resizeDisplay();
+            client.player.setYRot(0.0F);
+            client.player.setXRot(10.0F);
+            client.player.setOldPosAndRot();
+            ModuleManager.esp.disable();
+            ModuleManager.storageEsp.disable();
+            ModuleManager.targerESP.disable();
+            ModuleManager.fakePlayer.disable();
             ModuleManager.clickGui.blur.setValue(true);
          });
          capture(context, ClickGUI::getClickGui, ClickGUI.class, "step19-clickgui-blur-ingame", "step19_clickgui_ingame_blur.png");
@@ -523,7 +658,7 @@ public final class VCoreScreensTest implements FabricClientGameTest {
       }
 
       System.out.println("==========================================================");
-      System.out.println(">>> ALL 26 VCORE 1.21.11 GAMETEST CHECKS PASSED WITH 0 ERRORS! <<<");
+      System.out.println(">>> ALL 37 VCORE 1.21.11 GAMETEST CHECKS PASSED WITH 0 ERRORS! <<<");
       System.out.println("==========================================================");
    }
 }

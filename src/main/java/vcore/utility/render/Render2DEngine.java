@@ -292,7 +292,11 @@ public class Render2DEngine {
          ByteBuffer data = BufferUtils.createByteBuffer(content.length).put(content);
          data.flip();
          DynamicTexture tex = new DynamicTexture(() -> "vcore_2d_tex", NativeImage.read(data));
-         Module.mc.execute(() -> Module.mc.getTextureManager().register(i.getId(), tex));
+         if (Module.mc.isSameThread()) {
+            Module.mc.getTextureManager().register(i.getId(), tex);
+         } else {
+            Module.mc.execute(() -> Module.mc.getTextureManager().register(i.getId(), tex));
+         }
       } catch (Exception var4) {
       }
    }
@@ -469,30 +473,53 @@ public class Render2DEngine {
    ) {
       BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
       float alpha = ca * applyGlobalAlpha(1.0F);
+
+      float centerX = (float)((fromX + toX) * 0.5);
+      float centerY = (float)((fromY + toY) * 0.5);
+      bufferBuilder.addVertex(matrix, centerX, centerY, 0.0F).setColor(cr, cg, cb, alpha);
+
+      double maxRad = Math.min((toX - fromX) * 0.5, (toY - fromY) * 0.5);
+      double rad = Math.min(radius, Math.max(0.0, maxRad));
+
       double[][] map = new double[][]{
-         {toX - radius, toY - radius, radius},
-         {toX - radius, fromY + radius, radius},
-         {fromX + radius, fromY + radius, radius},
-         {fromX + radius, toY - radius, radius}
+         {toX - rad, toY - rad, rad},
+         {toX - rad, fromY + rad, rad},
+         {fromX + rad, fromY + rad, rad},
+         {fromX + rad, toY - rad, rad}
       };
+
+      float firstX = 0.0F;
+      float firstY = 0.0F;
+      boolean firstRecorded = false;
+      double step = Math.max(1.0, 90.0 / Math.max(samples, 4.0));
 
       for (int i = 0; i < 4; i++) {
          double[] current = map[i];
-         double rad = current[2];
-         double r = i * 90.0;
 
-         while (r < 90.0 + i * 90.0) {
+         for (double r = i * 90.0; r < 90.0 + i * 90.0 - 0.001; r += step) {
             float rad1 = (float)Math.toRadians(r);
             float sin = (float)(Math.sin(rad1) * rad);
             float cos = (float)(Math.cos(rad1) * rad);
-            bufferBuilder.addVertex(matrix, (float)current[0] + sin, (float)current[1] + cos, 0.0F).setColor(cr, cg, cb, alpha);
-            r += 90.0 / samples;
+            float vx = (float)current[0] + sin;
+            float vy = (float)current[1] + cos;
+
+            if (!firstRecorded) {
+               firstX = vx;
+               firstY = vy;
+               firstRecorded = true;
+            }
+
+            bufferBuilder.addVertex(matrix, vx, vy, 0.0F).setColor(cr, cg, cb, alpha);
          }
 
-         float rad1 = (float)Math.toRadians(90.0 + i * 90.0);
-         float sin = (float)(Math.sin(rad1) * rad);
-         float cos = (float)(Math.cos(rad1) * rad);
-         bufferBuilder.addVertex(matrix, (float)current[0] + sin, (float)current[1] + cos, 0.0F).setColor(cr, cg, cb, alpha);
+         float endRad = (float)Math.toRadians(90.0 + i * 90.0);
+         float endVx = (float)current[0] + (float)(Math.sin(endRad) * rad);
+         float endVy = (float)current[1] + (float)(Math.cos(endRad) * rad);
+         bufferBuilder.addVertex(matrix, endVx, endVy, 0.0F).setColor(cr, cg, cb, alpha);
+      }
+
+      if (firstRecorded) {
+         bufferBuilder.addVertex(matrix, firstX, firstY, 0.0F).setColor(cr, cg, cb, alpha);
       }
 
       BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
@@ -527,32 +554,71 @@ public class Render2DEngine {
       float alpha = ca * applyGlobalAlpha(1.0F);
       float alpha2 = ca2 * applyGlobalAlpha(1.0F);
       float alpha3 = ca3 * applyGlobalAlpha(1.0F);
+
+      float centerX = (float)((fromX + toX) * 0.5);
+      float centerY = (float)((fromY + toY) * 0.5);
+      float centerR = (cr + cr1 + cr2 + cr3) * 0.25F;
+      float centerG = (cg + cg1 + cg2 + cg3) * 0.25F;
+      float centerB = (cb + cb1 + cb2 + cb3) * 0.25F;
+      float centerA = (alpha + alpha1 + alpha2 + alpha3) * 0.25F;
+
+      bufferBuilder.addVertex(matrix, centerX, centerY, 0.0F).setColor(centerR, centerG, centerB, centerA);
+
+      double maxRad = Math.min((toX - fromX) * 0.5, (toY - fromY) * 0.5);
+      double rad = Math.min(radC1, Math.max(0.0, maxRad));
+
       double[][] map = new double[][]{
-         {toX - radC1, toY - radC1, radC1}, {toX - radC1, fromY + radC1, radC1}, {fromX + radC1, fromY + radC1, radC1}, {fromX + radC1, toY - radC1, radC1}
+         {toX - rad, toY - rad, rad},       // 0: bottom-right
+         {toX - rad, fromY + rad, rad},     // 1: top-right
+         {fromX + rad, fromY + rad, rad},   // 2: top-left
+         {fromX + rad, toY - rad, rad}      // 3: bottom-left
       };
+
+      float firstX = 0.0F;
+      float firstY = 0.0F;
+      boolean firstRecorded = false;
 
       for (int i = 0; i < 4; i++) {
          double[] current = map[i];
-         double rad = current[2];
+         float curR, curG, curB, curA;
+         switch (i) {
+            case 0:
+               curR = cr1; curG = cg1; curB = cb1; curA = alpha1;
+               break;
+            case 1:
+               curR = cr; curG = cg; curB = cb; curA = alpha;
+               break;
+            case 2:
+               curR = cr2; curG = cg2; curB = cb2; curA = alpha2;
+               break;
+            default:
+               curR = cr3; curG = cg3; curB = cb3; curA = alpha3;
+         }
 
-         for (double r = i * 90; r < 90 + i * 90; r += 10.0) {
+         for (double r = i * 90; r < 90 + i * 90 - 0.001; r += 5.0) {
             float rad1 = (float)Math.toRadians(r);
             float sin = (float)(Math.sin(rad1) * rad);
             float cos = (float)(Math.cos(rad1) * rad);
-            switch (i) {
-               case 0:
-                  bufferBuilder.addVertex(matrix, (float)current[0] + sin, (float)current[1] + cos, 0.0F).setColor(cr1, cg1, cb1, alpha1);
-                  break;
-               case 1:
-                  bufferBuilder.addVertex(matrix, (float)current[0] + sin, (float)current[1] + cos, 0.0F).setColor(cr, cg, cb, alpha);
-                  break;
-               case 2:
-                  bufferBuilder.addVertex(matrix, (float)current[0] + sin, (float)current[1] + cos, 0.0F).setColor(cr2, cg2, cb2, alpha2);
-                  break;
-               default:
-                  bufferBuilder.addVertex(matrix, (float)current[0] + sin, (float)current[1] + cos, 0.0F).setColor(cr3, cg3, cb3, alpha3);
+            float vx = (float)current[0] + sin;
+            float vy = (float)current[1] + cos;
+
+            if (!firstRecorded) {
+               firstX = vx;
+               firstY = vy;
+               firstRecorded = true;
             }
+
+            bufferBuilder.addVertex(matrix, vx, vy, 0.0F).setColor(curR, curG, curB, curA);
          }
+
+         float endRad = (float)Math.toRadians(90.0 + i * 90.0);
+         float endVx = (float)current[0] + (float)(Math.sin(endRad) * rad);
+         float endVy = (float)current[1] + (float)(Math.cos(endRad) * rad);
+         bufferBuilder.addVertex(matrix, endVx, endVy, 0.0F).setColor(curR, curG, curB, curA);
+      }
+
+      if (firstRecorded) {
+         bufferBuilder.addVertex(matrix, firstX, firstY, 0.0F).setColor(cr1, cg1, cb1, alpha1);
       }
 
       BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
@@ -652,7 +718,12 @@ public class Render2DEngine {
       RenderSystem.defaultBlendFunc();
       RenderSystem.disableBlend();
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, applyGlobalAlpha(1.0F));
+      com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(0);
       BufferUploader.activeCustomProgram = 0;
+      BufferUploader.invalidateCommandEncoder();
+      try {
+         org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+      } catch (Throwable ignored) {}
    }
 
    public static void drawGradientRound(

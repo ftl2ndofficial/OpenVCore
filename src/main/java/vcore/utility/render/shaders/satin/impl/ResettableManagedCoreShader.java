@@ -134,7 +134,8 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
    public void use() {
       this.ensureInitialized();
       if (this.programId == 0) return;
-      GL20.glUseProgram(this.programId);
+      BufferUploader.invalidateCommandEncoder();
+      com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
       BufferUploader.activeCustomProgram = this.programId;
 
       Minecraft mc = Minecraft.getInstance();
@@ -157,8 +158,12 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
 
    @Override
    public void release() {
-      GL20.glUseProgram(0);
+      com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(0);
       BufferUploader.activeCustomProgram = 0;
+      BufferUploader.invalidateCommandEncoder();
+      try {
+         org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+      } catch (Throwable ignored) {}
    }
 
    private int getUniformLoc(String name) {
@@ -285,7 +290,12 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
             if (loc != -1) {
                GL20.glUseProgram(ResettableManagedCoreShader.this.programId);
                GL20.glActiveTexture(GL20.GL_TEXTURE0);
+               try {
+                  org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+               } catch (Throwable ignored) {
+               }
                GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+               com.mojang.blaze3d.opengl.GlStateManager._bindTexture(textureId);
                GL20.glUniform1i(loc, 0);
             }
          }

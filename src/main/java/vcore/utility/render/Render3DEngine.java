@@ -650,6 +650,10 @@ public class Render3DEngine {
 
    public static void endRender() {
       RenderSystem.disableBlend();
+      BufferUploader.invalidateCommandEncoder();
+      try {
+         org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+      } catch (Throwable ignored) {}
    }
 
    public static void drawTargetEsp(PoseStack stack, @NotNull Entity target) {

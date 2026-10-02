@@ -305,10 +305,14 @@ public class Particles extends Module {
       Render2DEngine.endBuilding(bufferBuilder);
       RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       RenderSystem.depthMask(true);
-      RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+      RenderSystem.defaultBlendFunc();
       RenderSystem.enableCull();
       RenderSystem.enableDepthTest();
       RenderSystem.disableBlend();
+      com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+      try {
+         org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+      } catch (Throwable ignored) {}
    }
 
    private double getRenderDeltaTime() {

@@ -220,7 +220,7 @@ public abstract class MixinMinecraftClient {
    @Inject(method = "updateTitle", at = @At("HEAD"), cancellable = true)
    private void overrideWindowTitle(CallbackInfo ci) {
       if (!UnHook.isActive()) {
-         String title = "Vcore Release";
+         String title = "OpenVCore (1.21.11)";
          this.window.setTitle(title);
          ci.cancel();
       }

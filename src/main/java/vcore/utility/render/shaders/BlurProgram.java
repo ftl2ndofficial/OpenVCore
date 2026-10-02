@@ -1,5 +1,6 @@
 package vcore.utility.render.shaders;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
 import java.nio.ByteBuffer;
@@ -25,6 +26,7 @@ public class BlurProgram {
    private Uniform1f quality;
    private Uniform4f color1;
    private SamplerUniform sampler;
+   private int readFbo = 0;
    private int fbo = 0;
    private int textureId = 0;
    private int fboWidth = 0;
@@ -37,14 +39,18 @@ public class BlurProgram {
 
    private void initFbo(int width, int height) {
       if (width <= 0 || height <= 0) return;
+      if (this.readFbo == 0) {
+         this.readFbo = GL30.glGenFramebuffers();
+      }
       if (this.fbo == 0) {
          this.fbo = GL30.glGenFramebuffers();
          this.textureId = GL11.glGenTextures();
       }
       GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.textureId);
+      com.mojang.blaze3d.opengl.GlStateManager._bindTexture(this.textureId);
       GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer)null);
-      GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-      GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+      GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+      GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
       GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
       GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
@@ -81,14 +87,38 @@ public class BlurProgram {
          this.initFbo(w, h);
       }
 
-      int sourceFbo = com.mojang.blaze3d.vertex.BufferUploader.getMainRenderTargetFbo();
+      RenderTarget target = Module.mc.getMainRenderTarget();
+      int mainTexId = 0;
+      Object colorTexObj = target != null ? target.getColorTexture() : null;
+      if (colorTexObj instanceof com.mojang.blaze3d.opengl.GlTexture glTex) {
+         mainTexId = glTex.glId();
+      }
+
       int prevReadFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
       int prevDrawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-      GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, sourceFbo);
-      GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.fbo);
-      GL30.glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
-      GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevReadFbo);
-      GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDrawFbo);
+      boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+      if (scissor) com.mojang.blaze3d.opengl.GlStateManager._disableScissorTest();
+
+      int readStatus = -1;
+      int drawStatus = -1;
+      if (mainTexId > 0 && this.readFbo != 0 && this.fbo != 0) {
+         com.mojang.blaze3d.opengl.GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, this.readFbo);
+         com.mojang.blaze3d.opengl.GlStateManager._glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, mainTexId, 0);
+         GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+
+         com.mojang.blaze3d.opengl.GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.fbo);
+         GL11.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
+
+         readStatus = GL30.glCheckFramebufferStatus(GL30.GL_READ_FRAMEBUFFER);
+         drawStatus = GL30.glCheckFramebufferStatus(GL30.GL_DRAW_FRAMEBUFFER);
+         if (readStatus == GL30.GL_FRAMEBUFFER_COMPLETE && drawStatus == GL30.GL_FRAMEBUFFER_COMPLETE) {
+            com.mojang.blaze3d.opengl.GlStateManager._glBlitFrameBuffer(0, 0, w, h, 0, 0, w, h, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_LINEAR);
+         }
+      }
+
+      com.mojang.blaze3d.opengl.GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevReadFbo);
+      com.mojang.blaze3d.opengl.GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDrawFbo);
+      if (scissor) com.mojang.blaze3d.opengl.GlStateManager._enableScissorTest();
 
       this.inputResolution.set(w, h);
       this.sampler.set(this.textureId);

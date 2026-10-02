@@ -44,9 +44,17 @@ public abstract class MixinGameRenderer {
       FrameRateCounter.INSTANCE.recordFrame();
    }
 
-   @Inject(method = "renderItemInHand(FZLorg/joml/Matrix4f;)V", at = @At("HEAD"))
-   void render3dHook(float partialTick, boolean sleeping, Matrix4f projectionMatrix, CallbackInfo ci) {
+   @Inject(
+      method = "renderLevel",
+      at = @At(
+         value = "INVOKE",
+         target = "Lnet/minecraft/client/renderer/LevelRenderer;renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/Camera;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;Z)V",
+         shift = At.Shift.AFTER
+      )
+   )
+   void render3dHook(DeltaTracker deltaTracker, CallbackInfo ci) {
       if (!Module.fullNullCheck()) {
+         float partialTick = deltaTracker.getGameTimeDeltaPartialTick(true);
          Camera camera = this.mainCamera;
          PoseStack matrixStack = new PoseStack();
          RenderSystem.getModelViewStack().pushMatrix().mul(matrixStack.last().pose());
@@ -64,6 +72,10 @@ public abstract class MixinGameRenderer {
             Render3DEngine.onRender3D(matrixStack);
          } finally {
             Render3DEngine.rendering3D = false;
+            com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+            try {
+               org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+            } catch (Throwable ignored) {}
          }
          RenderSystem.getModelViewStack().popMatrix();
          RenderSystem.applyModelViewMatrix();

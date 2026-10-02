@@ -49,7 +49,7 @@ public final class RPC extends Module {
          if (!started) {
             started = true;
             DiscordEventHandlers handlers = new DiscordEventHandlers();
-            rpc.Discord_Initialize("1506098691226734643", handlers, true, "");
+            rpc.Discord_Initialize("1555445272459485244", handlers, true, "");
             presence.startTimestamp = System.currentTimeMillis() / 1000L;
             presence.largeImageKey = "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdzdvbmNocjZoN3lxaDVkbW0zYnA0eHNqODF1bjRtdmM4cm1zNnprcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/DyvuwYcDPGgI86JGWw/giphy.gif";
             rpc.Discord_UpdatePresence(presence);
@@ -57,7 +57,7 @@ public final class RPC extends Module {
                while (!Thread.currentThread().isInterrupted()) {
                   rpc.Discord_RunCallbacks();
                   presence.details = this.getDetails();
-                  presence.state = "Build >> Release (1.21/1.21.1)";
+                  presence.state = "Build >> Release (1.21.11)";
                   if (nickname.getValue()) {
                      presence.smallImageText = ModuleManager.nameProtect.isEnabled() ? "discord.gg/GNYyWbwKUE" : mc.getUser().getName();
                      presence.smallImageKey = "https://minotar.net/helm/" + mc.getUser().getName() + "/100.png";

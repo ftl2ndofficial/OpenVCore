@@ -1,8 +1,10 @@
 package com.mojang.blaze3d.vertex;
 
 import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTextureView;
 import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
@@ -12,13 +14,48 @@ import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL33;
 import vcore.utility.render.Render3DEngine;
 
 public class BufferUploader {
    public static int activeCustomProgram = 0;
+   private static java.lang.reflect.Field lastPipelineField = null;
+   private static java.lang.reflect.Field lastProgramField = null;
+   private static boolean reflectionInitialized = false;
+
+   public static void invalidateCommandEncoder() {
+      try {
+         GpuDevice device = RenderSystem.getDevice();
+         if (device != null) {
+            CommandEncoder encoder = device.createCommandEncoder();
+            if (encoder instanceof vcore.injection.accesors.IGlCommandEncoder accessor) {
+               accessor.setLastPipeline(null);
+               accessor.setLastProgram(null);
+               return;
+            }
+            if (!reflectionInitialized) {
+               try {
+                  lastPipelineField = encoder.getClass().getDeclaredField("lastPipeline");
+                  lastPipelineField.setAccessible(true);
+                  lastProgramField = encoder.getClass().getDeclaredField("lastProgram");
+                  lastProgramField.setAccessible(true);
+               } catch (Throwable ignored) {}
+               reflectionInitialized = true;
+            }
+            if (lastPipelineField != null) {
+               lastPipelineField.set(encoder, null);
+            }
+            if (lastProgramField != null) {
+               lastProgramField.set(encoder, null);
+            }
+         }
+      } catch (Throwable ignored) {
+      }
+   }
    private static int vao = 0;
    private static int vbo = 0;
    private static int ebo = 0;
@@ -166,9 +203,20 @@ public class BufferUploader {
 
          initBuffers();
 
+         int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+         int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+         int prevVbo = GL11.glGetInteger(GL15.GL_ARRAY_BUFFER_BINDING);
+         int prevEbo = GL11.glGetInteger(GL15.GL_ELEMENT_ARRAY_BUFFER_BINDING);
+         int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+         int[] prevViewport = new int[4];
+         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+         boolean prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
+         boolean prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+         boolean prevCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+         boolean prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+
          Minecraft mc = Minecraft.getInstance();
          int targetFbo = getMainRenderTargetFbo();
-         int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
          if (targetFbo != 0 && prevFbo != targetFbo) {
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
          }
@@ -177,7 +225,7 @@ public class BufferUploader {
             GL11.glViewport(0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight());
          }
 
-         int currentProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+         int currentProgram = prevProgram;
          boolean isCustomActive = (activeCustomProgram != 0 && currentProgram == activeCustomProgram);
          boolean usedFallback = false;
 
@@ -272,17 +320,27 @@ public class BufferUploader {
          if (posOffset != -1) GL20.glDisableVertexAttribArray(0);
          if (colorOffset != -1) GL20.glDisableVertexAttribArray(1);
          if (uvOffset != -1) GL20.glDisableVertexAttribArray(2);
-         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
-         GL30.glBindVertexArray(0);
-         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
+         GL30.glBindVertexArray(prevVao);
+         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, prevVbo);
+         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, prevEbo);
 
          if (usedFallback) {
-            GL20.glUseProgram(0);
+            GlStateManager._glUseProgram(prevProgram);
          }
 
          if (targetFbo != 0 && prevFbo != targetFbo) {
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
          }
+         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+         if (prevBlend) GlStateManager._enableBlend(); else GlStateManager._disableBlend();
+         if (prevDepth) GlStateManager._enableDepthTest(); else GlStateManager._disableDepthTest();
+         if (prevCull) GlStateManager._enableCull(); else GlStateManager._disableCull();
+         if (prevScissor) GlStateManager._enableScissorTest(); else GlStateManager._disableScissorTest();
+         try {
+            GL33.glBindSampler(0, 0);
+         } catch (Throwable ignored) {}
+         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+         invalidateCommandEncoder();
       } finally {
          meshData.close();
       }
