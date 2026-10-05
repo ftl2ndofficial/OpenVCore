@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
 public class VcoreMixinPlugin implements IMixinConfigPlugin {
    private static final String MIXIN_WORLD_RENDERER_CHUNK_ANIM = "MixinWorldRendererChunkAnimations";
+   private static final String MIXIN_LEVEL_RENDERER_CHUNK_ANIM = "MixinLevelRendererChunkAnimations";
    private static final String MIXIN_SODIUM_DEFAULT_CHUNK_RENDERER = "MixinSodiumDefaultChunkRenderer";
    private static final String MIXIN_SODIUM_RENDER_SECTION_MANAGER_CHUNK_ANIM = "MixinSodiumRenderSectionManagerChunkAnimations";
    private static final String MIXIN_SODIUM_BLOCK_OCCLUSION_CACHE = "MixinSodiumBlockOcclusionCache";
@@ -22,14 +23,16 @@ public class VcoreMixinPlugin implements IMixinConfigPlugin {
 
    public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
       boolean sodiumLoaded = FabricLoader.getInstance().isModLoaded("sodium");
-      if (mixinClassName.endsWith("MixinWorldRendererChunkAnimations")) {
+      if (mixinClassName.endsWith(MIXIN_WORLD_RENDERER_CHUNK_ANIM) || mixinClassName.endsWith(MIXIN_LEVEL_RENDERER_CHUNK_ANIM)) {
          return !sodiumLoaded;
-      } else if (mixinClassName.endsWith("MixinSodiumDefaultChunkRenderer")) {
+      } else if (mixinClassName.endsWith(MIXIN_SODIUM_DEFAULT_CHUNK_RENDERER)) {
+         return false;
+      } else if (mixinClassName.endsWith(MIXIN_SODIUM_BLOCK_OCCLUSION_CACHE)) {
+         return false;
+      } else if (mixinClassName.endsWith(MIXIN_SODIUM_RENDER_SECTION_MANAGER_CHUNK_ANIM)) {
          return sodiumLoaded;
       } else {
-         return !mixinClassName.endsWith("MixinSodiumRenderSectionManagerChunkAnimations") && !mixinClassName.endsWith("MixinSodiumBlockOcclusionCache")
-            ? true
-            : sodiumLoaded;
+         return true;
       }
    }
 

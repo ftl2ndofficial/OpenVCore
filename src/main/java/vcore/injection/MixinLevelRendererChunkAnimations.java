@@ -19,7 +19,8 @@ public class MixinLevelRendererChunkAnimations {
       at = @At(
          value = "NEW",
          target = "(Lorg/joml/Matrix4fc;IIIFII)Lnet/minecraft/client/renderer/DynamicUniforms$ChunkSectionInfo;"
-      )
+      ),
+      require = 0
    )
    private DynamicUniforms.ChunkSectionInfo redirectChunkSectionInfo(
       Matrix4fc modelView,
