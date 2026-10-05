@@ -15,6 +15,9 @@ public class VcoreMixinPlugin implements IMixinConfigPlugin {
    private static final String MIXIN_SODIUM_BLOCK_OCCLUSION_CACHE = "MixinSodiumBlockOcclusionCache";
 
    public void onLoad(String mixinPackage) {
+      if (FabricLoader.getInstance().isModLoaded("sodium")) {
+         System.out.println("[Vcore] Mod Sodium được phát hiện! Module Chunk Animation sẽ không hoạt động với Sodium.");
+      }
    }
 
    public String getRefMapperConfig() {
