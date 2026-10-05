@@ -61,7 +61,7 @@ public class Vcore implements ModInitializer {
       Render2DEngine.initShaders();
       ModuleManager.rpc.startRpc();
       if (FabricLoader.getInstance().isModLoaded("sodium")) {
-         LOGGER.warn("[Vcore] Mod Sodium được phát hiện! Module Chunk Animation sẽ không hoạt động với Sodium.");
+         LOGGER.warn("[Vcore] Sodium mod detected! ChunkAnimation module will not work with Sodium.");
       }
       LOGGER.info("[Vcore] Init time: {} ms.", System.currentTimeMillis() - initTime);
       initTime = System.currentTimeMillis();

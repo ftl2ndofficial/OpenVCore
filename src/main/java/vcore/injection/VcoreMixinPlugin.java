@@ -16,7 +16,7 @@ public class VcoreMixinPlugin implements IMixinConfigPlugin {
 
    public void onLoad(String mixinPackage) {
       if (FabricLoader.getInstance().isModLoaded("sodium")) {
-         System.out.println("[Vcore] Mod Sodium được phát hiện! Module Chunk Animation sẽ không hoạt động với Sodium.");
+         System.out.println("[Vcore] Sodium mod detected! ChunkAnimation module will not work with Sodium.");
       }
    }
 

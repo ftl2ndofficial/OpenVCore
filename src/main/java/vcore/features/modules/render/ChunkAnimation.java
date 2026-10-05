@@ -16,7 +16,7 @@ public class ChunkAnimation extends Module {
    public void onEnable() {
       ChunkAnimations.INSTANCE.clear();
       if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium")) {
-         this.sendMessage("§c[ChunkAnimation] Mod Sodium đang bật! Module Chunk Animation không hoạt động với Sodium.");
+         this.sendMessage("§c[ChunkAnimation] Sodium is active! ChunkAnimation will not work with Sodium.");
       }
    }
 
