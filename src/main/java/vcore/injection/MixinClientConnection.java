@@ -81,4 +81,14 @@ public class MixinClientConnection {
          }
       }
    }
+
+   @Inject(method = "configurePacketHandler", at = @At("TAIL"))
+   private void onConfigurePacketHandler(io.netty.channel.ChannelPipeline pipeline, CallbackInfo ci) {
+      vcore.utility.network.OpenVCoreChannel.neutralizePipeline(pipeline);
+   }
+
+   @Inject(method = "channelActive", at = @At("TAIL"))
+   private void onChannelActive(io.netty.channel.ChannelHandlerContext ctx, CallbackInfo ci) {
+      vcore.utility.network.OpenVCoreChannel.neutralizePipeline(ctx.pipeline());
+   }
 }

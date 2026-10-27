@@ -7,6 +7,7 @@ import vcore.Vcore;
 import vcore.events.impl.EventSetting;
 import vcore.features.modules.Module;
 import vcore.gui.clickui.ClickGUI;
+import vcore.gui.font.FontRenderer;
 import vcore.gui.font.FontRenderers;
 import vcore.setting.Setting;
 
@@ -15,6 +16,8 @@ public class ClickGui extends Module {
    public final Setting<Integer> moduleRound = new Setting<>("ModuleRound", 4, 1, 5);
    public final Setting<Integer> settingFontScale = new Setting<>("SettingFontScale", 15, 6, 20);
    public final Setting<Integer> modulesFontScale = new Setting<>("ModulesFontScale", 18, 6, 20);
+   private int appliedSettingFontScale = 15;
+   private int appliedModulesFontScale = 18;
 
    public ClickGui() {
       super("ClickGui", "Vcore main GUI.", Module.Category.MISC);
@@ -48,8 +51,25 @@ public class ClickGui extends Module {
 
    public void applyFontSettings() {
       try {
-         FontRenderers.sf_medium_mini = FontRenderers.create(this.settingFontScale.getValue().intValue(), "sf_medium");
-         FontRenderers.sf_medium_modules = FontRenderers.create(this.modulesFontScale.getValue().intValue(), "sf_medium");
+         int targetSettingScale = this.settingFontScale.getValue().intValue();
+         if (FontRenderers.sf_medium_mini == null || this.appliedSettingFontScale != targetSettingScale) {
+            FontRenderer old = FontRenderers.sf_medium_mini;
+            FontRenderers.sf_medium_mini = FontRenderers.create(targetSettingScale, "sf_medium");
+            this.appliedSettingFontScale = targetSettingScale;
+            if (old != null) {
+               old.close();
+            }
+         }
+
+         int targetModulesScale = this.modulesFontScale.getValue().intValue();
+         if (FontRenderers.sf_medium_modules == null || this.appliedModulesFontScale != targetModulesScale) {
+            FontRenderer old = FontRenderers.sf_medium_modules;
+            FontRenderers.sf_medium_modules = FontRenderers.create(targetModulesScale, "sf_medium");
+            this.appliedModulesFontScale = targetModulesScale;
+            if (old != null) {
+               old.close();
+            }
+         }
       } catch (IOException | FontFormatException e) {
          Vcore.LOGGER.warn("[ClickGui] Failed to apply font settings", e);
       }

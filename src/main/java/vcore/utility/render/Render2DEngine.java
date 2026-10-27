@@ -1,7 +1,5 @@
 package vcore.utility.render;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -10,6 +8,7 @@ import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -26,12 +25,13 @@ import org.jetbrains.annotations.NotNull;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
-import vcore.utility.render.RenderSystem.SourceFactor;
-import vcore.utility.render.RenderSystem.DestFactor;
+import org.lwjgl.glfw.GLFW;
 import vcore.features.modules.Module;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.font.Texture;
 import vcore.utility.math.MathUtility;
+import vcore.utility.render.RenderSystem.DestFactor;
+import vcore.utility.render.RenderSystem.SourceFactor;
 import vcore.utility.render.shaders.ArcShader;
 import vcore.utility.render.shaders.BlurProgram;
 import vcore.utility.render.shaders.CheckboxShader;
@@ -50,6 +50,49 @@ public class Render2DEngine {
    public static HashMap<Integer, Render2DEngine.BlurredShadow> shadowCache1 = new HashMap<>();
    static final Stack<Render2DEngine.Rectangle> clipStack = new Stack<>();
    private static float globalAlpha = 1.0F;
+   private static boolean scissorActive = false;
+   public static boolean renderingPostGui = false;
+   private static final Int2LongOpenHashMap CURSOR_CACHE = new Int2LongOpenHashMap();
+   private static int currentCursorType = -1;
+
+   private static final int CORNER_STEPS_FAST = 5;
+   private static final float[][] CORNER_SIN_FAST = new float[4][CORNER_STEPS_FAST + 1];
+   private static final float[][] CORNER_COS_FAST = new float[4][CORNER_STEPS_FAST + 1];
+
+   static {
+      for (int i = 0; i < 4; i++) {
+         for (int s = 0; s <= CORNER_STEPS_FAST; s++) {
+            double deg = i * 90.0 + (90.0 * s / CORNER_STEPS_FAST);
+            double rad = Math.toRadians(deg);
+            CORNER_SIN_FAST[i][s] = (float)Math.sin(rad);
+            CORNER_COS_FAST[i][s] = (float)Math.cos(rad);
+         }
+      }
+   }
+
+   public static boolean isScissorActive() {
+      return scissorActive;
+   }
+
+   public static void setCursor(int standardCursorType) {
+      if (GLFW.glfwGetPlatform() == 393219 || Module.mc == null || Module.mc.getWindow() == null) {
+         return;
+      }
+      if (currentCursorType == standardCursorType) {
+         return;
+      }
+      long cursorHandle = CURSOR_CACHE.get(standardCursorType);
+      if (cursorHandle == 0L) {
+         cursorHandle = GLFW.glfwCreateStandardCursor(standardCursorType);
+         if (cursorHandle != 0L) {
+            CURSOR_CACHE.put(standardCursorType, cursorHandle);
+         }
+      }
+      if (cursorHandle != 0L) {
+         GLFW.glfwSetCursor(Module.mc.getWindow().handle(), cursorHandle);
+         currentCursorType = standardCursorType;
+      }
+   }
 
    public static void setGlobalAlpha(float alpha) {
       globalAlpha = Mth.clamp(alpha, 0.0F, 1.0F);
@@ -60,12 +103,18 @@ public class Render2DEngine {
    }
 
    private static int applyGlobalAlphaToInt(int color) {
-      Color c = new Color(color, true);
-      int a = Mth.clamp(Math.round(c.getAlpha() * globalAlpha), 0, 255);
-      return a == c.getAlpha() ? color : new Color(c.getRed(), c.getGreen(), c.getBlue(), a).getRGB();
+      if (globalAlpha >= 0.999F) {
+         return color;
+      }
+      int origA = (color >>> 24) & 0xFF;
+      int a = Mth.clamp(Math.round(origA * globalAlpha), 0, 255);
+      return (color & 0x00FFFFFF) | (a << 24);
    }
 
    private static Color applyGlobalAlphaToColor(Color color) {
+      if (globalAlpha >= 0.999F) {
+         return color;
+      }
       int a = Mth.clamp(Math.round(color.getAlpha() * globalAlpha), 0, 255);
       return a == color.getAlpha() ? color : new Color(color.getRed(), color.getGreen(), color.getBlue(), a);
    }
@@ -163,10 +212,12 @@ public class Render2DEngine {
       height = Math.max(0.0, height);
       float d = (float)Render3DEngine.getScaleFactor();
       int ay = (int)((Module.mc.getWindow().getGuiScaledHeight() - (y + height)) * d);
+      scissorActive = true;
       RenderSystem.enableScissor((int)(x * d), ay, (int)(width * d), (int)(height * d));
    }
 
    public static void endScissor() {
+      scissorActive = false;
       RenderSystem.disableScissor();
    }
 
@@ -324,6 +375,18 @@ public class Render2DEngine {
          }
       } catch (Exception var4) {
       }
+   }
+
+   public static void drawTexture(PoseStack matrices, Identifier texture, float x, float y, float width, float height) {
+      drawTexture(matrices, texture, x, y, width, height, Color.WHITE);
+   }
+
+   public static void drawTexture(PoseStack matrices, Identifier texture, float x, float y, float width, float height, Color color) {
+      if (texture == null) return;
+      RenderSystem.setShaderTexture(0, texture);
+      setupRender();
+      renderGradientTexture(matrices, x, y, width, height, 0.0F, 0.0F, width, height, width, height, color, color, color, color);
+      endRender();
    }
 
    public static void renderTexture(
@@ -488,17 +551,12 @@ public class Render2DEngine {
       float firstU = 0.0F;
       float firstV = 0.0F;
       boolean firstRecorded = false;
-      double step = Math.max(1.0, 90.0 / 8.0);
 
       for (int i = 0; i < 4; i++) {
          float[] current = map[i];
-
-         for (double r = i * 90.0; r < 90.0 + i * 90.0 - 0.001; r += step) {
-            float rad1 = (float)Math.toRadians(r);
-            float sin = (float)(Math.sin(rad1) * rad);
-            float cos = (float)(Math.cos(rad1) * rad);
-            float vx = current[0] + sin;
-            float vy = current[1] + cos;
+         for (int s = 0; s <= CORNER_STEPS_FAST; s++) {
+            float vx = current[0] + CORNER_SIN_FAST[i][s] * rad;
+            float vy = current[1] + CORNER_COS_FAST[i][s] * rad;
             float u = u0 + ((vx - fromX) / width) * (u1 - u0);
             float v = v0 + ((vy - fromY) / height) * (v1 - v0);
 
@@ -512,13 +570,6 @@ public class Render2DEngine {
 
             bufferBuilder.addVertex(matrix, vx, vy, 0.0F).setUv(u, v).setColor(255, 255, 255, a);
          }
-
-         float endRad = (float)Math.toRadians(90.0 + i * 90.0);
-         float endVx = current[0] + (float)(Math.sin(endRad) * rad);
-         float endVy = current[1] + (float)(Math.cos(endRad) * rad);
-         float endU = u0 + ((endVx - fromX) / width) * (u1 - u0);
-         float endV = v0 + ((endVy - fromY) / height) * (v1 - v0);
-         bufferBuilder.addVertex(matrix, endVx, endVy, 0.0F).setUv(endU, endV).setColor(255, 255, 255, a);
       }
 
       if (firstRecorded) {
@@ -556,7 +607,6 @@ public class Render2DEngine {
       float firstX = 0.0F;
       float firstY = 0.0F;
       boolean firstRecorded = false;
-      double step = Math.max(1.0, 90.0 / 8.0);
       int cr = c.getRed();
       int cg = c.getGreen();
       int cb = c.getBlue();
@@ -564,13 +614,9 @@ public class Render2DEngine {
 
       for (int i = 0; i < 4; i++) {
          float[] current = map[i];
-
-         for (double r = i * 90.0; r < 90.0 + i * 90.0 - 0.001; r += step) {
-            float rad1 = (float)Math.toRadians(r);
-            float sin = (float)(Math.sin(rad1) * rad);
-            float cos = (float)(Math.cos(rad1) * rad);
-            float vx = current[0] + sin;
-            float vy = current[1] + cos;
+         for (int s = 0; s <= CORNER_STEPS_FAST; s++) {
+            float vx = current[0] + CORNER_SIN_FAST[i][s] * rad;
+            float vy = current[1] + CORNER_COS_FAST[i][s] * rad;
 
             if (!firstRecorded) {
                firstX = vx;
@@ -580,11 +626,6 @@ public class Render2DEngine {
 
             bufferBuilder.addVertex(matrix, vx, vy, 0.0F).setColor(cr, cg, cb, ca);
          }
-
-         float endRad = (float)Math.toRadians(90.0 + i * 90.0);
-         float endVx = current[0] + (float)(Math.sin(endRad) * rad);
-         float endVy = current[1] + (float)(Math.cos(endRad) * rad);
-         bufferBuilder.addVertex(matrix, endVx, endVy, 0.0F).setColor(cr, cg, cb, ca);
       }
 
       if (firstRecorded) {
@@ -597,11 +638,7 @@ public class Render2DEngine {
 
    public static void drawClickGuiRound(PoseStack matrices, float x, float y, float width, float height, float radius, Color color) {
       if (color.getAlpha() > 0) {
-         if (shouldBlurClickGuiComponents()) {
-            drawRoundedBlur(matrices, x, y, width, height, radius, color, 5.0F * globalAlpha, color.getAlpha() / 255.0F);
-         } else {
-            drawRound(matrices, x, y, width, height, radius, color);
-         }
+         drawRound(matrices, x, y, width, height, radius, color);
       }
    }
 
@@ -657,57 +694,55 @@ public class Render2DEngine {
    public static void renderRoundedQuadInternal(
       Matrix4f matrix, float cr, float cg, float cb, float ca, double fromX, double fromY, double toX, double toY, double radius, double samples
    ) {
-      BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
       float alpha = ca * applyGlobalAlpha(1.0F);
+      if (alpha <= 0.001F) return;
 
+      double maxRad = Math.min((toX - fromX) * 0.5, (toY - fromY) * 0.5);
+      float rad = (float)Math.min(radius, Math.max(0.0, maxRad));
+
+      if (rad <= 0.05F) {
+         BufferBuilder buffer = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+         float x0 = (float)fromX;
+         float y0 = (float)fromY;
+         float x1 = (float)toX;
+         float y1 = (float)toY;
+         buffer.addVertex(matrix, x0, y1, 0.0F).setColor(cr, cg, cb, alpha);
+         buffer.addVertex(matrix, x1, y1, 0.0F).setColor(cr, cg, cb, alpha);
+         buffer.addVertex(matrix, x1, y0, 0.0F).setColor(cr, cg, cb, alpha);
+         buffer.addVertex(matrix, x0, y0, 0.0F).setColor(cr, cg, cb, alpha);
+         BufferUploader.drawWithShader(buffer.buildOrThrow());
+         return;
+      }
+
+      BufferBuilder bufferBuilder = Tesselator.getInstance().begin(Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
       float centerX = (float)((fromX + toX) * 0.5);
       float centerY = (float)((fromY + toY) * 0.5);
       bufferBuilder.addVertex(matrix, centerX, centerY, 0.0F).setColor(cr, cg, cb, alpha);
 
-      double maxRad = Math.min((toX - fromX) * 0.5, (toY - fromY) * 0.5);
-      double rad = Math.min(radius, Math.max(0.0, maxRad));
+      float fx = (float)fromX;
+      float fy = (float)fromY;
+      float tx = (float)toX;
+      float ty = (float)toY;
 
-      double[][] map = new double[][]{
-         {toX - rad, toY - rad, rad},
-         {toX - rad, fromY + rad, rad},
-         {fromX + rad, fromY + rad, rad},
-         {fromX + rad, toY - rad, rad}
-      };
+      float[] cx = new float[]{tx - rad, tx - rad, fx + rad, fx + rad};
+      float[] cy = new float[]{ty - rad, fy + rad, fy + rad, ty - rad};
 
-      float firstX = 0.0F;
-      float firstY = 0.0F;
-      boolean firstRecorded = false;
-      double step = Math.max(1.0, 90.0 / Math.max(samples, 4.0));
+      float firstX = cx[0] + CORNER_SIN_FAST[0][0] * rad;
+      float firstY = cy[0] + CORNER_COS_FAST[0][0] * rad;
 
       for (int i = 0; i < 4; i++) {
-         double[] current = map[i];
-
-         for (double r = i * 90.0; r < 90.0 + i * 90.0 - 0.001; r += step) {
-            float rad1 = (float)Math.toRadians(r);
-            float sin = (float)(Math.sin(rad1) * rad);
-            float cos = (float)(Math.cos(rad1) * rad);
-            float vx = (float)current[0] + sin;
-            float vy = (float)current[1] + cos;
-
-            if (!firstRecorded) {
-               firstX = vx;
-               firstY = vy;
-               firstRecorded = true;
-            }
-
+         float curX = cx[i];
+         float curY = cy[i];
+         float[] sinRow = CORNER_SIN_FAST[i];
+         float[] cosRow = CORNER_COS_FAST[i];
+         for (int s = 0; s <= CORNER_STEPS_FAST; s++) {
+            float vx = curX + sinRow[s] * rad;
+            float vy = curY + cosRow[s] * rad;
             bufferBuilder.addVertex(matrix, vx, vy, 0.0F).setColor(cr, cg, cb, alpha);
          }
-
-         float endRad = (float)Math.toRadians(90.0 + i * 90.0);
-         float endVx = (float)current[0] + (float)(Math.sin(endRad) * rad);
-         float endVy = (float)current[1] + (float)(Math.cos(endRad) * rad);
-         bufferBuilder.addVertex(matrix, endVx, endVy, 0.0F).setColor(cr, cg, cb, alpha);
       }
 
-      if (firstRecorded) {
-         bufferBuilder.addVertex(matrix, firstX, firstY, 0.0F).setColor(cr, cg, cb, alpha);
-      }
-
+      bufferBuilder.addVertex(matrix, firstX, firstY, 0.0F).setColor(cr, cg, cb, alpha);
       BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
    }
 
@@ -751,62 +786,48 @@ public class Render2DEngine {
       bufferBuilder.addVertex(matrix, centerX, centerY, 0.0F).setColor(centerR, centerG, centerB, centerA);
 
       double maxRad = Math.min((toX - fromX) * 0.5, (toY - fromY) * 0.5);
-      double rad = Math.min(radC1, Math.max(0.0, maxRad));
+      float rad = (float)Math.min(radC1, Math.max(0.0, maxRad));
 
-      double[][] map = new double[][]{
-         {toX - rad, toY - rad, rad},       // 0: bottom-right
-         {toX - rad, fromY + rad, rad},     // 1: top-right
-         {fromX + rad, fromY + rad, rad},   // 2: top-left
-         {fromX + rad, toY - rad, rad}      // 3: bottom-left
-      };
+      float fx = (float)fromX;
+      float fy = (float)fromY;
+      float tx = (float)toX;
+      float ty = (float)toY;
 
-      float firstX = 0.0F;
-      float firstY = 0.0F;
-      boolean firstRecorded = false;
+      float[] cx = new float[]{tx - rad, tx - rad, fx + rad, fx + rad};
+      float[] cy = new float[]{ty - rad, fy + rad, fy + rad, ty - rad};
+
+      float firstX = cx[0] + CORNER_SIN_FAST[0][0] * rad;
+      float firstY = cy[0] + CORNER_COS_FAST[0][0] * rad;
 
       for (int i = 0; i < 4; i++) {
-         double[] current = map[i];
+         float curX = cx[i];
+         float curY = cy[i];
          float curR, curG, curB, curA;
          switch (i) {
-            case 0:
+            case 0 -> {
                curR = cr1; curG = cg1; curB = cb1; curA = alpha1;
-               break;
-            case 1:
+            }
+            case 1 -> {
                curR = cr; curG = cg; curB = cb; curA = alpha;
-               break;
-            case 2:
+            }
+            case 2 -> {
                curR = cr2; curG = cg2; curB = cb2; curA = alpha2;
-               break;
-            default:
+            }
+            default -> {
                curR = cr3; curG = cg3; curB = cb3; curA = alpha3;
+            }
          }
 
-         for (double r = i * 90; r < 90 + i * 90 - 0.001; r += 5.0) {
-            float rad1 = (float)Math.toRadians(r);
-            float sin = (float)(Math.sin(rad1) * rad);
-            float cos = (float)(Math.cos(rad1) * rad);
-            float vx = (float)current[0] + sin;
-            float vy = (float)current[1] + cos;
-
-            if (!firstRecorded) {
-               firstX = vx;
-               firstY = vy;
-               firstRecorded = true;
-            }
-
+         float[] sinRow = CORNER_SIN_FAST[i];
+         float[] cosRow = CORNER_COS_FAST[i];
+         for (int s = 0; s <= CORNER_STEPS_FAST; s++) {
+            float vx = curX + sinRow[s] * rad;
+            float vy = curY + cosRow[s] * rad;
             bufferBuilder.addVertex(matrix, vx, vy, 0.0F).setColor(curR, curG, curB, curA);
          }
-
-         float endRad = (float)Math.toRadians(90.0 + i * 90.0);
-         float endVx = (float)current[0] + (float)(Math.sin(endRad) * rad);
-         float endVy = (float)current[1] + (float)(Math.cos(endRad) * rad);
-         bufferBuilder.addVertex(matrix, endVx, endVy, 0.0F).setColor(curR, curG, curB, curA);
       }
 
-      if (firstRecorded) {
-         bufferBuilder.addVertex(matrix, firstX, firstY, 0.0F).setColor(cr1, cg1, cb1, alpha1);
-      }
-
+      bufferBuilder.addVertex(matrix, firstX, firstY, 0.0F).setColor(cr1, cg1, cb1, alpha1);
       BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
    }
 
@@ -962,8 +983,8 @@ public class Render2DEngine {
 
    public static int applyOpacity(int color_int, float opacity) {
       opacity = applyGlobalAlpha(Math.min(1.0F, Math.max(0.0F, opacity)));
-      Color color = new Color(color_int);
-      return new Color(color.getRed(), color.getGreen(), color.getBlue(), (int)(color.getAlpha() * opacity)).getRGB();
+      int a = (int)(((color_int >>> 24) & 0xFF) * opacity);
+      return (color_int & 0x00FFFFFF) | (Mth.clamp(a, 0, 255) << 24);
    }
 
    public static Color darker(Color color, float factor) {

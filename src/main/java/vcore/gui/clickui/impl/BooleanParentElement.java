@@ -1,12 +1,10 @@
 package vcore.gui.clickui.impl;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import java.awt.Color;
 import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 import vcore.core.Managers;
-import vcore.core.manager.IManager;
 import vcore.gui.clickui.AbstractElement;
 import vcore.gui.clickui.ClickGUI;
 import vcore.gui.clickui.ModuleButton;
@@ -50,7 +48,7 @@ public class BooleanParentElement extends AbstractElement {
       context.pose().rotate((float) Math.toRadians(-180.0F * this.arrowAnimation));
       context.pose().translate(-tx, -ty);
       context.pose().translate(this.x + this.width - 14.0F, this.y + 4.5F);
-      context.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TextureStorage.guiArrow, 0, 0, 0.0F, 0.0F, 6, 6, 6, 6);
+      Render2DEngine.drawTexture(Render2DEngine.toPoseStack(context.pose()), TextureStorage.guiArrow, 0.0F, 0.0F, 6.0F, 6.0F);
       context.pose().popMatrix();
       FontRenderers.sf_medium_mini
          .drawString(matrixStack, this.setting.getName(), this.getSettingNameX(), this.y + this.height / 2.0F - 1.0F, new Color(-1).getRGB());
@@ -60,7 +58,7 @@ public class BooleanParentElement extends AbstractElement {
       SettingControlRenderer.drawCheckbox(matrixStack, checkboxX, checkboxY, this.animation);
       if (Render2DEngine.isHovered(mouseX, mouseY, checkboxX, checkboxY, 10.0, 10.0)) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(IManager.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221188));
+            Render2DEngine.setCursor(221188);
          }
 
          ClickGUI.anyHovered = true;

@@ -97,7 +97,8 @@
     "accesors.IHeldItemRenderer",
     "accesors.ILivingEntity",
     "accesors.IPlayerMoveC2SPacket",
-    "accesors.ISPacketEntityVelocity"
+    "accesors.ISPacketEntityVelocity",
+    "accesors.IClientConnection"
   ],
   "refmap": "VCore-refmap.json"
 }

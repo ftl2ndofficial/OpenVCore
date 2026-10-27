@@ -1,5 +1,6 @@
 package vcore.utility.render.shaders;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import java.awt.Color;
@@ -9,6 +10,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL30;
 import vcore.features.modules.Module;
+import vcore.utility.render.Render2DEngine;
 import vcore.utility.render.WindowResizeCallback;
 import vcore.utility.render.shaders.satin.api.managed.ManagedCoreShader;
 import vcore.utility.render.shaders.satin.api.managed.ShaderEffectManager;
@@ -18,6 +20,7 @@ import vcore.utility.render.shaders.satin.api.managed.uniform.Uniform2f;
 import vcore.utility.render.shaders.satin.api.managed.uniform.Uniform4f;
 
 public class BlurProgram {
+   private static boolean frameCaptured = false;
    private Uniform2f uSize;
    private Uniform2f uLocation;
    private Uniform1f radius;
@@ -31,10 +34,16 @@ public class BlurProgram {
    private int textureId = 0;
    private int fboWidth = 0;
    private int fboHeight = 0;
-   public static final ManagedCoreShader BLUR = ShaderEffectManager.getInstance().manageCoreShader(Identifier.fromNamespaceAndPath("vcore", "blur"), DefaultVertexFormat.POSITION);
+   private int attachedMainTexId = 0;
+   public static final ManagedCoreShader BLUR = ShaderEffectManager.getInstance()
+      .manageCoreShader(Identifier.fromNamespaceAndPath("vcore", "blur"), DefaultVertexFormat.POSITION);
 
    public BlurProgram() {
       this.setup();
+   }
+
+   public static void beginFrame() {
+      frameCaptured = false;
    }
 
    private void initFbo(int width, int height) {
@@ -47,20 +56,23 @@ public class BlurProgram {
          this.textureId = GL11.glGenTextures();
       }
       GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.textureId);
-      com.mojang.blaze3d.opengl.GlStateManager._bindTexture(this.textureId);
+      GlStateManager._bindTexture(this.textureId);
       GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer)null);
       GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
       GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
       GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
       GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
-      int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-      GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.fbo);
-      GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, this.textureId, 0);
-      GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
+      int prevDrawFbo = GlStateManager.getFrameBuffer(GL30.GL_DRAW_FRAMEBUFFER);
+      GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.fbo);
+      GlStateManager._glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, this.textureId, 0);
+      GL11.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
+      GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDrawFbo);
 
       this.fboWidth = width;
       this.fboHeight = height;
+      this.attachedMainTexId = 0;
+      frameCaptured = false;
    }
 
    public void setParameters(float x, float y, float width, float height, float r, Color c1, float blurStrenth, float blurOpacity) {
@@ -77,7 +89,6 @@ public class BlurProgram {
       this.opacity.set(blurOpacity);
       this.quality.set(blurStrenth);
       this.color1.set(c1.getRed() / 255.0F, c1.getGreen() / 255.0F, c1.getBlue() / 255.0F, 1.0F);
-      this.sampler.set(this.textureId);
    }
 
    public void use() {
@@ -87,40 +98,43 @@ public class BlurProgram {
          this.initFbo(w, h);
       }
 
-      RenderTarget target = Module.mc.getMainRenderTarget();
-      int mainTexId = 0;
-      Object colorTexObj = target != null ? target.getColorTexture() : null;
-      if (colorTexObj instanceof com.mojang.blaze3d.opengl.GlTexture glTex) {
-         mainTexId = glTex.glId();
-      }
-
-      int prevReadFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-      int prevDrawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-      boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-      if (scissor) com.mojang.blaze3d.opengl.GlStateManager._disableScissorTest();
-
-      int readStatus = -1;
-      int drawStatus = -1;
-      if (mainTexId > 0 && this.readFbo != 0 && this.fbo != 0) {
-         com.mojang.blaze3d.opengl.GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, this.readFbo);
-         com.mojang.blaze3d.opengl.GlStateManager._glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, mainTexId, 0);
-         GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
-
-         com.mojang.blaze3d.opengl.GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.fbo);
-         GL11.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
-
-         readStatus = GL30.glCheckFramebufferStatus(GL30.GL_READ_FRAMEBUFFER);
-         drawStatus = GL30.glCheckFramebufferStatus(GL30.GL_DRAW_FRAMEBUFFER);
-         if (readStatus == GL30.GL_FRAMEBUFFER_COMPLETE && drawStatus == GL30.GL_FRAMEBUFFER_COMPLETE) {
-            com.mojang.blaze3d.opengl.GlStateManager._glBlitFrameBuffer(0, 0, w, h, 0, 0, w, h, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_LINEAR);
+      if (!frameCaptured) {
+         frameCaptured = true;
+         RenderTarget target = Module.mc.getMainRenderTarget();
+         int mainTexId = 0;
+         Object colorTexObj = target != null ? target.getColorTexture() : null;
+         if (colorTexObj instanceof com.mojang.blaze3d.opengl.GlTexture glTex) {
+            mainTexId = glTex.glId();
          }
+
+         if (mainTexId > 0 && this.readFbo != 0 && this.fbo != 0) {
+            int prevReadFbo = GlStateManager.getFrameBuffer(GL30.GL_READ_FRAMEBUFFER);
+            int prevDrawFbo = GlStateManager.getFrameBuffer(GL30.GL_DRAW_FRAMEBUFFER);
+            boolean scissor = Render2DEngine.isScissorActive();
+            if (scissor) {
+               GlStateManager._disableScissorTest();
+            }
+
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, this.readFbo);
+            if (this.attachedMainTexId != mainTexId) {
+               GlStateManager._glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, mainTexId, 0);
+               GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+               this.attachedMainTexId = mainTexId;
+            }
+
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.fbo);
+            GlStateManager._glBlitFrameBuffer(0, 0, w, h, 0, 0, w, h, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_LINEAR);
+
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevReadFbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDrawFbo);
+            if (scissor) {
+               GlStateManager._enableScissorTest();
+            }
+         }
+
+         this.inputResolution.set(w, h);
       }
 
-      com.mojang.blaze3d.opengl.GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevReadFbo);
-      com.mojang.blaze3d.opengl.GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDrawFbo);
-      if (scissor) com.mojang.blaze3d.opengl.GlStateManager._enableScissorTest();
-
-      this.inputResolution.set(w, h);
       this.sampler.set(this.textureId);
       BLUR.use();
    }

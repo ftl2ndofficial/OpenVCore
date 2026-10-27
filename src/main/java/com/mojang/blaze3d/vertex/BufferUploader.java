@@ -56,6 +56,7 @@ public class BufferUploader {
       } catch (Throwable ignored) {
       }
    }
+
    private static int vao = 0;
    private static int vbo = 0;
    private static int ebo = 0;
@@ -67,6 +68,10 @@ public class BufferUploader {
    private static int uSampler0 = -1;
    private static int uColorModulator = -1;
    private static final FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
+   private static final Matrix4f IDENTITY_MAT = new Matrix4f().identity();
+   private static final Matrix4f cachedOrthoMat = new Matrix4f();
+   private static float cachedOrthoW = -1.0F;
+   private static float cachedOrthoH = -1.0F;
 
    public static void reset() {
    }
@@ -203,34 +208,21 @@ public class BufferUploader {
 
          initBuffers();
 
-         int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
-         int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-         int prevVbo = GL11.glGetInteger(GL15.GL_ARRAY_BUFFER_BINDING);
-         int prevEbo = GL11.glGetInteger(GL15.GL_ELEMENT_ARRAY_BUFFER_BINDING);
-         int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-         int[] prevViewport = new int[4];
-         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-         boolean prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
-         boolean prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-         boolean prevCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
-         boolean prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-
          Minecraft mc = Minecraft.getInstance();
          int targetFbo = getMainRenderTargetFbo();
-         if (targetFbo != 0 && prevFbo != targetFbo) {
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
+         if (targetFbo != 0) {
+            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
          }
 
          if (mc != null && mc.getWindow() != null) {
-            GL11.glViewport(0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight());
+            GlStateManager._viewport(0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight());
          }
 
-         int currentProgram = prevProgram;
-         boolean isCustomActive = (activeCustomProgram != 0 && currentProgram == activeCustomProgram);
+         boolean isCustomActive = (activeCustomProgram != 0);
          boolean usedFallback = false;
 
          if (!isCustomActive) {
-            GL20.glUseProgram(fallbackProgram);
+            GlStateManager._glUseProgram(fallbackProgram);
             usedFallback = true;
 
             Matrix4f modelView;
@@ -242,8 +234,13 @@ public class BufferUploader {
             } else {
                float w = mc != null && mc.getWindow() != null ? (float) mc.getWindow().getGuiScaledWidth() : 1920.0F;
                float h = mc != null && mc.getWindow() != null ? (float) mc.getWindow().getGuiScaledHeight() : 1080.0F;
-               modelView = new Matrix4f().identity();
-               proj = new Matrix4f().setOrtho(0.0F, w, h, 0.0F, -1000.0F, 1000.0F);
+               if (w != cachedOrthoW || h != cachedOrthoH) {
+                  cachedOrthoMat.setOrtho(0.0F, w, h, 0.0F, -1000.0F, 1000.0F);
+                  cachedOrthoW = w;
+                  cachedOrthoH = h;
+               }
+               modelView = IDENTITY_MAT;
+               proj = cachedOrthoMat;
             }
 
             matrixBuffer.clear();
@@ -274,8 +271,8 @@ public class BufferUploader {
             GL20.glUniform1i(uUseTexture, hasTex ? 1 : 0);
          }
 
-         GL30.glBindVertexArray(vao);
-         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+         GlStateManager._glBindVertexArray(vao);
+         GlStateManager._glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
          GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buffer, GL15.GL_STREAM_DRAW);
 
          VertexFormat format = state.format();
@@ -323,25 +320,13 @@ public class BufferUploader {
          if (posOffset != -1) GL20.glDisableVertexAttribArray(0);
          if (colorOffset != -1) GL20.glDisableVertexAttribArray(1);
          if (uvOffset != -1) GL20.glDisableVertexAttribArray(2);
-         GL30.glBindVertexArray(prevVao);
-         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, prevVbo);
-         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, prevEbo);
+         GlStateManager._glBindVertexArray(0);
+         GlStateManager._glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
 
          if (usedFallback) {
-            GlStateManager._glUseProgram(prevProgram);
+            GlStateManager._glUseProgram(0);
          }
 
-         if (targetFbo != 0 && prevFbo != targetFbo) {
-            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
-         }
-         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-         if (prevBlend) GlStateManager._enableBlend(); else GlStateManager._disableBlend();
-         if (prevDepth) GlStateManager._enableDepthTest(); else GlStateManager._disableDepthTest();
-         if (prevCull) GlStateManager._enableCull(); else GlStateManager._disableCull();
-         if (prevScissor) GlStateManager._enableScissorTest(); else GlStateManager._disableScissorTest();
-         try {
-            GL33.glBindSampler(0, 0);
-         } catch (Throwable ignored) {}
          GlStateManager._activeTexture(GL13.GL_TEXTURE0);
          invalidateCommandEncoder();
       } finally {

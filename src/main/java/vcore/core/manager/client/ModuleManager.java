@@ -121,6 +121,7 @@ import vcore.features.modules.render.TotemAnimation;
 import vcore.features.modules.render.ViewModel;
 import vcore.features.modules.render.WorldTweaks;
 import vcore.gui.clickui.ClickGUI;
+import vcore.utility.render.Render2DEngine;
 
 public class ModuleManager implements IManager {
    public ArrayList<Module> modules = new ArrayList<>();
@@ -277,7 +278,8 @@ public class ModuleManager implements IManager {
    }
 
    public Module get(String name) {
-      for (Module module : this.modules) {
+      for (int i = 0, n = this.modules.size(); i < n; i++) {
+         Module module = this.modules.get(i);
          if (module.getName().equalsIgnoreCase(name)) {
             return module;
          }
@@ -289,7 +291,8 @@ public class ModuleManager implements IManager {
    public ArrayList<Module> getEnabledModules() {
       ArrayList<Module> enabledModules = new ArrayList<>();
 
-      for (Module module : this.modules) {
+      for (int i = 0, n = this.modules.size(); i < n; i++) {
+         Module module = this.modules.get(i);
          if (module.isEnabled()) {
             enabledModules.add(module);
          }
@@ -300,11 +303,12 @@ public class ModuleManager implements IManager {
 
    public ArrayList<Module> getModulesByCategory(Module.Category category) {
       ArrayList<Module> modulesCategory = new ArrayList<>();
-      this.modules.forEach(module -> {
+      for (int i = 0, n = this.modules.size(); i < n; i++) {
+         Module module = this.modules.get(i);
          if (module.getCategory() == category) {
             modulesCategory.add(module);
          }
-      });
+      }
       return modulesCategory;
    }
 
@@ -335,16 +339,26 @@ public class ModuleManager implements IManager {
 
    public void onUpdate() {
       if (!Module.fullNullCheck()) {
-         this.modules.stream().filter(Module::isEnabled).forEach(Module::onUpdate);
+         for (int i = 0, n = this.modules.size(); i < n; i++) {
+            Module module = this.modules.get(i);
+            if (module.isEnabled()) {
+               module.onUpdate();
+            }
+         }
       }
    }
 
    public void onRender2D(GuiGraphics context) {
       if (!mc.getDebugOverlay().showDebugScreen() && !mc.options.hideGui) {
          HudElement.anyHovered = false;
-         this.modules.stream().filter(Module::isEnabled).forEach(module -> module.onRender2D(context));
-         if (!HudElement.anyHovered && !ClickGUI.anyHovered && GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221185));
+         for (int i = 0, n = this.modules.size(); i < n; i++) {
+            Module module = this.modules.get(i);
+            if (module.isEnabled()) {
+               module.onRender2D(context);
+            }
+         }
+         if (!(mc.screen instanceof ClickGUI) && !HudElement.anyHovered && !ClickGUI.anyHovered && GLFW.glfwGetPlatform() != 393219) {
+            Render2DEngine.setCursor(221185);
          }
 
          Vcore.core.onRender2D(context);
@@ -352,7 +366,12 @@ public class ModuleManager implements IManager {
    }
 
    public void onRender3D(PoseStack stack) {
-      this.modules.stream().filter(Module::isEnabled).forEach(module -> module.onRender3D(stack));
+      for (int i = 0, n = this.modules.size(); i < n; i++) {
+         Module module = this.modules.get(i);
+         if (module.isEnabled()) {
+            module.onRender3D(stack);
+         }
+      }
    }
 
    public void onLogout() {
@@ -375,52 +394,58 @@ public class ModuleManager implements IManager {
 
    public void onKeyPressed(int eventKey) {
       if (eventKey != -1 && eventKey != 0 && !(mc.screen instanceof ClickGUI)) {
-         this.modules.forEach(module -> {
+         for (int i = 0, n = this.modules.size(); i < n; i++) {
+            Module module = this.modules.get(i);
             if (module.getBind().getKey() == eventKey) {
                module.toggle();
             }
-         });
+         }
       }
    }
 
    public void onKeyReleased(int eventKey) {
       if (eventKey != -1 && eventKey != 0 && !(mc.screen instanceof ClickGUI)) {
-         this.modules.forEach(module -> {
+         for (int i = 0, n = this.modules.size(); i < n; i++) {
+            Module module = this.modules.get(i);
             if (module.getBind().getKey() == eventKey && module.getBind().isHold()) {
                module.disable();
             }
-         });
+         }
       }
    }
 
    public void onMoseKeyPressed(int eventKey) {
       if (eventKey != -1 && !(mc.screen instanceof ClickGUI)) {
-         this.modules.forEach(module -> {
+         for (int i = 0, n = this.modules.size(); i < n; i++) {
+            Module module = this.modules.get(i);
             if (Objects.equals(module.getBind().getBind(), "M" + eventKey)) {
                module.toggle();
             }
-         });
+         }
       }
    }
 
    public void onMoseKeyReleased(int eventKey) {
       if (eventKey != -1 && !(mc.screen instanceof ClickGUI)) {
          this.activeMouseKeys.add(eventKey);
-         this.modules.forEach(module -> {
+         for (int i = 0, n = this.modules.size(); i < n; i++) {
+            Module module = this.modules.get(i);
             if (Objects.equals(module.getBind().getBind(), "M" + eventKey) && module.getBind().isHold()) {
                module.disable();
             }
-         });
+         }
       }
    }
 
    public ArrayList<Module> getModulesSearch(String string) {
       ArrayList<Module> modulesCategory = new ArrayList<>();
-      this.modules.forEach(module -> {
-         if (module.getName().toLowerCase().contains(string.toLowerCase())) {
+      String lower = string.toLowerCase();
+      for (int i = 0, n = this.modules.size(); i < n; i++) {
+         Module module = this.modules.get(i);
+         if (module.getName().toLowerCase().contains(lower)) {
             modulesCategory.add(module);
          }
-      });
+      }
       return modulesCategory;
    }
 

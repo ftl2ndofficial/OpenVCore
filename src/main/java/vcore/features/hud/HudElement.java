@@ -140,7 +140,7 @@ public class HudElement {
 
       if (this.isDraggable() && this.isHovering() && mc.screen instanceof ChatScreen) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(mc.getWindow().handle(), this.mouseState ? GLFW.glfwCreateStandardCursor(221187) : GLFW.glfwCreateStandardCursor(221188));
+            Render2DEngine.setCursor(this.mouseState ? 221187 : 221188);
          }
 
          anyHovered = true;

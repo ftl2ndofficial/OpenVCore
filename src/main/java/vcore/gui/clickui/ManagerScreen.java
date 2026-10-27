@@ -9,6 +9,8 @@ import net.minecraft.network.chat.Component;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
 import vcore.gui.clickui.impl.ManagerPanel;
+import vcore.utility.render.Render2DEngine;
+import vcore.utility.render.shaders.BlurProgram;
 
 public class ManagerScreen extends Screen {
    private final Screen parent;
@@ -34,8 +36,14 @@ public class ManagerScreen extends Screen {
 
    @Override
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+      if (!Render2DEngine.renderingPostGui) {
+         return;
+      }
+
       if (!Module.fullNullCheck() && ModuleManager.clickGui.blur.getValue()) {
          Module.mc.gameRenderer.processBlurEffect();
+         com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+         BlurProgram.beginFrame();
       }
 
       this.panel.setSize(400.0F, 250.0F);

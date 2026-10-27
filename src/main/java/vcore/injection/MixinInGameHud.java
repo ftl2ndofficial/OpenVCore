@@ -1,26 +1,25 @@
 package vcore.injection;
 
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.scores.Objective;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
+import vcore.gui.clickui.ClickGUI;
+import vcore.gui.clickui.ManagerScreen;
+import vcore.gui.clickui.impl.ItemSelectScreen;
+import vcore.gui.misc.DialogScreen;
 
 @Mixin(Gui.class)
 public abstract class MixinInGameHud {
    @Inject(at = @At("HEAD"), method = "render")
    public void renderHook(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
-      if (!Module.fullNullCheck()) {
-         Managers.MODULE.onRender2D(context);
-         Managers.NOTIFICATION.onRender2D(context);
-      }
    }
 
    @Inject(at = @At("HEAD"), method = "renderSelectedItemName", cancellable = true)
@@ -43,7 +42,11 @@ public abstract class MixinInGameHud {
       cancellable = true
    )
    private void renderScoreboardSidebarHook(GuiGraphics context, Objective objective, CallbackInfo ci) {
-      if (ModuleManager.noRender.noScoreBoard.getValue() && ModuleManager.noRender.isEnabled()) {
+      if ((ModuleManager.noRender.noScoreBoard.getValue() && ModuleManager.noRender.isEnabled())
+         || Module.mc.screen instanceof ClickGUI
+         || Module.mc.screen instanceof ManagerScreen
+         || Module.mc.screen instanceof DialogScreen
+         || Module.mc.screen instanceof ItemSelectScreen) {
          ci.cancel();
       }
    }

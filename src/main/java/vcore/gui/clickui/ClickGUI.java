@@ -1,16 +1,15 @@
 package vcore.gui.clickui;
 
 import com.google.common.collect.Lists;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
-import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.List;
 import java.util.Objects;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
@@ -24,7 +23,9 @@ import vcore.gui.clickui.impl.ThemeSelector;
 import vcore.gui.font.FontRenderer;
 import vcore.gui.font.FontRenderers;
 import vcore.utility.render.Render2DEngine;
+import vcore.utility.render.RenderSystem;
 import vcore.utility.render.animation.advanced.Easing;
+import vcore.utility.render.shaders.BlurProgram;
 
 public class ClickGUI extends Screen {
    public static List<AbstractCategory> windows;
@@ -53,6 +54,7 @@ public class ClickGUI extends Screen {
    private float openProgress;
    private long lastOpenFrameTimeMs;
    private static ClickGUI INSTANCE = new ClickGUI();
+   private static List<String> cachedInteractionHints;
 
    public ClickGUI() {
       super(Component.nullToEmpty("NewClickGUI"));
@@ -95,20 +97,24 @@ public class ClickGUI extends Screen {
       INSTANCE = this;
    }
 
+   @Override
    public void added() {
       this.prepareOpen();
    }
 
+   @Override
    protected void init() {
       this.prepareWindows();
       this.layoutWindowsAtRest();
       this.syncWindowState();
    }
 
+   @Override
    public boolean isPauseScreen() {
       return false;
    }
 
+   @Override
    public void tick() {
       windows.forEach(AbstractCategory::tick);
       this.searchBar.tick();
@@ -124,16 +130,22 @@ public class ClickGUI extends Screen {
 
    @Override
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+      if (!Render2DEngine.renderingPostGui) {
+         return;
+      }
+
       this.updateOpenAnimation();
       if (!Module.fullNullCheck() && ModuleManager.clickGui.blur.getValue()) {
          Module.mc.gameRenderer.processBlurEffect();
+         com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+         BlurProgram.beginFrame();
       }
 
       anyHovered = false;
       descriptionActive = false;
       currentDescription = "";
 
-      List<Module.Category> visibleCategories = Lists.newArrayList(Managers.MODULE.getCategories());
+      List<Module.Category> visibleCategories = Managers.MODULE.getCategories();
       int totalWidth = visibleCategories.size() * 133 - 8;
       int startX = (Module.mc.getWindow().getGuiScaledWidth() - totalWidth) / 2;
       int startY = (Module.mc.getWindow().getGuiScaledHeight() - 280) / 2;
@@ -152,13 +164,12 @@ public class ClickGUI extends Screen {
          i++;
       }
 
-      for (AbstractCategory window : windows) {
-         if (this.scrollY != 0.0F) {
+      if (this.scrollY != 0.0F) {
+         for (AbstractCategory window : windows) {
             window.setModuleOffset(this.scrollY, mouseX, mouseY);
          }
+         this.scrollY = 0.0F;
       }
-
-      this.scrollY = 0.0F;
 
       for (AbstractCategory w : windows) {
          float progress = this.getCategoryOpenProgress(rawAnim, w.getName());
@@ -195,10 +206,11 @@ public class ClickGUI extends Screen {
       }
 
       if (!HudElement.anyHovered && !anyHovered && GLFW.glfwGetPlatform() != 393219) {
-         GLFW.glfwSetCursor(Module.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221185));
+         Render2DEngine.setCursor(221185);
       }
    }
 
+   @Override
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
       this.scrollY += (int)(verticalAmount * 15.0);
       return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
@@ -306,16 +318,19 @@ public class ClickGUI extends Screen {
    }
 
    private List<String> getInteractionHints(FontRenderer font) {
-      return List.of(
-            "Left Click: Enable/Disable modules",
-            "Right Click: Open setting",
-            "Mid Click: Change bind",
-            "Del + Left Click: Reset modules",
-            "Ctrl + F: Search modules"
-         )
-         .stream()
-         .sorted((left, right) -> Float.compare(font.getStringWidth(left), font.getStringWidth(right)))
-         .toList();
+      if (cachedInteractionHints == null) {
+         cachedInteractionHints = List.of(
+               "Left Click: Enable/Disable modules",
+               "Right Click: Open setting",
+               "Mid Click: Change bind",
+               "Del + Left Click: Reset modules",
+               "Ctrl + F: Search modules"
+            )
+            .stream()
+            .sorted((left, right) -> Float.compare(font.getStringWidth(left), font.getStringWidth(right)))
+            .toList();
+      }
+      return cachedInteractionHints;
    }
 
    private void drawOutlinedHintText(PoseStack matrices, FontRenderer font, String text, float x, float y) {

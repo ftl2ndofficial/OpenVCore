@@ -9,20 +9,26 @@ uniform vec2 uSize;
 uniform vec2 uLocation;
 uniform float radius;
 
+in vec2 texCoord;
 out vec4 fragColor;
 
-float roundedBoxSDF(vec2 center, vec2 size, float radius) {
-    return length(max(abs(center) - size + radius, 0.0)) - radius;
+float roundedBoxSDF(vec2 center, vec2 size, float r) {
+    return length(max(abs(center) - size + r, 0.0)) - r;
 }
 
-vec3 createGradient(vec2 coords, vec3 color1, vec3 color2, vec3 color3, vec3 color4){
-    vec3 color = mix(mix(color1.rgb, color2.rgb, coords.y), mix(color3.rgb, color4.rgb, coords.y), coords.x);
+vec4 createGradient(vec2 coords, vec4 c1, vec4 c2, vec4 c3, vec4 c4) {
+    vec4 color = mix(mix(c1, c2, coords.y), mix(c3, c4, coords.y), coords.x);
     color += mix(0.0019607843, -0.0019607843, fract(sin(dot(coords.xy, vec2(12.9898, 78.233))) * 43758.5453));
     return color;
 }
 
 void main() {
-    float distance = roundedBoxSDF(gl_FragCoord.xy - uLocation - (uSize / 2.0), uSize / 2.0, radius);
-    float smoothedAlpha = (1.0 - smoothstep(-1.0, 1.0, distance)) * color1.a;
-    fragColor = vec4(createGradient((gl_FragCoord.xy - uLocation) / uSize, color1.rgb, color2.rgb, color3.rgb, color4.rgb), smoothedAlpha);
+    vec2 halfSize = uSize * 0.5;
+    float distance = roundedBoxSDF(gl_FragCoord.xy - uLocation - halfSize, halfSize, radius);
+    float smoothedAlpha = 1.0 - smoothstep(0.0, 2.0, distance);
+    if (smoothedAlpha <= 0.001) {
+        discard;
+    }
+    vec4 color = createGradient(texCoord, color1, color2, color3, color4);
+    fragColor = vec4(color.rgb, color.a * smoothedAlpha);
 }

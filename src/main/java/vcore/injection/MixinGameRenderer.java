@@ -4,9 +4,14 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.render.GuiRenderer;
+import net.minecraft.client.gui.render.state.GuiRenderState;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.fog.FogRenderer;
 import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,15 +22,33 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
 import vcore.features.modules.Module;
+import vcore.gui.clickui.ClickGUI;
+import vcore.gui.clickui.ManagerScreen;
+import vcore.gui.clickui.impl.ItemSelectScreen;
+import vcore.gui.misc.DialogScreen;
 import vcore.utility.math.FrameRateCounter;
 import vcore.utility.render.BlockAnimationUtility;
+import vcore.utility.render.Render2DEngine;
 import vcore.utility.render.Render3DEngine;
 import vcore.utility.render.RenderSystem;
+import vcore.utility.render.shaders.BlurProgram;
 
 @Mixin(GameRenderer.class)
 public abstract class MixinGameRenderer {
    @Shadow
    private Camera mainCamera;
+
+   @Shadow
+   @Final
+   private GuiRenderState guiRenderState;
+
+   @Shadow
+   @Final
+   private GuiRenderer guiRenderer;
+
+   @Shadow
+   @Final
+   private FogRenderer fogRenderer;
 
    @Shadow
    public abstract void tick();
@@ -38,6 +61,61 @@ public abstract class MixinGameRenderer {
 
    @Shadow
    public abstract float getDepthFar();
+
+   @Inject(
+      method = "render",
+      at = @At(
+         value = "INVOKE",
+         target = "Lnet/minecraft/client/gui/GuiGraphics;applyCursor(Lcom/mojang/blaze3d/platform/Window;)V",
+         shift = At.Shift.AFTER
+      )
+   )
+   private void postGuiRenderHook(DeltaTracker tickCounter, boolean tick, CallbackInfo ci) {
+      int mouseX = (int)Module.mc.mouseHandler.getScaledXPos(Module.mc.getWindow());
+      int mouseY = (int)Module.mc.mouseHandler.getScaledYPos(Module.mc.getWindow());
+      GuiGraphics postContext = new GuiGraphics(Module.mc, this.guiRenderState, mouseX, mouseY);
+      Render2DEngine.renderingPostGui = true;
+      try {
+         if (!Module.fullNullCheck() && !Module.mc.options.hideGui) {
+            BlurProgram.beginFrame();
+            if (Managers.MODULE != null) {
+               Managers.MODULE.onRender2D(postContext);
+            }
+            if (Managers.NOTIFICATION != null) {
+               Managers.NOTIFICATION.onRender2D(postContext);
+            }
+            com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+            try {
+               org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+            } catch (Throwable ignored) {
+            }
+            this.guiRenderer.render(this.fogRenderer.getBuffer(FogRenderer.FogMode.NONE));
+         }
+
+         if (Module.mc.screen instanceof ClickGUI
+            || Module.mc.screen instanceof ManagerScreen
+            || Module.mc.screen instanceof DialogScreen
+            || Module.mc.screen instanceof ItemSelectScreen) {
+            BlurProgram.beginFrame();
+            Module.mc.screen.render(postContext, mouseX, mouseY, tickCounter.getGameTimeDeltaTicks());
+            com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+            try {
+               org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+            } catch (Throwable ignored) {
+            }
+            if (Module.mc.screen instanceof ItemSelectScreen) {
+               this.guiRenderer.render(this.fogRenderer.getBuffer(FogRenderer.FogMode.NONE));
+            }
+         }
+      } finally {
+         Render2DEngine.renderingPostGui = false;
+         com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+         try {
+            org.lwjgl.opengl.GL33.glBindSampler(0, 0);
+         } catch (Throwable ignored) {
+         }
+      }
+   }
 
    @Inject(method = "render", at = @At("TAIL"))
    void postHudRenderHook(DeltaTracker tickCounter, boolean tick, CallbackInfo ci) {

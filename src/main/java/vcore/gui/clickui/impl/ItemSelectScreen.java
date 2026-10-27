@@ -1,5 +1,6 @@
 package vcore.gui.clickui.impl;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -9,7 +10,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -70,6 +70,7 @@ public class ItemSelectScreen extends Screen {
       this.refreshAllItems();
    }
 
+   @Override
    public boolean isPauseScreen() {
       return false;
    }
@@ -83,8 +84,14 @@ public class ItemSelectScreen extends Screen {
 
    @Override
    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+      if (!Render2DEngine.renderingPostGui) {
+         return;
+      }
+
       if (!Module.fullNullCheck() && ModuleManager.clickGui.blur.getValue()) {
          Module.mc.gameRenderer.processBlurEffect();
+         com.mojang.blaze3d.vertex.BufferUploader.invalidateCommandEncoder();
+         vcore.utility.render.shaders.BlurProgram.beginFrame();
       }
 
       float x = (this.width - 260.0F) / 2.0F;
@@ -122,7 +129,7 @@ public class ItemSelectScreen extends Screen {
       float listWidth = 240.0F;
       float listHeight = 256.0F;
       this.clampScroll(listHeight, activeItems.size());
-      Render2DEngine.beginScissor(listX, listY, listX + listWidth, listY + listHeight);
+      Render2DEngine.addWindow(context, listX, listY, listX + listWidth, listY + listHeight);
       if (activeItems.isEmpty()) {
          FontRenderers.sf_medium.drawCenteredString(matrices, "It's empty here yet", x + 130.0F, listY + 18.0F, new Color(12434877).getRGB());
       }
@@ -137,7 +144,7 @@ public class ItemSelectScreen extends Screen {
          this.drawRow(context, itemPlate, listX, rowY, listWidth, mouseX, mouseY);
       }
 
-      Render2DEngine.endScissor();
+      Render2DEngine.popWindow(context);
    }
 
    private void drawTab(GuiGraphics context, String title, float x, float y, float width, boolean active) {

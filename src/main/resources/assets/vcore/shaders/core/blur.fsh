@@ -2,45 +2,60 @@
 
 uniform sampler2D InputSampler;
 uniform vec2 InputResolution;
+uniform float Quality;
+uniform float Opacity;
+uniform vec4 color1;
 uniform vec2 uSize;
 uniform vec2 uLocation;
-
 uniform float radius;
-uniform float Opacity;
-uniform float Quality;
-uniform vec4 color1;
-in vec2 texCoord;
 
+in vec2 texCoord;
 out vec4 fragColor;
 
-float roundedBoxSDF(vec2 center, vec2 size, float radius) {
-    return length(max(abs(center) - size + radius, 0.0)) - radius;
+const vec2 DIRS[12] = vec2[12](
+    vec2(1.0, 0.0),
+    vec2(0.8660254, 0.5),
+    vec2(0.5, 0.8660254),
+    vec2(0.0, 1.0),
+    vec2(-0.5, 0.8660254),
+    vec2(-0.8660254, 0.5),
+    vec2(-1.0, 0.0),
+    vec2(-0.8660254, -0.5),
+    vec2(-0.5, -0.8660254),
+    vec2(0.0, -1.0),
+    vec2(0.5, -0.8660254),
+    vec2(0.8660254, -0.5)
+);
+
+float roundedBoxSDF(vec2 center, vec2 size, float r) {
+    return length(max(abs(center) - size + r, 0.0)) - r;
 }
 
-vec3 blur() {
-    #define TAU 6.28318530718
-
-    vec2 Radius = Quality / InputResolution.xy;
-
-    vec2 uv = gl_FragCoord.xy / InputResolution.xy;
-    vec4 Color = texture(InputSampler, uv);
-
-    float step =  TAU / 16.0;
-
-    for (float d = 0.0; d < TAU; d += step) {
-        for (float i = 0.2; i <= 1.0; i += 0.2) {
-            Color += texture(InputSampler, uv + vec2(cos(d), sin(d)) * Radius * i);
-        }
+vec3 blurSample() {
+    if (Quality <= 0.01) {
+        return texture(InputSampler, gl_FragCoord.xy / InputResolution).rgb;
     }
-
-    Color /= 80;
-    return clamp(Color.rgb, 0.0, 1.0);
+    vec2 invRes = 1.0 / InputResolution;
+    vec2 uv = gl_FragCoord.xy * invRes;
+    vec2 rad = Quality * invRes;
+    vec3 acc = texture(InputSampler, uv).rgb;
+    for (int i = 0; i < 12; i++) {
+        vec2 dir = DIRS[i] * rad;
+        acc += texture(InputSampler, uv + dir * 0.3333333).rgb;
+        acc += texture(InputSampler, uv + dir * 0.6666667).rgb;
+        acc += texture(InputSampler, uv + dir).rgb;
+    }
+    return acc * (1.0 / 37.0);
 }
 
 void main() {
-    vec2 halfSize = uSize / 2.0;
-    float smoothedAlpha =  (1.0 - smoothstep(0.0, 1.0, roundedBoxSDF(gl_FragCoord.xy - uLocation - halfSize, halfSize, radius)));
-    vec3 blurredColor = blur();
-    vec3 tintedColor = mix(blurredColor, color1.rgb, clamp(Opacity, 0.0, 1.0));
-    fragColor = vec4(tintedColor, smoothedAlpha);
+    vec2 halfSize = uSize * 0.5;
+    float distance = roundedBoxSDF(gl_FragCoord.xy - uLocation - halfSize, halfSize, radius);
+    float smoothedAlpha = 1.0 - smoothstep(-1.0, 1.0, distance);
+    if (smoothedAlpha <= 0.001) {
+        discard;
+    }
+    vec3 blurred = blurSample();
+    vec3 finalColor = mix(blurred, color1.rgb, Opacity);
+    fragColor = vec4(finalColor, smoothedAlpha);
 }

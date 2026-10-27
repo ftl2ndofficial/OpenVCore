@@ -1,7 +1,6 @@
 package vcore.gui.clickui.impl;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import java.awt.Color;
 import net.minecraft.client.gui.GuiGraphics;
 import vcore.core.Managers;
@@ -43,7 +42,7 @@ public class ParentElement extends AbstractElement {
       context.pose().rotate((float) Math.toRadians(-180.0F * this.animation));
       context.pose().translate(-tx, -ty);
       context.pose().translate(this.x + this.width - 14.0F, this.y + 4.5F);
-      context.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TextureStorage.guiArrow, 0, 0, 0.0F, 0.0F, 6, 6, 6, 6);
+      Render2DEngine.drawTexture(Render2DEngine.toPoseStack(context.pose()), TextureStorage.guiArrow, 0.0F, 0.0F, 6.0F, 6.0F);
       context.pose().popMatrix();
       FontRenderers.sf_medium_mini
          .drawString(matrixStack, this.setting.getName(), this.getSettingNameX(), this.y + this.height / 2.0F - 1.0F, new Color(-1).getRGB());

@@ -66,7 +66,7 @@ public class SearchBar extends AbstractButton {
       font.drawString(context.pose(), displayText, this.x + 9.0F, textY, textColor);
       if (hovered) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(Module.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221186));
+            Render2DEngine.setCursor(221186);
          }
 
          ClickGUI.anyHovered = true;

@@ -9,13 +9,12 @@ import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderPipelines;
 import org.joml.Matrix4f;
-import vcore.utility.render.RenderSystem;
 import vcore.features.modules.render.HudEditor;
 import vcore.gui.clickui.AbstractButton;
 import vcore.gui.clickui.ClickGUI;
 import vcore.utility.render.Render2DEngine;
+import vcore.utility.render.RenderSystem;
 import vcore.utility.render.TextureStorage;
 
 public class ThemeSelector extends AbstractButton {
@@ -52,13 +51,17 @@ public class ThemeSelector extends AbstractButton {
       boolean hovered = Render2DEngine.isHovered(mouseX, mouseY, this.x, this.y, this.width, this.height);
       int hudAlpha = Math.round(255.0F * HudEditor.getAlpha());
       Color buttonBg = Render2DEngine.injectAlpha(new Color(25, 25, 28), hudAlpha);
-      Render2DEngine.drawClickGuiRound(Render2DEngine.toPoseStack(context.pose()), this.x, this.y, this.width, this.height, this.width / 4.0F, buttonBg);
-      RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, HudEditor.getAlpha());
-      context.blit(
-         RenderPipelines.GUI_TEXTURED,
-         TextureStorage.themeHudIcon, (int)(this.x + this.width / 2.0F - 6.0F), (int)(this.y + this.height / 2.0F - 6.0F), 0.0F, 0.0F, 12, 12, 12, 12
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawClickGuiRound(matrices, this.x, this.y, this.width, this.height, this.width / 4.0F, buttonBg);
+      Render2DEngine.drawTexture(
+         matrices,
+         TextureStorage.themeHudIcon,
+         (int)(this.x + this.width / 2.0F - 6.0F),
+         (int)(this.y + this.height / 2.0F - 6.0F),
+         12.0F,
+         12.0F,
+         new Color(255, 255, 255, hudAlpha)
       );
-      RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
       if (hovered) {
          ClickGUI.anyHovered = true;
       }

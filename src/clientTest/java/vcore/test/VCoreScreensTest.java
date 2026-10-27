@@ -288,7 +288,7 @@ public final class VCoreScreensTest implements FabricClientGameTest {
       capture(
          context,
          () -> new DialogScreen(
-            Identifier.fromNamespaceAndPath("vcore", "textures/ui/mini_logo.png"),
+            vcore.utility.render.TextureStorage.setting,
             "VCore 1.21.11 GameTest",
             "Client GameTest running successfully!",
             "Proceed",
@@ -347,7 +347,14 @@ public final class VCoreScreensTest implements FabricClientGameTest {
          // ----------------------------------------------------
          // 13. In-Game HUD Elements (Pinned WaterMark & HUD Widgets)
          // ----------------------------------------------------
-         System.out.println("[Step 13] Verifying in-game HUD rendering...");
+         System.out.println("[Step 13] Verifying in-game HUD rendering & Scoreboard Sidebar...");
+         world.getServer().runCommand("scoreboard objectives add vcore_sb dummy \"VCore Server\"");
+         world.getServer().runCommand("scoreboard objectives setdisplay sidebar vcore_sb");
+         world.getServer().runCommand("scoreboard players set Online_Players vcore_sb 42");
+         world.getServer().runCommand("scoreboard players set Kills_Count vcore_sb 15");
+         world.getServer().runCommand("scoreboard players set Ping_12ms vcore_sb 12");
+         world.getServer().runCommand("scoreboard players set Balance_Coins vcore_sb 9999");
+         context.waitTicks(10);
          context.runOnClient(client -> {
             client.options.hideGui = false;
             client.player.setYRot(0.0F);
@@ -602,7 +609,14 @@ public final class VCoreScreensTest implements FabricClientGameTest {
          // ----------------------------------------------------
          // 19. In-Game ClickGUI Blur Over 3D World Scene
          // ----------------------------------------------------
-         System.out.println("[Step 19] Verifying ClickGUI blur over 3D world scene...");
+         System.out.println("[Step 19] Verifying ClickGUI blur over 3D world scene & Scoreboard Sidebar...");
+         world.getServer().runCommand("scoreboard objectives add vcore_sb dummy \"VCore Server\"");
+         world.getServer().runCommand("scoreboard objectives setdisplay sidebar vcore_sb");
+         world.getServer().runCommand("scoreboard players set Online_Players vcore_sb 42");
+         world.getServer().runCommand("scoreboard players set Kills_Count vcore_sb 15");
+         world.getServer().runCommand("scoreboard players set Ping_12ms vcore_sb 12");
+         world.getServer().runCommand("scoreboard players set Balance_Coins vcore_sb 9999");
+         context.waitTicks(10);
          context.runOnClient(client -> {
             client.options.guiScale().set(1);
             client.resizeDisplay();

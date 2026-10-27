@@ -1,15 +1,14 @@
 package vcore.gui.clickui.impl;
 
-import vcore.utility.render.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
-import vcore.utility.KeyboardUtility;
+import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.util.StringUtil;
-import org.lwjgl.glfw.GLFW;
 import vcore.core.Managers;
 import vcore.core.manager.client.MacroManager;
 import vcore.features.modules.Module;
@@ -17,7 +16,9 @@ import vcore.features.modules.render.HudEditor;
 import vcore.gui.clickui.ClickGUI;
 import vcore.gui.font.FontRenderer;
 import vcore.gui.font.FontRenderers;
+import vcore.utility.KeyboardUtility;
 import vcore.utility.render.Render2DEngine;
+import vcore.utility.render.RenderSystem;
 
 public class ManagerPanel {
    private static final String ONLINE_LABEL = "Online";
@@ -48,6 +49,7 @@ public class ManagerPanel {
    private static final float HINT_MARGIN = 8.0F;
    private static final float HINT_LINE_GAP = 2.0F;
    private static final float HINT_OUTLINE_OFFSET = 0.45F;
+   private static final Map<ManagerPanel.Tab, List<String>> CACHED_TAB_HINTS = new EnumMap<>(ManagerPanel.Tab.class);
    public boolean open = false;
    private float alphaAnim = 0.0F;
    private ManagerPanel.Tab currentTab = ManagerPanel.Tab.FRIEND;
@@ -107,8 +109,12 @@ public class ManagerPanel {
          matrices.scale(scale, scale, 1.0F);
          matrices.translate(-(this.x + this.width / 2.0F), -(this.y + this.height / 2.0F), 0.0F);
          int panelAlpha = Math.round(255.0F * HudEditor.getAlpha() * this.alphaAnim);
-         Color mainBg = Render2DEngine.injectAlpha(new Color(30, 30, 30), panelAlpha);
-         this.drawPanelBackground(matrices, this.x, this.y, this.width, this.height, 10.0F, mainBg);
+         if (this.alphaAnim > 0.99F) {
+            Render2DEngine.drawGuiBase(matrices, this.x, this.y, this.width, this.height, 10.0F, HudEditor.getAlpha());
+         } else {
+            Color mainBg = Render2DEngine.injectAlpha(new Color(30, 30, 30), panelAlpha);
+            this.drawPanelBackground(matrices, this.x, this.y, this.width, this.height, 10.0F, mainBg);
+         }
          Color sidebarBg = Render2DEngine.injectAlpha(new Color(25, 25, 25), panelAlpha);
          this.drawPanelBackground(matrices, this.x, this.y, 80.0F, this.height, 10.0F, sidebarBg);
          this.renderSidebar(matrices);
@@ -351,11 +357,7 @@ public class ManagerPanel {
    }
 
    private void drawPanelBackground(PoseStack matrices, float x, float y, float width, float height, float radius, Color color) {
-      if (this.alphaAnim > 0.99F) {
-         Render2DEngine.drawClickGuiRound(matrices, x, y, width, height, radius, color);
-      } else {
-         Render2DEngine.drawRound(matrices, x, y, width, height, radius, color);
-      }
+      Render2DEngine.drawRound(matrices, x, y, width, height, radius, color);
    }
 
    private boolean isListItemVisible(float itemY, float itemHeight, float listY, float listHeight) {
@@ -363,13 +365,15 @@ public class ManagerPanel {
    }
 
    private List<String> getTabHints() {
-      List<String> hints = switch (this.currentTab) {
-         case FRIEND -> List.of("Right Click: Remove");
-         case CONFIG -> List.of("Right Click: Remove", "Left Click: Load config");
-         case MACRO -> List.of("Right Click: Remove", "Mid Click: Change bind", "Left Click: Edit macro");
-      };
-      FontRenderer font = FontRenderers.sf_bold_mini;
-      return hints.stream().sorted((left, right) -> Float.compare(font.getStringWidth(left), font.getStringWidth(right))).toList();
+      return CACHED_TAB_HINTS.computeIfAbsent(this.currentTab, tab -> {
+         List<String> hints = switch (tab) {
+            case FRIEND -> List.of("Right Click: Remove");
+            case CONFIG -> List.of("Right Click: Remove", "Left Click: Load config");
+            case MACRO -> List.of("Right Click: Remove", "Mid Click: Change bind", "Left Click: Edit macro");
+         };
+         FontRenderer font = FontRenderers.sf_bold_mini;
+         return hints.stream().sorted((left, right) -> Float.compare(font.getStringWidth(left), font.getStringWidth(right))).toList();
+      });
    }
 
    private void drawOutlinedHintText(PoseStack matrices, FontRenderer font, String text, float x, float y) {

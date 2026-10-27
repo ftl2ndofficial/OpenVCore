@@ -10,9 +10,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
-import java.util.Map.Entry;
 import org.jetbrains.annotations.NotNull;
 import vcore.core.Managers;
 import vcore.core.manager.client.ModuleManager;
@@ -127,43 +127,15 @@ public class ModuleButton extends AbstractButton {
          ClickGUI.requestDescription(this.module.getDescription());
       }
 
-      float ix = this.x + 5.0F;
-      float textHeight = FontRenderers.sf_medium_modules.getFontHeight("A");
-      float textY = this.y + (this.height - textHeight) / 2.0F + 3.0F;
       this.offsetY = AnimationUtility.fast(this.offsetY, this.target_offset, 20.0F);
       float offsetY = 0.0F;
       float rawRadius = this.getCornerRadius();
-      float cornerRadiusCard = this.clampRadius(rawRadius, this.height - 2.0F);
-      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      float panelHeight = this.height + (float)this.getElementsHeight();
+      float cornerRadiusPanel = this.clampRadius(rawRadius, panelHeight);
+      float guideClipLeft = this.x + 4.0F;
+      float guideClipRight = this.x + this.width - 4.0F;
+      float guideClipBottom = this.y + panelHeight;
       if (this.isOpen()) {
-         float panelHeight = this.height + (float)this.getElementsHeight();
-         float cornerRadiusPanel = this.clampRadius(rawRadius, panelHeight);
-         float guideClipLeft = this.x + 4.0F;
-         float guideClipRight = this.x + this.width - 4.0F;
-         float guideClipBottom = this.y + panelHeight;
-         if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
-            Render2DEngine.drawGuiBase(matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, 0.0F);
-            Render2DEngine.drawRound(
-               matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, this.getModuleBackgroundColor()
-            );
-         } else {
-            Render2DEngine.drawClickGuiRound(
-               matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, this.getModuleBackgroundColor()
-            );
-         }
-
-         Render2DEngine.addWindow(
-            context,
-            new Render2DEngine.Rectangle(
-               this.x + 1.0F, this.y + this.height, this.width + this.x - 2.0F, (float)(this.height + this.y + this.getElementsHeight())
-            )
-         );
-         if (Render2DEngine.isHovered(
-            mouseX, mouseY, this.x + 4.0F, this.y + this.height - 12.0F, this.width - 8.0F, this.height + (float)this.getElementsHeight()
-         )) {
-            Render2DEngine.drawBlurredShadow(matrices, mouseX - 10, mouseY - 10, 20.0F, 20.0F, 40, HudEditor.getColor(270));
-         }
-
          for (AbstractElement element : this.elements) {
             if (element.isVisible()) {
                element.setOffsetY(offsetY);
@@ -186,22 +158,56 @@ public class ModuleButton extends AbstractButton {
                offsetY += element.getHeight();
             }
          }
-
-         this.updateGroupGuides();
-         this.drawSettingPanelGuides(context, guideClipBottom);
-         this.elements.forEach(e -> {
-            if (e.isVisible()) {
-               e.render(context, mouseX, mouseY, delta);
-            }
-         });
-         Render2DEngine.popWindow(context);
-      } else if (this.hovered) {
-         Render2DEngine.addWindow(context, this.x + 1.0F, this.y, this.x + this.width - 2.0F, this.y + this.height);
-         Render2DEngine.drawBlurredShadow(matrices, mouseX - 10, mouseY - 10, 20.0F, 20.0F, 35, HudEditor.getColor(270));
-         Render2DEngine.popWindow(context);
       }
 
       this.category_animation = AnimationUtility.fast(this.category_animation, offsetY + this.getSettingsBottomPadding(offsetY), 20.0F);
+
+      float totalHeight = this.isOpen() ? panelHeight : this.height;
+      if (this.contentHeight > 0.0F && (this.y + totalHeight < this.contentY || this.y > this.contentY + this.contentHeight)) {
+         return;
+      }
+
+      float ix = this.x + 5.0F;
+      float textHeight = FontRenderers.sf_medium_modules.getFontHeight("A");
+      float textY = this.y + (this.height - textHeight) / 2.0F + 3.0F;
+      float cornerRadiusCard = this.clampRadius(rawRadius, this.height - 2.0F);
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      if (this.isOpen()) {
+         if (HudEditor.hudStyle.is(HudEditor.HudStyle.Glowing)) {
+            Render2DEngine.drawGuiBase(matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, 0.0F);
+            Render2DEngine.drawRound(
+               matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, this.getModuleBackgroundColor()
+            );
+         } else {
+            Render2DEngine.drawClickGuiRound(
+               matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, panelHeight - 2.0F, cornerRadiusPanel, this.getModuleBackgroundColor()
+            );
+         }
+
+         Render2DEngine.addWindow(
+            context,
+            new Render2DEngine.Rectangle(
+               this.x + 1.0F, this.y + this.height, this.width + this.x - 2.0F, (float)(this.height + this.y + this.getElementsHeight())
+            )
+         );
+
+         this.updateGroupGuides();
+         this.drawSettingPanelGuides(context, guideClipBottom);
+         float viewTop = this.contentY;
+         float viewBottom = this.contentY + this.contentHeight;
+         for (int i = 0, n = this.elements.size(); i < n; i++) {
+            AbstractElement e = this.elements.get(i);
+            if (e.isVisible()) {
+               float ey = e.getY();
+               float eh = e.getHeight();
+               if (this.contentHeight <= 0.0F || (ey + eh >= viewTop && ey <= viewBottom)) {
+                  e.render(context, mouseX, mouseY, delta);
+               }
+            }
+         }
+         Render2DEngine.popWindow(context);
+      }
+
       if (this.animation < 0.05) {
          Render2DEngine.drawClickGuiRound(
             matrices, this.x + 4.0F, this.y + 1.0F, this.width - 8.0F, this.height - 2.0F, cornerRadiusCard, this.getModuleBackgroundColor()

@@ -1,12 +1,15 @@
 package vcore.gui.misc;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
 import vcore.features.modules.Module;
+import vcore.features.modules.render.HudEditor;
 import vcore.gui.font.FontRenderers;
 import vcore.utility.render.Render2DEngine;
 
@@ -31,52 +34,66 @@ public class DialogScreen extends Screen {
    }
 
    @Override
-   public void render(@NotNull GuiGraphics context, int mouseX, int mouseY, float delta) {
-      float halfOfWidth = Module.mc.getWindow().getGuiScaledWidth() / 2.0F;
-      float halfOfHeight = Module.mc.getWindow().getGuiScaledHeight() / 2.0F;
-      float mainX = halfOfWidth - 120.0F;
-      float mainY = halfOfHeight - 80.0F;
-      float mainWidth = 240.0F;
-      float mainHeight = 140.0F;
-      com.mojang.blaze3d.vertex.PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
-      Render2DEngine.drawHudBase(matrices, mainX, mainY, mainWidth, mainHeight, 20.0F, false);
-      FontRenderers.sf_medium.drawCenteredString(matrices, this.header, mainX + mainWidth / 2.0F, mainY + 5.0F, -1);
-      FontRenderers.sf_medium
-         .drawCenteredString(matrices, this.description, mainX + mainWidth / 2.0F, mainY + 12.0F, new Color(-1409286145, true).getRGB());
-      Render2DEngine.drawHudBase(matrices, mainX + 5.0F, mainY + 95.0F, 110.0F, 40.0F, 15.0F, false);
-      FontRenderers.sf_medium
-         .drawCenteredString(
-            matrices, this.yesText, mainX + 60.0F, mainY + 112.0F, this.yesHovered(mouseX, mouseY) ? -1 : new Color(-1409286145, true).getRGB()
-         );
-      Render2DEngine.drawHudBase(matrices, mainX + 125.0F, mainY + 95.0F, 110.0F, 40.0F, 15.0F, false);
-      FontRenderers.sf_medium
-         .drawCenteredString(
-            matrices, this.noText, mainX + 180.0F, mainY + 112.0F, this.noHovered(mouseX, mouseY) ? -1 : new Color(-1409286145, true).getRGB()
-         );
-      context.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, this.pic, (int)(mainX + mainWidth / 2.0F - 35.0F), (int)mainY + 25, 0.0F, 0.0F, 70, 65, 70, 65);
-   }
-
-   private boolean isHovered(int mouseX, int mouseY, int x, int y, int width, int height) {
-      return mouseX > x && mouseX < x + width && mouseY > y && mouseY < y + height;
-   }
-
-   private boolean yesHovered(int mX, int mY) {
-      float mainX = Module.mc.getWindow().getGuiScaledWidth() / 2.0F - 120.0F;
-      float mainY = Module.mc.getWindow().getGuiScaledHeight() / 2.0F - 80.0F;
-      return this.isHovered(mX, mY, (int)mainX + 5, (int)mainY + 95, 110, 40);
-   }
-
-   private boolean noHovered(int mX, int mY) {
-      float mainX = Module.mc.getWindow().getGuiScaledWidth() / 2.0F - 120.0F;
-      float mainY = Module.mc.getWindow().getGuiScaledHeight() / 2.0F - 80.0F;
-      return this.isHovered(mX, mY, (int)mainX + 125, (int)mainY + 95, 110, 40);
+   public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
+      if (Module.fullNullCheck()) {
+         super.renderBackground(context, mouseX, mouseY, delta);
+      }
    }
 
    @Override
-   public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-      if (this.yesHovered((int)event.x(), (int)event.y())) {
+   public void render(@NotNull GuiGraphics context, int mouseX, int mouseY, float delta) {
+      if (!Render2DEngine.renderingPostGui) {
+         return;
+      }
+
+      float mainX = Module.mc.getWindow().getGuiScaledWidth() / 2.0F - 100.0F;
+      float mainY = Module.mc.getWindow().getGuiScaledHeight() / 2.0F - 70.0F;
+      float mainWidth = 200.0F;
+      float mainHeight = 140.0F;
+      PoseStack matrices = Render2DEngine.toPoseStack(context.pose());
+      Render2DEngine.drawHudBase(matrices, mainX, mainY, mainWidth, mainHeight, 10.0F);
+      Render2DEngine.drawHudBase(matrices, mainX + 5.0F, mainY + mainHeight - 25.0F, mainWidth / 2.0F - 7.5F, 20.0F, 5.0F);
+      FontRenderers.sf_medium
+         .drawCenteredString(matrices, this.yesText, mainX + 5.0F + (mainWidth / 2.0F - 7.5F) / 2.0F, mainY + mainHeight - 18.0F, this.yesColor(mouseX, mouseY));
+      Render2DEngine.drawHudBase(matrices, mainX + mainWidth / 2.0F + 2.5F, mainY + mainHeight - 25.0F, mainWidth / 2.0F - 7.5F, 20.0F, 5.0F);
+      FontRenderers.sf_medium
+         .drawCenteredString(
+            matrices,
+            this.noText,
+            mainX + mainWidth / 2.0F + 2.5F + (mainWidth / 2.0F - 7.5F) / 2.0F,
+            mainY + mainHeight - 18.0F,
+            this.noColor(mouseX, mouseY)
+         );
+      FontRenderers.sf_medium.drawCenteredString(matrices, this.header, mainX + mainWidth / 2.0F, mainY + 5.0F, -1);
+      FontRenderers.sf_medium.drawCenteredString(matrices, this.description, mainX + mainWidth / 2.0F, mainY + 18.0F, new Color(-1543503873, true).getRGB());
+      Render2DEngine.drawTexture(matrices, this.pic, mainX + mainWidth / 2.0F - 35.0F, mainY + 25.0F, 70.0F, 65.0F);
+   }
+
+   private boolean isHoveredYes(double mouseX, double mouseY) {
+      float mainX = Module.mc.getWindow().getGuiScaledWidth() / 2.0F - 100.0F;
+      float mainY = Module.mc.getWindow().getGuiScaledHeight() / 2.0F - 70.0F;
+      return Render2DEngine.isHovered(mouseX, mouseY, mainX + 5.0F, mainY + 140.0F - 25.0F, 92.5, 20.0);
+   }
+
+   private int yesColor(double mouseX, double mouseY) {
+      return this.isHoveredYes(mouseX, mouseY) ? HudEditor.getColor(1).getRGB() : -1;
+   }
+
+   private boolean isHoveredNo(double mouseX, double mouseY) {
+      float mainX = Module.mc.getWindow().getGuiScaledWidth() / 2.0F - 100.0F;
+      float mainY = Module.mc.getWindow().getGuiScaledHeight() / 2.0F - 70.0F;
+      return Render2DEngine.isHovered(mouseX, mouseY, mainX + 100.0F + 2.5F, mainY + 140.0F - 25.0F, 92.5, 20.0);
+   }
+
+   private int noColor(double mouseX, double mouseY) {
+      return this.isHoveredNo(mouseX, mouseY) ? HudEditor.getColor(210).getRGB() : -1;
+   }
+
+   @Override
+   public boolean mouseClicked(@NotNull MouseButtonEvent event, boolean doubleClick) {
+      if (this.isHoveredYes(event.x(), event.y())) {
          this.yesAction.run();
-      } else if (this.noHovered((int)event.x(), (int)event.y())) {
+      } else if (this.isHoveredNo(event.x(), event.y())) {
          this.noAction.run();
       }
 

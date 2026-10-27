@@ -1,6 +1,5 @@
 package vcore.utility.render.shaders.satin.impl;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.logging.LogUtils;
@@ -22,6 +21,7 @@ import vcore.utility.render.shaders.satin.api.managed.uniform.*;
 
 public final class ResettableManagedCoreShader implements ManagedCoreShader {
    private static final Logger LOGGER = LogUtils.getLogger();
+   private static final Matrix4f IDENTITY_MAT = new Matrix4f().identity();
    private final Identifier location;
    private final VertexFormat vertexFormat;
    private final Consumer<ManagedCoreShader> initCallback;
@@ -29,6 +29,10 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
    private int uModelViewMat = -1;
    private int uProjMat = -1;
    private final FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
+   private final Matrix4f cachedProjMat = new Matrix4f();
+   private float cachedW = -1.0F;
+   private float cachedH = -1.0F;
+   private boolean modelViewUploaded = false;
    private final Map<String, Integer> uniformLocationCache = new HashMap<>();
 
    public ResettableManagedCoreShader(Identifier location, VertexFormat vertexFormat, Consumer<ManagedCoreShader> initCallback) {
@@ -134,24 +138,25 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
    public void use() {
       this.ensureInitialized();
       if (this.programId == 0) return;
-      BufferUploader.invalidateCommandEncoder();
       com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
       BufferUploader.activeCustomProgram = this.programId;
 
       Minecraft mc = Minecraft.getInstance();
       float w = mc != null && mc.getWindow() != null ? (float) mc.getWindow().getGuiScaledWidth() : 1920.0F;
       float h = mc != null && mc.getWindow() != null ? (float) mc.getWindow().getGuiScaledHeight() : 1080.0F;
-      Matrix4f proj = new Matrix4f().setOrtho(0.0F, w, h, 0.0F, -1000.0F, 1000.0F);
-      Matrix4f modelView = new Matrix4f().identity();
 
-      if (this.uModelViewMat != -1) {
+      if (this.uModelViewMat != -1 && !this.modelViewUploaded) {
          this.matrixBuffer.clear();
-         modelView.get(this.matrixBuffer);
+         IDENTITY_MAT.get(this.matrixBuffer);
          GL20.glUniformMatrix4fv(this.uModelViewMat, false, this.matrixBuffer);
+         this.modelViewUploaded = true;
       }
-      if (this.uProjMat != -1) {
+      if (this.uProjMat != -1 && (w != this.cachedW || h != this.cachedH)) {
+         this.cachedProjMat.setOrtho(0.0F, w, h, 0.0F, -1000.0F, 1000.0F);
+         this.cachedW = w;
+         this.cachedH = h;
          this.matrixBuffer.clear();
-         proj.get(this.matrixBuffer);
+         this.cachedProjMat.get(this.matrixBuffer);
          GL20.glUniformMatrix4fv(this.uProjMat, false, this.matrixBuffer);
       }
    }
@@ -177,7 +182,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return val -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             GL20.glUniform1i(loc, val);
          }
       };
@@ -188,7 +193,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return (x, y) -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             GL20.glUniform2i(loc, x, y);
          }
       };
@@ -199,7 +204,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return (x, y, z) -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             GL20.glUniform3i(loc, x, y, z);
          }
       };
@@ -210,7 +215,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return (x, y, z, w) -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             GL20.glUniform4i(loc, x, y, z, w);
          }
       };
@@ -221,7 +226,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return val -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             GL20.glUniform1f(loc, val);
          }
       };
@@ -232,7 +237,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return (x, y) -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             GL20.glUniform2f(loc, x, y);
          }
       };
@@ -243,7 +248,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return (x, y, z) -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             GL20.glUniform3f(loc, x, y, z);
          }
       };
@@ -254,7 +259,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return (x, y, z, w) -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             GL20.glUniform4f(loc, x, y, z, w);
          }
       };
@@ -265,7 +270,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
       return matrix -> {
          int loc = getUniformLoc(name);
          if (loc != -1) {
-            GL20.glUseProgram(this.programId);
+            com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(this.programId);
             FloatBuffer fb = BufferUtils.createFloatBuffer(16);
             matrix.get(fb);
             GL20.glUniformMatrix4fv(loc, false, fb);
@@ -288,7 +293,7 @@ public final class ResettableManagedCoreShader implements ManagedCoreShader {
          public void set(int textureId) {
             int loc = getUniformLoc(name);
             if (loc != -1) {
-               GL20.glUseProgram(ResettableManagedCoreShader.this.programId);
+               com.mojang.blaze3d.opengl.GlStateManager._glUseProgram(ResettableManagedCoreShader.this.programId);
                GL20.glActiveTexture(GL20.GL_TEXTURE0);
                try {
                   org.lwjgl.opengl.GL33.glBindSampler(0, 0);

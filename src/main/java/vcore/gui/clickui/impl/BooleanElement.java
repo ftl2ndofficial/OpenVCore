@@ -4,7 +4,6 @@ import java.awt.Color;
 import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 import vcore.core.Managers;
-import vcore.core.manager.IManager;
 import vcore.gui.clickui.AbstractElement;
 import vcore.gui.clickui.ClickGUI;
 import vcore.gui.font.FontRenderers;
@@ -37,7 +36,7 @@ public class BooleanElement extends AbstractElement {
       SettingControlRenderer.drawCheckbox(matrices, checkboxX, checkboxY, this.animation);
       if (Render2DEngine.isHovered(mouseX, mouseY, checkboxX, checkboxY, 10.0, 10.0)) {
          if (GLFW.glfwGetPlatform() != 393219) {
-            GLFW.glfwSetCursor(IManager.mc.getWindow().handle(), GLFW.glfwCreateStandardCursor(221188));
+            Render2DEngine.setCursor(221188);
          }
 
          ClickGUI.anyHovered = true;
