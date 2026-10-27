@@ -28,6 +28,16 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Extract version metadata
+        id: vars
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          MOD_VER=$(grep '^mod_version=' gradle.properties | cut -d'=' -f2 | tr -d '\r')
+          FULL_VER="${MOD_VER}-b${GITHUB_RUN_NUMBER}-${SHORT_SHA}"
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "mod_ver=${MOD_VER}" >> $GITHUB_OUTPUT
+          echo "full_ver=${FULL_VER}" >> $GITHUB_OUTPUT
+
       - name: Build usable mod JAR
         run: ./gradlew remapJar --no-daemon
 
@@ -36,18 +46,17 @@ jobs:
           rm -f build/libs/*-sources.jar build/libs/*-dev.jar
           ls -la build/libs/
 
-      - name: Extract short SHA
-        id: vars
-        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}-${{ steps.vars.outputs.short_sha }}
-          name: "OpenVCore Build #${{ github.run_number }} (${{ steps.vars.outputs.short_sha }})"
+          tag_name: v${{ steps.vars.outputs.full_ver }}
+          name: "OpenVCore v${{ steps.vars.outputs.full_ver }}"
           body: |
-            Automated build from commit ${{ github.sha }}
-            Download the usable mod JAR (`OpenVCore-1.0.jar`) below.
+            **Version:** `${{ steps.vars.outputs.full_ver }}`
+            **Build Number:** `#${{ github.run_number }}`
+            **Commit:** ${{ github.sha }}
+
+            Download the usable mod JAR (`OpenVCore-${{ steps.vars.outputs.full_ver }}.jar`) below.
           files: build/libs/*.jar
           draft: false
           prerelease: false

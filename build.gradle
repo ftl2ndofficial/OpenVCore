@@ -3,7 +3,41 @@ plugins {
     id 'maven-publish'
 }
 
-version = project.mod_version
+def resolveGitShortSha() {
+    def envSha = System.getenv("GITHUB_SHA")
+    if (envSha != null && envSha.length() >= 7) {
+        return envSha.substring(0, 7)
+    }
+    try {
+        def stdout = new ByteArrayOutputStream()
+        def proc = ["git", "rev-parse", "--short", "HEAD"].execute(null, rootDir)
+        proc.consumeProcessOutput(stdout, new ByteArrayOutputStream())
+        if (proc.waitFor() == 0) {
+            def sha = stdout.toString().trim()
+            if (!sha.isEmpty()) return sha
+        }
+    } catch (Throwable ignored) {}
+    return "local"
+}
+
+def resolveBuildNumber() {
+    def envRun = System.getenv("GITHUB_RUN_NUMBER")
+    if (envRun != null && !envRun.trim().isEmpty()) {
+        return envRun.trim()
+    }
+    try {
+        def stdout = new ByteArrayOutputStream()
+        def proc = ["git", "rev-list", "--count", "HEAD"].execute(null, rootDir)
+        proc.consumeProcessOutput(stdout, new ByteArrayOutputStream())
+        if (proc.waitFor() == 0) {
+            def count = stdout.toString().trim()
+            if (!count.isEmpty()) return count
+        }
+    } catch (Throwable ignored) {}
+    return "0"
+}
+
+version = "${project.mod_version}-b${resolveBuildNumber()}-${resolveGitShortSha()}"
 group = project.maven_group
 
 base {

@@ -28,7 +28,7 @@ public class Vcore implements ModInitializer {
    public static final String RANK = "DEV";
    public static final String USER = "vu_2007";
    public static final String MOD_ID = "vcore";
-   public static final String VERSION = "Release";
+   public static final String VERSION = MOD_META != null ? MOD_META.getVersion().getFriendlyString() : "1.0";
    public static final Logger LOGGER = LoggerFactory.getLogger("Vcore");
    public static final Runtime RUNTIME = Runtime.getRuntime();
    public static final boolean baritone = FabricLoader.getInstance().isModLoaded("baritone") || FabricLoader.getInstance().isModLoaded("baritone-meteor");
