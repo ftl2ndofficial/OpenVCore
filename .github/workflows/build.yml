@@ -46,21 +46,58 @@ jobs:
           rm -f build/libs/*-sources.jar build/libs/*-dev.jar
           ls -la build/libs/
 
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.vars.outputs.full_ver }}
-          name: "OpenVCore v${{ steps.vars.outputs.full_ver }}"
-          body: |
-            **Version:** `${{ steps.vars.outputs.full_ver }}`
-            **Build Number:** `#${{ github.run_number }}`
-            **Commit:** ${{ github.sha }}
-
-            Download the usable mod JAR (`OpenVCore-${{ steps.vars.outputs.full_ver }}.jar`) below.
-          files: build/libs/*.jar
-          draft: false
-          prerelease: false
-          make_latest: true
-          generate_release_notes: true
+      - name: Publish Release (Gitea / Forgejo API)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FULL_VER: ${{ steps.vars.outputs.full_ver }}
+        run: |
+          set -e
+          TAG_NAME="v${FULL_VER}"
+          API_BASE="${GITHUB_SERVER_URL}/api/v1/repos/${GITHUB_REPOSITORY}"
+
+          git config user.name "Actions Bot"
+          git config user.email "actions@knualabs.icu"
+          git tag -f "${TAG_NAME}" "${GITHUB_SHA}"
+          git push origin "${TAG_NAME}" --force
+
+          BODY=$(printf "**Version:** \`%s\`\n**Build Number:** \`#%s\`\n**Commit:** %s\n\nDownload the usable mod JAR (\`OpenVCore-%s.jar\`) below." "${FULL_VER}" "${GITHUB_RUN_NUMBER}" "${GITHUB_SHA}" "${FULL_VER}")
+
+          PAYLOAD=$(jq -n \
+            --arg tag "${TAG_NAME}" \
+            --arg target "${GITHUB_SHA}" \
+            --arg name "OpenVCore v${FULL_VER}" \
+            --arg body "${BODY}" \
+            '{tag_name: $tag, target_commitish: $target, name: $name, body: $body, draft: false, prerelease: false}')
+
+          RESPONSE=$(curl -sS -X POST "${API_BASE}/releases" \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -d "${PAYLOAD}")
+
+          RELEASE_ID=$(echo "${RESPONSE}" | jq -r '.id // empty')
+          if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
+            echo "Release might already exist, fetching by tag..."
+            RESPONSE=$(curl -sS -X GET "${API_BASE}/releases/tags/${TAG_NAME}" \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Accept: application/json")
+            RELEASE_ID=$(echo "${RESPONSE}" | jq -r '.id // empty')
+          fi
+
+          if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
+            echo "Failed to create or fetch release. API response:"
+            echo "${RESPONSE}"
+            exit 1
+          fi
+
+          echo "Created/Found Release ID: ${RELEASE_ID}"
+
+          for JAR_FILE in build/libs/*.jar; do
+            JAR_NAME=$(basename "${JAR_FILE}")
+            echo "Uploading ${JAR_NAME}..."
+            curl -sS --fail -X POST "${API_BASE}/releases/${RELEASE_ID}/assets?name=${JAR_NAME}" \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Accept: application/json" \
+              -F "attachment=@${JAR_FILE}"
+            echo ""
+          done
