@@ -11,8 +11,8 @@
     }
   ],
   "contact": {
-    "homepage": "https://github.com/ftl2ndofficial/OpenVCore",
-    "sources": "https://github.com/ftl2ndofficial/OpenVCore"
+    "homepage": "https://git.knualabs.icu/ftl2nd/OpenVCore",
+    "sources": "https://git.knualabs.icu/ftl2nd/OpenVCore"
   },
   "accessWidener": "Vcore.accesswidener",
   "environment": "client",
