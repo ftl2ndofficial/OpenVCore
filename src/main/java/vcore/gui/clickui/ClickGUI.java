@@ -51,8 +51,17 @@ public class ClickGUI extends Screen {
    private static final float HINT_MARGIN = 8.0F;
    private static final float HINT_LINE_GAP = 2.0F;
    private static final float HINT_OUTLINE_OFFSET = 0.45F;
+   private static final float MIN_GUI_SCALE = 0.2F;
+   private static final float MAX_GUI_SCALE = 1.2F;
+   private static final float TARGET_GAME_GUI_SCALE = 2.5F;
+   private static final float DEFAULT_PANEL_WIDTH = 125.0F;
+   private static final float DEFAULT_PANEL_HEIGHT = 280.0F;
+   private static final float DEFAULT_PANEL_SPACING = 133.0F;
    private float openProgress;
    private long lastOpenFrameTimeMs;
+   private float currentGuiScale = 1.0F;
+   private float layoutOriginX;
+   private float layoutOriginY;
    private static ClickGUI INSTANCE = new ClickGUI();
    private static List<String> cachedInteractionHints;
 
@@ -146,16 +155,20 @@ public class ClickGUI extends Screen {
       currentDescription = "";
 
       List<Module.Category> visibleCategories = Managers.MODULE.getCategories();
-      int totalWidth = visibleCategories.size() * 133 - 8;
+      float guiScale = this.getAdaptiveGuiScale(visibleCategories.size());
+      this.currentGuiScale = guiScale;
+      int totalWidth = Math.round(this.getAdaptiveLayoutWidth(visibleCategories.size(), guiScale));
       int startX = (Module.mc.getWindow().getGuiScaledWidth() - totalWidth) / 2;
-      int startY = (Module.mc.getWindow().getGuiScaledHeight() - 280) / 2;
+      int startY = (Module.mc.getWindow().getGuiScaledHeight() - Math.round(DEFAULT_PANEL_HEIGHT * guiScale)) / 2;
+      this.layoutOriginX = startX;
+      this.layoutOriginY = startY;
       float anim = this.getOpenProgress();
       float rawAnim = this.getRawOpenProgress();
       int i = 0;
 
       for (AbstractCategory w : windows) {
-         float targetX = startX + i * 133;
-         float targetY = startY;
+         float targetX = (float)i * DEFAULT_PANEL_SPACING * guiScale;
+         float targetY = 0.0F;
          float progress = this.getCategoryOpenProgress(rawAnim, w.getName());
          float invProgress = 1.0F - progress;
          float offsetY = -90.0F * invProgress;
@@ -164,9 +177,11 @@ public class ClickGUI extends Screen {
          i++;
       }
 
+      float scaledMouseX = this.toScaledX(mouseX);
+      float scaledMouseY = this.toScaledY(mouseY);
       if (this.scrollY != 0.0F) {
          for (AbstractCategory window : windows) {
-            window.setModuleOffset(this.scrollY, mouseX, mouseY);
+            window.setModuleOffset(this.scrollY, (int)scaledMouseX, (int)scaledMouseY);
          }
          this.scrollY = 0.0F;
       }
@@ -177,7 +192,12 @@ public class ClickGUI extends Screen {
             float alpha = Mth.clamp(progress, 0.0F, 1.0F);
             Render2DEngine.setGlobalAlpha(alpha);
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
-            w.render(context, mouseX, mouseY, delta);
+            PoseStack guiMatrices = context.pose();
+            guiMatrices.pushMatrix();
+            guiMatrices.translate(startX, startY);
+            guiMatrices.scale(guiScale, guiScale);
+            w.render(context, (int)scaledMouseX, (int)scaledMouseY, delta);
+            guiMatrices.popMatrix();
             Render2DEngine.setGlobalAlpha(1.0F);
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
          }
@@ -212,16 +232,18 @@ public class ClickGUI extends Screen {
 
    @Override
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-      this.scrollY += (int)(verticalAmount * 15.0);
+      this.scrollY += (int)(verticalAmount * 15.0 * this.currentGuiScale);
       return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
    }
 
    @Override
    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-      double mouseX = event.x();
-      double mouseY = event.y();
+      float rawMouseX = (float)event.x();
+      float rawMouseY = (float)event.y();
+      double mouseX = this.toScaledX(event.x());
+      double mouseY = this.toScaledY(event.y());
       int button = event.button();
-      if (Render2DEngine.isHovered((float)mouseX, (float)mouseY, this.managerBtnX, this.managerBtnY, this.managerBtnSize, this.managerBtnSize) && button == 0) {
+      if (Render2DEngine.isHovered(rawMouseX, rawMouseY, this.managerBtnX, this.managerBtnY, this.managerBtnSize, this.managerBtnSize) && button == 0) {
          Module.mc.setScreen(new ManagerScreen(this));
          return true;
       } else {
@@ -241,8 +263,8 @@ public class ClickGUI extends Screen {
 
    @Override
    public boolean mouseReleased(MouseButtonEvent event) {
-      double mouseX = event.x();
-      double mouseY = event.y();
+      double mouseX = this.toScaledX(event.x());
+      double mouseY = this.toScaledY(event.y());
       int button = event.button();
       this.searchBar.mouseReleased((int)mouseX, (int)mouseY, button);
       this.themeSelector.mouseReleased((int)mouseX, (int)mouseY, button);
@@ -259,12 +281,12 @@ public class ClickGUI extends Screen {
       float themeHeight = 16.0F;
       float themeMarginBottom = 40.0F;
       float searchX = (Module.mc.getWindow().getGuiScaledWidth() - searchWidth) / 2.0F;
-      float searchY = (Module.mc.getWindow().getGuiScaledHeight() + 280) / 2.0F + searchMarginBottom;
+      float searchY = (Module.mc.getWindow().getGuiScaledHeight() + DEFAULT_PANEL_HEIGHT * this.currentGuiScale) / 2.0F + searchMarginBottom;
       float buttonX = searchX + searchWidth + gap;
       float buttonY = searchY + (searchHeight - themeButtonSize) / 2.0F;
       float themeWidth = searchWidth;
       float paletteX = (Module.mc.getWindow().getGuiScaledWidth() - themeWidth) / 2.0F;
-      float paletteY = (Module.mc.getWindow().getGuiScaledHeight() + 280) / 2.0F + themeMarginBottom;
+      float paletteY = (Module.mc.getWindow().getGuiScaledHeight() + DEFAULT_PANEL_HEIGHT * this.currentGuiScale) / 2.0F + themeMarginBottom;
       float bottomOffset = 60.0F * (1.0F - anim);
       searchY += bottomOffset;
       buttonY += bottomOffset;
@@ -365,6 +387,28 @@ public class ClickGUI extends Screen {
       }
    }
 
+   private float getAdaptiveGuiScale(int categoryCount) {
+      float gameGuiScale = Math.max(1.0F, (float)Module.mc.getWindow().getGuiScale());
+      float preferredScale = TARGET_GAME_GUI_SCALE / gameGuiScale;
+      float availableWidth = (float)Module.mc.getWindow().getGuiScaledWidth() - 16.0F;
+      float fitAllCategories = availableWidth / this.getAdaptiveLayoutWidth(categoryCount, 1.0F);
+      float availableHeight = (float)Module.mc.getWindow().getGuiScaledHeight() - BOTTOM_OFFSET - HINT_MARGIN;
+      float fitHeight = availableHeight / (DEFAULT_PANEL_HEIGHT + BOTTOM_OFFSET);
+      return Mth.clamp(Math.min(preferredScale, Math.min(fitAllCategories, fitHeight)), MIN_GUI_SCALE, MAX_GUI_SCALE);
+   }
+
+   private float getAdaptiveLayoutWidth(int categoryCount, float scale) {
+      return (float)categoryCount * DEFAULT_PANEL_SPACING * scale - (DEFAULT_PANEL_SPACING - DEFAULT_PANEL_WIDTH) * scale;
+   }
+
+   private float toScaledX(double x) {
+      return ((float)x - this.layoutOriginX) / Math.max(0.001F, this.currentGuiScale);
+   }
+
+   private float toScaledY(double y) {
+      return ((float)y - this.layoutOriginY) / Math.max(0.001F, this.currentGuiScale);
+   }
+
    private float getOpenProgress() {
       return Mth.clamp((float)Easing.EASE_OUT_CIRC.apply(this.openProgress), 0.0F, 1.0F);
    }
@@ -425,15 +469,19 @@ public class ClickGUI extends Screen {
 
    private void layoutWindowsAtRest() {
       List<Module.Category> visibleCategories = Lists.newArrayList(Managers.MODULE.getCategories());
-      int totalWidth = visibleCategories.size() * 133 - 8;
+      float guiScale = this.getAdaptiveGuiScale(visibleCategories.size());
+      this.currentGuiScale = guiScale;
+      int totalWidth = Math.round(this.getAdaptiveLayoutWidth(visibleCategories.size(), guiScale));
       int startX = (Module.mc.getWindow().getGuiScaledWidth() - totalWidth) / 2;
-      int startY = (Module.mc.getWindow().getGuiScaledHeight() - 280) / 2;
+      int startY = (Module.mc.getWindow().getGuiScaledHeight() - Math.round(DEFAULT_PANEL_HEIGHT * guiScale)) / 2;
+      this.layoutOriginX = startX;
+      this.layoutOriginY = startY;
       int i = 0;
 
       for (AbstractCategory window : windows) {
-         window.setX(startX + i * 133);
-         window.setY(startY);
-         window.setHeight(280.0F);
+         window.setX((float)i * DEFAULT_PANEL_SPACING * guiScale);
+         window.setY(0.0F);
+         window.setHeight(DEFAULT_PANEL_HEIGHT * guiScale);
          i++;
       }
    }
