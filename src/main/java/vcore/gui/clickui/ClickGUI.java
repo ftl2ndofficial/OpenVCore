@@ -192,7 +192,7 @@ public class ClickGUI extends Screen {
             float alpha = Mth.clamp(progress, 0.0F, 1.0F);
             Render2DEngine.setGlobalAlpha(alpha);
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
-            PoseStack guiMatrices = context.pose();
+            var guiMatrices = context.pose();
             guiMatrices.pushMatrix();
             guiMatrices.translate(startX, startY);
             guiMatrices.scale(guiScale, guiScale);
