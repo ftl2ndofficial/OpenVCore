@@ -46,58 +46,200 @@ jobs:
           rm -f build/libs/*-sources.jar build/libs/*-dev.jar
           ls -la build/libs/
 
-      - name: Publish Release (Gitea / Forgejo API)
+      - name: Upload workflow artifact (GitHub)
+        if: github.server_url == 'https://github.com'
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: OpenVCore-${{ steps.vars.outputs.full_ver }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Publish Release (GitHub & Gitea/Forgejo)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FULL_VER: ${{ steps.vars.outputs.full_ver }}
         run: |
-          set -e
-          TAG_NAME="v${FULL_VER}"
-          API_BASE="${GITHUB_SERVER_URL}/api/v1/repos/${GITHUB_REPOSITORY}"
+          set -euo pipefail
+          shopt -s nullglob
 
-          git config user.name "Actions Bot"
-          git config user.email "actions@knualabs.icu"
-          git tag -f "${TAG_NAME}" "${GITHUB_SHA}"
-          git push origin "${TAG_NAME}" --force
-
-          BODY=$(printf "**Version:** \`%s\`\n**Build Number:** \`#%s\`\n**Commit:** %s\n\nDownload the usable mod JAR (\`OpenVCore-%s.jar\`) below." "${FULL_VER}" "${GITHUB_RUN_NUMBER}" "${GITHUB_SHA}" "${FULL_VER}")
-
-          PAYLOAD=$(jq -n \
-            --arg tag "${TAG_NAME}" \
-            --arg target "${GITHUB_SHA}" \
-            --arg name "OpenVCore v${FULL_VER}" \
-            --arg body "${BODY}" \
-            '{tag_name: $tag, target_commitish: $target, name: $name, body: $body, draft: false, prerelease: false}')
-
-          RESPONSE=$(curl -sS -X POST "${API_BASE}/releases" \
-            -H "Authorization: token ${GITHUB_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -H "Accept: application/json" \
-            -d "${PAYLOAD}")
-
-          RELEASE_ID=$(echo "${RESPONSE}" | jq -r '.id // empty')
-          if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
-            echo "Release might already exist, fetching by tag..."
-            RESPONSE=$(curl -sS -X GET "${API_BASE}/releases/tags/${TAG_NAME}" \
-              -H "Authorization: token ${GITHUB_TOKEN}" \
-              -H "Accept: application/json")
-            RELEASE_ID=$(echo "${RESPONSE}" | jq -r '.id // empty')
-          fi
-
-          if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
-            echo "Failed to create or fetch release. API response:"
-            echo "${RESPONSE}"
+          JARS=(build/libs/*.jar)
+          if [ ${#JARS[@]} -eq 0 ]; then
+            echo "Error: No usable JAR found in build/libs/"
             exit 1
           fi
 
-          echo "Created/Found Release ID: ${RELEASE_ID}"
+          TAG_NAME="v${FULL_VER}"
+          BODY=$(printf "**Version:** \`%s\`\n**Build Number:** \`#%s\`\n**Commit:** %s\n\nDownload the usable mod JAR (\`OpenVCore-%s.jar\`) below." \
+            "${FULL_VER}" "${GITHUB_RUN_NUMBER}" "${GITHUB_SHA}" "${FULL_VER}")
 
-          for JAR_FILE in build/libs/*.jar; do
-            JAR_NAME=$(basename "${JAR_FILE}")
-            echo "Uploading ${JAR_NAME}..."
-            curl -sS --fail -X POST "${API_BASE}/releases/${RELEASE_ID}/assets?name=${JAR_NAME}" \
-              -H "Authorization: token ${GITHUB_TOKEN}" \
-              -H "Accept: application/json" \
-              -F "attachment=@${JAR_FILE}"
-            echo ""
-          done
+          if [ "${GITHUB_SERVER_URL}" = "https://github.com" ]; then
+            echo "Detected GitHub — publishing via GitHub REST API with octet-stream upload & retries..."
+            API_BASE="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}"
+            RELEASE_ID=""
+            UPLOAD_URL=""
+
+            PAYLOAD=$(jq -n \
+              --arg tag "${TAG_NAME}" \
+              --arg target "${GITHUB_SHA}" \
+              --arg name "OpenVCore v${FULL_VER}" \
+              --arg body "${BODY}" \
+              '{tag_name: $tag, target_commitish: $target, name: $name, body: $body, draft: false, prerelease: false, make_latest: "true"}')
+
+            for attempt in 1 2 3 4 5; do
+              echo "Creating release ${TAG_NAME} (attempt ${attempt}/5)..."
+              HTTP_OUT=$(curl -sS -w "\n%{http_code}" -X POST "${API_BASE}/releases" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                -H "Content-Type: application/json" \
+                -d "${PAYLOAD}")
+              HTTP_CODE=$(echo "${HTTP_OUT}" | tail -n1)
+              HTTP_BODY=$(echo "${HTTP_OUT}" | sed '$d')
+
+              if [ "${HTTP_CODE}" = "201" ]; then
+                RELEASE_ID=$(echo "${HTTP_BODY}" | jq -r '.id // empty')
+                UPLOAD_URL=$(echo "${HTTP_BODY}" | jq -r '.upload_url // empty' | sed 's/{?.*//')
+                break
+              elif [ "${HTTP_CODE}" = "422" ]; then
+                echo "Release ${TAG_NAME} already exists, fetching existing release..."
+                GET_OUT=$(curl -sS -w "\n%{http_code}" -X GET "${API_BASE}/releases/tags/${TAG_NAME}" \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28")
+                GET_CODE=$(echo "${GET_OUT}" | tail -n1)
+                GET_BODY=$(echo "${GET_OUT}" | sed '$d')
+                if [ "${GET_CODE}" = "200" ]; then
+                  RELEASE_ID=$(echo "${GET_BODY}" | jq -r '.id // empty')
+                  UPLOAD_URL=$(echo "${GET_BODY}" | jq -r '.upload_url // empty' | sed 's/{?.*//')
+                  break
+                fi
+                echo "Fetch existing release failed (HTTP ${GET_CODE}): ${GET_BODY}"
+              else
+                echo "Create release failed (HTTP ${HTTP_CODE}): ${HTTP_BODY}"
+              fi
+              sleep $((attempt * 5))
+            done
+
+            if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
+              echo "Error: Failed to create or fetch GitHub release after 5 attempts."
+              exit 1
+            fi
+
+            if [ -z "${UPLOAD_URL}" ] || [ "${UPLOAD_URL}" = "null" ]; then
+              UPLOAD_URL="https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets"
+            fi
+
+            echo "Release ID: ${RELEASE_ID} | Upload URL: ${UPLOAD_URL}"
+
+            for JAR_FILE in "${JARS[@]}"; do
+              JAR_NAME=$(basename "${JAR_FILE}")
+              UPLOADED=false
+
+              for attempt in 1 2 3 4 5; do
+                EXISTING_ASSET_ID=$(curl -sS -X GET "${API_BASE}/releases/${RELEASE_ID}/assets" \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" | jq -r --arg name "${JAR_NAME}" '.[] | select(.name == $name) | .id' | head -n1 || true)
+
+                if [ -n "${EXISTING_ASSET_ID}" ] && [ "${EXISTING_ASSET_ID}" != "null" ]; then
+                  echo "Removing stale asset ${JAR_NAME} (id=${EXISTING_ASSET_ID}) before upload..."
+                  curl -sS -X DELETE "${API_BASE}/releases/assets/${EXISTING_ASSET_ID}" \
+                    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" >/dev/null || true
+                fi
+
+                echo "Uploading ${JAR_NAME} (attempt ${attempt}/5)..."
+                UP_OUT=$(curl -sS -w "\n%{http_code}" -X POST "${UPLOAD_URL}?name=${JAR_NAME}" \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary "@${JAR_FILE}")
+                UP_CODE=$(echo "${UP_OUT}" | tail -n1)
+                UP_BODY=$(echo "${UP_OUT}" | sed '$d')
+
+                if [ "${UP_CODE}" = "201" ]; then
+                  echo "Successfully uploaded ${JAR_NAME}!"
+                  UPLOADED=true
+                  break
+                fi
+
+                echo "Upload failed (HTTP ${UP_CODE}): ${UP_BODY}"
+                sleep $((attempt * 5))
+              done
+
+              if [ "${UPLOADED}" != "true" ]; then
+                echo "Error: Failed to upload ${JAR_NAME} after 5 attempts."
+                exit 1
+              fi
+            done
+          else
+            echo "Detected Gitea/Forgejo (${GITHUB_SERVER_URL}) — publishing via API v1..."
+            API_BASE="${GITHUB_SERVER_URL}/api/v1/repos/${GITHUB_REPOSITORY}"
+
+            git config user.name "Actions Bot"
+            git config user.email "actions@knualabs.icu"
+            git tag -f "${TAG_NAME}" "${GITHUB_SHA}"
+            git push origin "${TAG_NAME}" --force
+
+            PAYLOAD=$(jq -n \
+              --arg tag "${TAG_NAME}" \
+              --arg target "${GITHUB_SHA}" \
+              --arg name "OpenVCore v${FULL_VER}" \
+              --arg body "${BODY}" \
+              '{tag_name: $tag, target_commitish: $target, name: $name, body: $body, draft: false, prerelease: false}')
+
+            RELEASE_ID=""
+            for attempt in 1 2 3; do
+              RESPONSE=$(curl -sS -X POST "${API_BASE}/releases" \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -H "Accept: application/json" \
+                -d "${PAYLOAD}")
+              RELEASE_ID=$(echo "${RESPONSE}" | jq -r '.id // empty')
+
+              if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
+                echo "Release might already exist, fetching by tag..."
+                RESPONSE=$(curl -sS -X GET "${API_BASE}/releases/tags/${TAG_NAME}" \
+                  -H "Authorization: token ${GITHUB_TOKEN}" \
+                  -H "Accept: application/json")
+                RELEASE_ID=$(echo "${RESPONSE}" | jq -r '.id // empty')
+              fi
+
+              if [ -n "${RELEASE_ID}" ] && [ "${RELEASE_ID}" != "null" ]; then
+                break
+              fi
+              echo "Attempt ${attempt}/3 failed: ${RESPONSE}"
+              sleep $((attempt * 3))
+            done
+
+            if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
+              echo "Failed to create or fetch release."
+              exit 1
+            fi
+
+            echo "Created/Found Release ID: ${RELEASE_ID}"
+
+            for JAR_FILE in "${JARS[@]}"; do
+              JAR_NAME=$(basename "${JAR_FILE}")
+              UPLOADED=false
+              for attempt in 1 2 3; do
+                echo "Uploading ${JAR_NAME} (attempt ${attempt}/3)..."
+                if curl -sS --fail -X POST "${API_BASE}/releases/${RELEASE_ID}/assets?name=${JAR_NAME}" \
+                  -H "Authorization: token ${GITHUB_TOKEN}" \
+                  -H "Accept: application/json" \
+                  -F "attachment=@${JAR_FILE}"; then
+                  echo ""
+                  UPLOADED=true
+                  break
+                fi
+                sleep $((attempt * 3))
+              done
+              if [ "${UPLOADED}" != "true" ]; then
+                echo "Failed to upload ${JAR_NAME}."
+                exit 1
+              fi
+            done
+          fi
